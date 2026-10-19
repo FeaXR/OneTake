@@ -1,5 +1,7 @@
 # Studio Audio Editor
 
+[![Build](https://github.com/FeaXR/Studio-Audio-Editor/actions/workflows/build.yml/badge.svg)](https://github.com/FeaXR/Studio-Audio-Editor/actions/workflows/build.yml)
+
 A small Windows editor for cutting **one long WAV into several MP3 files**. Each output gets the same linear fade-in and exponential fade-out, its own peak normalization (100% or 60%) and bitrate (320 or 192 kbps), and any number of cuts (coughs and the like) removed with a short crossfade.
 
 Built with Electron + TypeScript. Audio processing and MP3 encoding use a bundled ffmpeg.
@@ -85,7 +87,25 @@ npm run dev        # Vite dev server + Electron (renderer hot-reloads)
 npm test           # unit tests + an ffmpeg export test
 npm run typecheck
 npm run dist       # Windows installer + portable .exe in release/
+npm run icon       # re-render build/icon.png and build/icon.ico from build/icon.svg
 ```
+
+### Automatic builds
+
+[GitHub Actions](https://github.com/FeaXR/Studio-Audio-Editor/actions/workflows/build.yml) builds the app on Windows for every push and pull request ([`.github/workflows/build.yml`](.github/workflows/build.yml)). Each run type-checks, runs the tests, and builds the installer and the portable .exe.
+
+- **Download a build:** open a run and download the **studio-audio-editor-windows** artifact at the bottom of the page. It's a zip containing both .exe files and is kept for 90 days.
+- **Make a release:** push a version tag, and the two files are attached to a GitHub release:
+
+  ```bash
+  git tag v0.2.0
+  ```
+
+  ```bash
+  git push origin v0.2.0
+  ```
+
+  Bump `version` in `package.json` first so the file names match.
 
 Layout:
 
