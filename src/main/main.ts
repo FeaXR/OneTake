@@ -40,6 +40,8 @@ function applyLanguage(settings: Settings): void {
 /** File to open once the UI is ready; handed over (once) when the renderer asks. */
 let startupFile = wavFromArgs(process.argv);
 
+const devIcon = join(__dirname, '..', '..', 'build', 'icon.ico');
+
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1500,
@@ -47,6 +49,8 @@ function createWindow(): void {
     minWidth: 1000,
     minHeight: 600,
     backgroundColor: '#17191d',
+    // Packaged builds take the icon from the .exe; this covers running from source.
+    icon: existsSync(devIcon) ? devIcon : undefined,
     title: t('app.name'),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),

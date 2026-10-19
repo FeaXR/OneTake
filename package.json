@@ -11,6 +11,7 @@
     "build": "node scripts/build-main.mjs && vite build",
     "start": "npm run build && electron .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "icon": "electron scripts/make-icon.cjs",
     "test": "node --test \"src/**/*.test.ts\"",
     "dist": "npm run build && electron-builder --win"
   },
@@ -28,6 +29,7 @@
       "node_modules/ffmpeg-static/**"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis",
         "portable"
@@ -35,6 +37,8 @@
     },
     "nsis": {
       "oneClick": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
       "allowToChangeInstallationDirectory": true
     }
   },

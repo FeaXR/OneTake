@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- One waveform split into three output segments (the app's segment colours), with a red cut between two of them. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a303a"/>
+      <stop offset="1" stop-color="#15181d"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bg)"/>
+  <rect x="16.5" y="16.5" width="479" height="479" rx="107.5" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="3"/>
+
+  <g transform="translate(-11 0)">
+  <!-- Segment 1 (blue) -->
+  <g fill="#4f9cf7">
+    <rect x="80"  y="216" width="22" height="80"  rx="11"/>
+    <rect x="114" y="166" width="22" height="180" rx="11"/>
+    <rect x="148" y="126" width="22" height="260" rx="11"/>
+    <rect x="182" y="186" width="22" height="140" rx="11"/>
+  </g>
+
+  <!-- Cut -->
+  <rect x="219" y="96" width="12" height="320" rx="6" fill="#ef5b5b"/>
+
+  <!-- Segment 2 (green) -->
+  <g fill="#4cc38a">
+    <rect x="246" y="146" width="22" height="220" rx="11"/>
+    <rect x="280" y="106" width="22" height="300" rx="11"/>
+    <rect x="314" y="176" width="22" height="160" rx="11"/>
+  </g>
+
+  <!-- Segment 3 (purple) -->
+  <g fill="#c77dff">
+    <rect x="364" y="156" width="22" height="200" rx="11"/>
+    <rect x="398" y="196" width="22" height="120" rx="11"/>
+    <rect x="432" y="226" width="22" height="60"  rx="11"/>
+  </g>
+  </g>
+</svg>
