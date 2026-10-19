@@ -3,6 +3,16 @@
   "productName": "Studio Audio Editor",
   "version": "0.1.0",
   "description": "Cut one long WAV into several faded, peak-normalized MP3 files.",
+  "author": "FeaXR",
+  "license": "MIT",
+  "homepage": "https://github.com/FeaXR/Studio-Audio-Editor",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FeaXR/Studio-Audio-Editor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FeaXR/Studio-Audio-Editor/issues"
+  },
   "private": true,
   "type": "module",
   "main": "dist/main/main.cjs",
@@ -13,7 +23,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "icon": "electron scripts/make-icon.cjs",
     "test": "node --test \"src/**/*.test.ts\"",
-    "dist": "npm run build && electron-builder --win"
+    "dist": "npm run build && electron-builder"
   },
   "build": {
     "appId": "com.studioaudioeditor.app",
@@ -36,10 +46,34 @@
       ]
     },
     "nsis": {
+      "artifactName": "Studio-Audio-Editor-Setup-${version}.${ext}",
       "oneClick": false,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "allowToChangeInstallationDirectory": true
+    },
+    "portable": {
+      "artifactName": "Studio-Audio-Editor-${version}-portable.${ext}"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "AudioVideo",
+      "maintainer": "FeaXR",
+      "synopsis": "Cut one long WAV into several faded, peak-normalized MP3 files",
+      "mimeTypes": [
+        "audio/wav",
+        "audio/x-wav"
+      ],
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    },
+    "appImage": {
+      "artifactName": "Studio-Audio-Editor-${version}-${arch}.${ext}"
+    },
+    "deb": {
+      "artifactName": "studio-audio-editor_${version}_${arch}.${ext}"
     }
   },
   "dependencies": {

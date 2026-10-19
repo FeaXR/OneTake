@@ -1,5 +1,5 @@
-# Builds the Windows installer and portable .exe on every push and pull request.
-# Pushing a tag like v0.2.0 also publishes both files as a GitHub release.
+# Builds the app for Windows and Linux on every push and pull request.
+# Pushing a tag like v0.2.0 also publishes all the files as a GitHub release.
 name: Build
 
 on:
@@ -10,17 +10,31 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # needed only to create releases for v* tags
+  contents: read
 
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  windows:
-    name: Windows build
-    runs-on: windows-latest
+  build:
+    name: ${{ matrix.name }} build
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            artifact: studio-audio-editor-windows
+            files: release/*.exe
+          - name: Linux
+            os: ubuntu-latest
+            artifact: studio-audio-editor-linux
+            files: |
+              release/*.AppImage
+              release/*.deb
     steps:
       - uses: actions/checkout@v7
 
@@ -38,19 +52,30 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build installer and portable exe
+      - name: Build packages
         run: npm run dist -- --publish never
 
       - name: Upload build
         uses: actions/upload-artifact@v7
         with:
-          name: studio-audio-editor-windows
-          path: release/*.exe
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.files }}
           if-no-files-found: error
 
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release/*.exe --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes

@@ -211,7 +211,7 @@ export const en = {
   'settings.title': 'Settings',
   'settings.language': 'Language',
   'settings.languageLabel': 'Interface language',
-  'settings.languageSystem': 'Same as Windows',
+  'settings.languageSystem': 'System language',
   'settings.fades': 'Fades (same for every file)',
   'settings.fadeIn': 'Fade-in',
   'settings.fadeOut': 'Fade-out',

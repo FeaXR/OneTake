@@ -197,7 +197,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'settings.title': 'Beállítások',
   'settings.language': 'Nyelv',
   'settings.languageLabel': 'Felület nyelve',
-  'settings.languageSystem': 'Mint a Windowsban',
+  'settings.languageSystem': 'Rendszer nyelve',
   'settings.fades': 'Úsztatások (minden fájlnál ugyanaz)',
   'settings.fadeIn': 'Beúsztatás',
   'settings.fadeOut': 'Kiúsztatás',

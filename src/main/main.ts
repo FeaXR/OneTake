@@ -40,7 +40,7 @@ function applyLanguage(settings: Settings): void {
 /** File to open once the UI is ready; handed over (once) when the renderer asks. */
 let startupFile = wavFromArgs(process.argv);
 
-const devIcon = join(__dirname, '..', '..', 'build', 'icon.ico');
+const devIcon = join(__dirname, '..', '..', 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
 
 function createWindow(): void {
   win = new BrowserWindow({
