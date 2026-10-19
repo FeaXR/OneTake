@@ -1,116 +1,170 @@
-# Studio Audio Editor
+<h1><img src="build/icon.png" alt="" width="40" align="top"> Studio Audio Editor</h1>
 
 [![Build](https://github.com/FeaXR/Studio-Audio-Editor/actions/workflows/build.yml/badge.svg)](https://github.com/FeaXR/Studio-Audio-Editor/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A small Windows editor for cutting **one long WAV into several MP3 files**. Each output gets the same linear fade-in and exponential fade-out, its own peak normalization (100% or 60%) and bitrate (320 or 192 kbps), and any number of cuts (coughs and the like) removed with a short crossfade.
+A focused desktop editor for cutting **one long WAV recording into several MP3 files**, for Windows and Linux.
 
-Built with Electron + TypeScript. Audio processing and MP3 encoding use a bundled ffmpeg.
+Most audio editors work the other way round: many tracks in, one file out. Studio Audio Editor is for the opposite job: a long recording of a concert, a radio show or a lecture that has to become a set of separate, finished files. You mark where each file starts and ends, cut out coughs and noises, and export them all in one go. Each file gets consistent fades and its own loudness and bitrate.
+
+![Studio Audio Editor with a 25-minute recording split into five output files](docs/screenshots/main.png)
+
+## Features
+
+- **One input, many outputs.** Mark any number of output files (segments) on a single WAV. Segments may slightly overlap.
+- **Cuts.** Remove coughs, clicks or chatter. A cut applies to every segment it falls in, and the audio either side is joined with a short crossfade.
+- **Consistent fades.** The same fade-in and fade-out on every file: linear in and exponential out by default, with other curves available.
+- **Per-file peak normalization** to 100% or 60%, and **per-file bitrate** of 320 or 192 kbps (MP3, constant bitrate).
+- **Built for long files.** A 90-minute 24-bit recording opens in about 3 seconds and stays smooth while zooming and scrolling. The waveform overview is cached, so reopening is instant.
+- **Mouse or keyboard.** Every action works with the mouse, and every action can also have a shortcut. Mark files with I/O and cuts with X while listening, and rebind any key in Settings.
+- **Hear the result.** Playback skips the cuts by default, so you hear exactly what will be exported.
+- **Safe export.** Filenames are checked before anything is written, you're asked before files are overwritten, and a cancelled export never leaves half-written files.
+- **Sessions are saved** next to the WAV, so you can come back later and re-export.
+- **English and Hungarian** interface.
+
+| Fades at a track boundary | A cut, ready to be removed |
+| --- | --- |
+| ![Zoomed in on the end of one segment and the start of the next, with the fade-out and fade-in curves drawn over the waveform](docs/screenshots/fades.png) | ![Zoomed in on a short cut, shown as a red hatched region](docs/screenshots/cut.png) |
+
+| Exporting | Settings |
+| --- | --- |
+| ![Export window showing per-file progress, measured peak and applied gain](docs/screenshots/export.png) | ![Settings with language, fades, export options and the keyboard shortcut editor](docs/screenshots/settings.png) |
+
+<details>
+<summary>Hungarian interface</summary>
+
+![The same session with the interface in Hungarian](docs/screenshots/main-hu.png)
+
+</details>
+
+## Download
+
+Get the latest version from the [Releases page](https://github.com/FeaXR/Studio-Audio-Editor/releases).
+
+| System | File | Notes |
+| --- | --- | --- |
+| Windows | `Studio-Audio-Editor-Setup-<version>.exe` | Installer with Start menu entry and uninstaller |
+| Windows | `Studio-Audio-Editor-<version>-portable.exe` | Single file, no installation. Starts a little slower because it unpacks itself each time. |
+| Linux | `Studio-Audio-Editor-<version>-x86_64.AppImage` | Runs on most distributions. Make it executable first: `chmod +x Studio-Audio-Editor-*.AppImage` |
+| Linux | `studio-audio-editor_<version>_amd64.deb` | For Debian, Ubuntu and derivatives |
+
+The builds are not code-signed. On Windows, SmartScreen may show "Windows protected your PC" the first time; choose **More info → Run anyway**.
+
+Builds of every commit are also available from the [Actions page](https://github.com/FeaXR/Studio-Audio-Editor/actions/workflows/build.yml). Open a run and download the artifact at the bottom (requires a GitHub account).
 
 ## Using it
 
-1. **Open** a WAV file: use the button or Ctrl+O, drag it onto the window, or drop it onto the program's .exe or shortcut to start the app with that file. Dropping a file onto the icon while the app is running opens it in the existing window. Long files are fine: the waveform overview is computed once (a few seconds for 90 minutes) and cached.
-2. **Mark output files (segments)**
-   - Mouse: drag in the **top lane** (above the waveform), or pick the **Segment** tool and drag on the waveform.
-   - Keyboard, while listening: press **I** at the start, **O** at the end.
-3. **Name each file** in the list on the right, and set **100% / 60%** and **320 / 192** per file.
-4. **Mark cuts**
-   - Mouse: drag in the **bottom lane**, or use the **Cut** tool on the waveform.
-   - Keyboard: press **X** at the start of the cough and **X** again at the end.
-   - Cuts apply to every segment they fall in, so a cough in an overlap is removed from both files.
-5. **Export all** (Ctrl+E). The app checks that every file has a valid, unique Windows filename and asks once before overwriting existing files.
+1. **Open a WAV file.** Use the Open button or Ctrl+O, or drag the file onto the window. You can also drop it onto the program's icon or shortcut to start the app with that file.
+2. **Mark the output files (segments).**
+   - Mouse: drag in the **top lane** above the waveform, or drag on the waveform with the **Segment** tool (active at startup).
+   - Keyboard, while listening: press **I** at the start and **O** at the end.
+3. **Name each file** in the list on the right, and choose **100% / 60%** and **320 / 192** for each one.
+4. **Mark cuts.**
+   - Mouse: drag in the **bottom lane**, or use the **Cut** tool.
+   - Keyboard: press **X** where the noise starts and **X** again where it ends.
+5. **Export all** with Ctrl+E. Files go to the folder shown at the top of the list, which defaults to the WAV's folder.
 
-Segments and cuts are saved next to the WAV as `<file>.wav.sae.json` (Ctrl+S). They are also saved after a successful export, and are loaded again when you reopen the WAV.
+Your segments and cuts are saved next to the WAV as `<file>.wav.sae.json` (Ctrl+S). They're also saved after every successful export, and they load again when you reopen the WAV.
 
 ### Mouse
 
 | Action | How |
 | --- | --- |
 | Move the playhead | Click the ruler or the waveform |
-| Resize a segment or cut | Drag its edge (snaps to the playhead and other edges; hold **Alt** to stop snapping) |
+| Resize a segment or cut | Drag its edge (it snaps to the playhead and other edges; hold **Alt** to stop snapping) |
 | Move a segment or cut | Drag its bar in the top or bottom lane |
-| Zoom | Mouse wheel (over the waveform or the overview) |
+| Zoom | Mouse wheel over the waveform or the overview |
 | Scroll | Shift + wheel, middle-drag, drag the overview, or drag the waveform with the Select tool |
 | More options | Right-click a segment, a cut, or empty space |
 | Rename a segment | Double-click it |
 
 ### Keyboard
 
-To change them, open **Settings** (the gear icon) and go to **Keyboard shortcuts**. Click **+** next to a command and press the keys you want. Click a key to remove it, use **↺** to restore one command's default, or **Reset all**. A key can belong to only one command, so assigning it moves it and tells you where it was taken from. Changes apply when you click Save. These are the defaults:
+These are the defaults. You can change any of them in **Settings → Keyboard shortcuts**: click **+** next to a command and press the keys you want.
 
 | Key | Action |
 | --- | --- |
 | Space | Play / pause |
-| P | Play the selected segment (or the audio around the selected cut) |
-| I / O | Mark segment start / end at the playhead |
+| P | Play the selected segment, or the audio around the selected cut |
+| I / O | Mark a segment's start / end at the playhead |
 | Shift+I / Shift+O | Move the selected segment's start / end to the playhead |
-| X | Mark cut start, then cut end |
-| Alt+← / Alt+→ | Nudge the selected start by 10 ms (add Shift for the end) |
+| X | Mark a cut's start, then its end |
+| Alt+← / Alt+→ | Nudge the selected start by 10 ms (add Shift to nudge the end) |
 | ← / → | Playhead ±1 s (add Shift for ±10 s) |
 | Ctrl+← / Ctrl+→ | Playhead to the previous / next segment or cut edge |
 | Home / End | Playhead to the start / end of the file |
 | Shift+Home / Shift+End | Playhead to the start / end of the selection |
-| Ctrl+Home / Ctrl+End | Playhead to the start / end of the segment it is inside (also in the right-click menu) |
-| C | Scroll so the playhead is centered |
+| Ctrl+Home / Ctrl+End | Playhead to the start / end of the segment it's inside |
+| C | Center the view on the playhead |
 | Page Up / Page Down | Scroll one screen left / right |
 | ↑ / ↓, Tab / Shift+Tab | Previous / next segment |
 | + / − / F / Z | Zoom in / out / whole file / selection |
-| 1 / 2 / 3 | Select / Segment / Cut tool (Segment is active at startup) |
-| K | Skip cuts while playing (on by default, so you hear the result) |
+| 1 / 2 / 3 | Select / Segment / Cut tool |
+| K | Skip cuts while playing (on by default) |
 | Delete | Delete the selection |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Ctrl+S / Ctrl+E / Ctrl+O | Save / export / open |
 
 ## Settings
 
-- **Language**: English or Magyar (Hungarian). The default, "Same as Windows", follows the Windows display language. Switching reloads the window; the open file and any unsaved edits are kept, but the undo history starts fresh.
-- **Fade-in / fade-out**: length and curve. The defaults are 0.5 s linear in and 2 s exponential out. Set these to match what you used in GoldWave.
-- **"100%" peak level**: 0 dBFS by default. MP3 encoding can overshoot by a fraction of a dB, so −0.3 to −1 dBFS is safer if you want to avoid clipping.
-- **Crossfade at cuts**: 10 ms by default.
-- **Defaults for new segments**: peak target and bitrate.
+- **Language:** English or Magyar (Hungarian). "System language" follows your operating system. Switching reloads the window; your open file and unsaved edits are kept, but undo history starts fresh.
+- **Fade-in / fade-out:** length and curve. The defaults are 0.5 s linear in and 2 s exponential out.
+- **"100%" peak level:** 0 dBFS by default. MP3 encoding can overshoot by a fraction of a dB, so −0.3 to −1 dBFS is safer if you want to avoid any clipping.
+- **Crossfade at cuts:** 10 ms by default.
+- **New segments use:** the default peak target and bitrate for new files.
+
+Settings are stored in `%APPDATA%\Studio Audio Editor` on Windows and `~/.config/Studio Audio Editor` on Linux.
 
 ## How export works
 
-Each output is rendered on its own from the untouched WAV, in two ffmpeg passes:
+Each output file is rendered from the untouched WAV in two ffmpeg passes:
 
-1. Trim the segment, remove the cuts and join the pieces with short crossfades, apply the fades, then **measure the peak** of that finished audio.
-2. Run the same chain again with the gain that brings the peak to the target, and encode to MP3 (CBR).
+1. Trim the segment, remove the cuts, join the pieces with short crossfades and apply the fades. Then **measure the peak** of that finished audio.
+2. Run the same chain again with the gain that brings the peak to its target, and encode to MP3.
 
-Files are written as `.part` first and renamed when complete, so a cancelled export never leaves a broken MP3 behind.
+Because the peak is measured after cuts and fades, a cut-out cough can't hold the level down. Files are written as `.part` first and renamed when complete.
 
 ## Development
 
-Requires Node.js 22+.
+Requires Node.js 22 or newer.
 
 ```bash
 npm install
-npm run dev        # Vite dev server + Electron (renderer hot-reloads)
-npm test           # unit tests + an ffmpeg export test
+npm run dev        # Vite dev server + Electron (UI hot-reloads)
+npm test           # unit tests and an ffmpeg export test
 npm run typecheck
-npm run dist       # Windows installer + portable .exe in release/
+npm run dist       # installers for the current OS, in release/
 npm run icon       # re-render build/icon.png and build/icon.ico from build/icon.svg
 ```
 
-### Automatic builds
+`npm run dist` builds for the system it runs on: the installer and portable .exe on Windows, the AppImage and .deb on Linux.
 
-[GitHub Actions](https://github.com/FeaXR/Studio-Audio-Editor/actions/workflows/build.yml) builds the app on Windows for every push and pull request ([`.github/workflows/build.yml`](.github/workflows/build.yml)). Each run type-checks, runs the tests, and builds the installer and the portable .exe.
+### Automatic builds and releases
 
-- **Download a build:** open a run and download the **studio-audio-editor-windows** artifact at the bottom of the page. It's a zip containing both .exe files and is kept for 90 days.
-- **Make a release:** push a version tag, and the two files are attached to a GitHub release:
+[GitHub Actions](.github/workflows/build.yml) builds and tests the app on Windows and Linux for every push and pull request. To publish a release, bump `version` in `package.json`, commit, then push a matching tag. The workflow attaches all four files to a new GitHub release:
 
-  ```bash
-  git tag v0.2.0
-  ```
+```bash
+git tag v0.2.0
+```
 
-  ```bash
-  git push origin v0.2.0
-  ```
+```bash
+git push origin v0.2.0
+```
 
-  Bump `version` in `package.json` first so the file names match.
+### Project layout
 
-Layout:
-
-- `src/main/`: Electron main process (WAV header parsing, peak scan worker and cache, ffmpeg export, the `media://` protocol used for playback)
-- `src/preload/`: the IPC bridge (`window.studio`)
-- `src/renderer/`: UI (canvas timeline and overview, output list, commands and shortcuts)
+- `src/main/`: Electron main process (WAV parsing, waveform scan and cache, ffmpeg export, the `media://` protocol used for playback)
+- `src/preload/`: the bridge between the UI and the main process (`window.studio`)
+- `src/renderer/`: the UI (canvas timeline and overview, output list, commands and shortcuts)
 - `src/shared/`: types, time formatting, cut/segment planning and filename validation
-- `src/shared/i18n/`: translations. `en.ts` is the master list of texts; to add a language, copy `hu.ts`, translate it, and register it in `index.ts` (the type checker reports any missing text, and a test checks the placeholders)
+- `src/shared/i18n/`: translations. `en.ts` is the master list of texts. To add a language, copy `hu.ts`, translate it, and register it in `index.ts`. The type checker reports any missing text, and a test checks that placeholders match.
+
+### Contributing
+
+Issues and pull requests are welcome. Please run `npm run typecheck` and `npm test` before opening a pull request. CI runs both on Windows and Linux.
+
+## License
+
+[MIT](LICENSE) © FeaXR
+
+The app bundles a static build of [FFmpeg](https://ffmpeg.org/) through [ffmpeg-static](https://github.com/eugeneware/ffmpeg-static). FFmpeg is licensed under the GPL v3, and its license and source reference ship with the app (`resources/app.asar.unpacked/node_modules/ffmpeg-static/`). It runs as a separate program, and the MIT license above covers only Studio Audio Editor's own code.
