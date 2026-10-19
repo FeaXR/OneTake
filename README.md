@@ -1,2 +1,2 @@
-# Studio-Audio_Editor
+# Studio-Audio-Editor
 
