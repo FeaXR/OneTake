@@ -1,3 +1,4 @@
+import { codedError } from '../shared/i18n/index.ts';
 import type { Span } from '../shared/plan.ts';
 import type { FadeCurve } from '../shared/types.ts';
 
@@ -19,7 +20,7 @@ const num = (v: number) => Number(v.toFixed(6)).toString();
 
 /** Builds an ffmpeg -filter_complex graph: trim pieces, crossfade-join, fade in/out, gain. Output label: [out]. */
 export function buildFilterGraph(o: GraphOptions): string {
-  if (o.pieces.length === 0) throw new Error('No audio left to export');
+  if (o.pieces.length === 0) throw codedError('err.noAudioLeft');
   const chains: string[] = [];
   const n = o.pieces.length;
 

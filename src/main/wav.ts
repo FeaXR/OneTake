@@ -1,4 +1,5 @@
 import { openSync, readSync, closeSync, fstatSync } from 'node:fs';
+import { codedError } from '../shared/i18n/index.ts';
 import type { AudioInfo } from '../shared/types.ts';
 
 export interface WavLayout extends AudioInfo {
@@ -25,7 +26,7 @@ export function readWavLayout(path: string): WavLayout {
     const riff = read(0, 12);
     const tag = riff.toString('ascii', 0, 4);
     if (riff.length < 12 || (tag !== 'RIFF' && tag !== 'RF64') || riff.toString('ascii', 8, 12) !== 'WAVE') {
-      throw new Error('Not a WAV file');
+      throw codedError('err.notWav');
     }
 
     let rf64DataSize: number | null = null;
@@ -55,8 +56,8 @@ export function readWavLayout(path: string): WavLayout {
       pos = body + size + (size % 2);
     }
 
-    if (!fmt) throw new Error('WAV file has no format chunk');
-    if (dataOffset < 0) throw new Error('WAV file has no audio data');
+    if (!fmt) throw codedError('err.noFmt');
+    if (dataOffset < 0) throw codedError('err.noData');
 
     let formatTag = fmt.readUInt16LE(0);
     const channels = fmt.readUInt16LE(2);
@@ -70,10 +71,10 @@ export function readWavLayout(path: string): WavLayout {
     let sampleFormat: AudioInfo['sampleFormat'];
     if (formatTag === WAVE_FORMAT_PCM && [8, 16, 24, 32].includes(bitsPerSample)) sampleFormat = 'int';
     else if (formatTag === WAVE_FORMAT_IEEE_FLOAT && [32, 64].includes(bitsPerSample)) sampleFormat = 'float';
-    else throw new Error(`Unsupported WAV encoding (format ${formatTag}, ${bitsPerSample}-bit)`);
+    else throw codedError('err.unsupported', { format: formatTag, bits: bitsPerSample });
 
     if (channels < 1 || sampleRate < 1 || blockAlign !== channels * (bitsPerSample / 8)) {
-      throw new Error('WAV header is inconsistent');
+      throw codedError('err.inconsistent');
     }
 
     const frames = Math.floor(dataBytes / blockAlign);

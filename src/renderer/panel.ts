@@ -1,7 +1,8 @@
+import { formatNumber, t } from '../shared/i18n/index.ts';
 import { formatTime, parseTime } from '../shared/time.ts';
 import type { Bitrate, PeakTarget, Segment } from '../shared/types.ts';
 import { outputDurationOf } from '../shared/plan.ts';
-import { validateSegments } from '../shared/validate.ts';
+import { validateSegments, type SegmentIssues } from '../shared/validate.ts';
 import { h } from './dom.ts';
 import { clamp, MIN_REGION_SEC, type Change, type Editor } from './editor.ts';
 import { toast } from './dialogs.ts';
@@ -46,14 +47,14 @@ export class OutputPanel {
     this.editor = editor;
     this.actions = actions;
     this.exportBtn = h('button', { class: 'primary', html: icons.export, onclick: () => actions.exportAll() });
-    this.exportBtn.append('Export all');
+    this.exportBtn.append(t('panel.exportAll'));
 
     root.append(
       h('div', { class: 'panel-head' },
-        h('div', { class: 'panel-title' }, 'Output files', this.countEl),
+        h('div', { class: 'panel-title' }, t('panel.title'), this.countEl),
         h('div', { class: 'folder-row' },
           this.folderEl,
-          h('button', { html: icons.folder, title: 'Choose the folder the MP3 files are written to', onclick: () => actions.pickFolder() }, 'Folder…'),
+          h('button', { html: icons.folder, title: t('panel.folder.tip'), onclick: () => actions.pickFolder() }, t('panel.folder')),
         ),
       ),
       this.rowsEl,
@@ -88,8 +89,8 @@ export class OutputPanel {
     this.countEl.textContent = segments.length ? `(${segments.length})` : '';
     this.emptyEl.style.display = segments.length ? 'none' : '';
     this.emptyEl.innerHTML = ed.info
-      ? 'No output files yet.<br>Drag in the <b>top lane</b> (or with the Segment tool on the waveform) to mark one, or press <b>I</b> / <b>O</b> while listening.'
-      : 'Open a WAV file to begin.';
+      ? t('panel.empty', { in: this.actions.shortcut('mark.in') || 'I', out: this.actions.shortcut('mark.out') || 'O' })
+      : t('panel.emptyNoFile');
 
     const seen = new Set<string>();
     segments.forEach((seg, i) => {
@@ -110,13 +111,13 @@ export class OutputPanel {
     }
 
     const dir = ed.project.outputDir;
-    this.folderEl.textContent = dir ?? 'No output folder chosen';
+    this.folderEl.textContent = dir ?? t('panel.noFolder');
     this.folderEl.title = dir ?? '';
     this.folderEl.classList.toggle('missing', !dir);
 
     const errorCount = [...issues.values()].filter((v) => v.errors.length).length;
     this.exportBtn.disabled = !ed.info || segments.length === 0;
-    this.exportNote.textContent = errorCount ? `${errorCount} to fix` : '';
+    this.exportNote.textContent = errorCount ? t('panel.toFix', { n: errorCount }) : '';
     this.exportNote.style.color = errorCount ? 'var(--danger)' : '';
 
     this.updateCuts();
@@ -133,7 +134,7 @@ export class OutputPanel {
     const name = h('input', {
       type: 'text',
       class: 'name',
-      placeholder: 'Filename (required)',
+      placeholder: t('panel.filename'),
       spellcheck: false,
       onfocus: () => {
         ed.select({ kind: 'segment', id });
@@ -153,20 +154,20 @@ export class OutputPanel {
       const input = h('input', {
         type: 'text',
         class: 'time',
-        title: edge === 'start' ? 'Start (h:mm:ss.mmm)' : 'End (h:mm:ss.mmm)',
+        title: edge === 'start' ? t('panel.start.tip') : t('panel.end.tip'),
         onfocus: () => ed.select({ kind: 'segment', id }),
         onchange: () => {
           const s = seg();
-          const t = parseTime(input.value);
+          const time = parseTime(input.value);
           if (!s) return;
-          if (t === null) {
-            toast(`"${input.value}" is not a time. Use h:mm:ss.mmm, m:ss or seconds.`, 'error');
+          if (time === null) {
+            toast(t('toast.notATime', { text: input.value }), 'error');
             input.value = formatTime(s[edge]);
             return;
           }
           ed.commit(() => {
-            if (edge === 'start') s.start = clamp(t, 0, s.end - MIN_REGION_SEC);
-            else s.end = clamp(t, s.start + MIN_REGION_SEC, ed.duration);
+            if (edge === 'start') s.start = clamp(time, 0, s.end - MIN_REGION_SEC);
+            else s.end = clamp(time, s.start + MIN_REGION_SEC, ed.duration);
           });
           input.value = formatTime(s[edge]);
         },
@@ -185,14 +186,14 @@ export class OutputPanel {
     const end = timeInput('end');
 
     const peak = new Map<PeakTarget, HTMLButtonElement>();
-    const peakGroup = h('div', { class: 'segmented', title: 'Peak normalization target' });
+    const peakGroup = h('div', { class: 'segmented', title: t('panel.peak.tip') });
     for (const [value, label] of [[1, '100%'], [0.6, '60%']] as const) {
       const b = h('button', { onclick: () => ed.commit(() => { const s = seg(); if (s) s.peakTarget = value; }) }, label);
       peak.set(value, b);
       peakGroup.append(b);
     }
     const bitrate = new Map<Bitrate, HTMLButtonElement>();
-    const bitrateGroup = h('div', { class: 'segmented', title: 'MP3 bitrate (kbps)' });
+    const bitrateGroup = h('div', { class: 'segmented', title: t('panel.bitrate.tip') });
     for (const value of [320, 192] as const) {
       const b = h('button', { onclick: () => ed.commit(() => { const s = seg(); if (s) s.bitrate = value; }) }, String(value));
       bitrate.set(value, b);
@@ -223,34 +224,34 @@ export class OutputPanel {
       h('div', { class: 'row-line' },
         peakGroup, bitrateGroup,
         h('span', { style: { flex: '1' } }),
-        iconBtn(icons.playSelection, 'Play this segment', () => this.actions.playRegion('segment', id)),
-        iconBtn(icons.target, 'Zoom to this segment', () => this.actions.zoomTo('segment', id)),
-        iconBtn(icons.trash, 'Delete this segment', () => this.actions.deleteRegion('segment', id), 'danger'),
+        iconBtn(icons.playSelection, t('panel.play.tip'), () => this.actions.playRegion('segment', id)),
+        iconBtn(icons.target, t('panel.zoom.tip'), () => this.actions.zoomTo('segment', id)),
+        iconBtn(icons.trash, t('panel.delete.tip'), () => this.actions.deleteRegion('segment', id), 'danger'),
       ),
       issues,
     );
     return { el, index, name, start, end, dur, peak, bitrate, issues };
   }
 
-  private fillRow(row: Row, seg: Segment, i: number, issues: { errors: string[]; warnings: string[] }): void {
+  private fillRow(row: Row, seg: Segment, i: number, issues: SegmentIssues): void {
     const ed = this.editor;
     row.el.style.setProperty('--seg-color', ed.segmentColor(seg.id));
     row.el.classList.toggle('selected', ed.selection?.id === seg.id);
     row.el.classList.toggle('has-error', issues.errors.length > 0);
     row.index.textContent = `#${i + 1}`;
     if (document.activeElement !== row.name) row.name.value = seg.filename;
-    row.name.classList.toggle('invalid', issues.errors.some((e) => /ilename|character|reserved|end with/.test(e)));
+    row.name.classList.toggle('invalid', issues.errors.some((e) => e.key.startsWith('issue.filename') || e.key === 'issue.duplicate'));
     if (document.activeElement !== row.start) row.start.value = formatTime(seg.start);
     if (document.activeElement !== row.end) row.end.value = formatTime(seg.end);
     const length = outputDurationOf(seg, ed.project.cuts, ed.settings);
     const cutAway = seg.end - seg.start - length;
-    row.dur.textContent = formatTime(Math.max(0, length), 1) + (cutAway > 0.005 ? ` (−${cutAway.toFixed(1)}s)` : '');
-    row.dur.title = 'Length after cuts';
+    row.dur.textContent = formatTime(Math.max(0, length), 1) + (cutAway > 0.005 ? ` (−${formatNumber(cutAway, 1)} s)` : '');
+    row.dur.title = t('panel.length.tip');
     for (const [v, b] of row.peak) b.classList.toggle('active', seg.peakTarget === v);
     for (const [v, b] of row.bitrate) b.classList.toggle('active', seg.bitrate === v);
     row.issues.replaceChildren(
-      ...issues.errors.map((e) => h('div', { class: 'err' }, e)),
-      ...issues.warnings.map((w) => h('div', { class: 'warn' }, w)),
+      ...issues.errors.map((e) => h('div', { class: 'err' }, t(e.key, e.params))),
+      ...issues.warnings.map((w) => h('div', { class: 'warn' }, t(w.key, w.params))),
     );
   }
 
@@ -258,7 +259,9 @@ export class OutputPanel {
     const ed = this.editor;
     const cuts = ed.sortedCuts();
     const total = cuts.reduce((acc, c) => acc + c.end - c.start, 0);
-    this.cutsSummary.textContent = cuts.length ? `Cuts (${cuts.length}, ${total.toFixed(1)} s total)` : 'Cuts (none)';
+    this.cutsSummary.textContent = cuts.length
+      ? t('panel.cuts', { count: cuts.length, total: formatNumber(total, 1) })
+      : t('panel.cutsNone');
     this.cutsList.replaceChildren(
       ...cuts.map((c) =>
         h('div', {
@@ -267,10 +270,10 @@ export class OutputPanel {
             if (!(e.target as HTMLElement).closest('button')) ed.select({ kind: 'cut', id: c.id });
           },
         },
-          h('span', { class: 'grow' }, `${formatTime(c.start)} → ${formatTime(c.end)}  (${(c.end - c.start).toFixed(2)} s)`),
-          h('button', { class: 'icon', html: icons.playSelection, title: 'Play around this cut', onclick: () => this.actions.playRegion('cut', c.id) }),
-          h('button', { class: 'icon', html: icons.target, title: 'Zoom to this cut', onclick: () => this.actions.zoomTo('cut', c.id) }),
-          h('button', { class: 'icon danger', html: icons.trash, title: 'Delete this cut', onclick: () => this.actions.deleteRegion('cut', c.id) }),
+          h('span', { class: 'grow' }, `${formatTime(c.start)} → ${formatTime(c.end)}  (${formatNumber(c.end - c.start, 2)} s)`),
+          h('button', { class: 'icon', html: icons.playSelection, title: t('panel.cutPlay.tip'), onclick: () => this.actions.playRegion('cut', c.id) }),
+          h('button', { class: 'icon', html: icons.target, title: t('panel.cutZoom.tip'), onclick: () => this.actions.zoomTo('cut', c.id) }),
+          h('button', { class: 'icon danger', html: icons.trash, title: t('panel.cutDelete.tip'), onclick: () => this.actions.deleteRegion('cut', c.id) }),
         ),
       ),
     );

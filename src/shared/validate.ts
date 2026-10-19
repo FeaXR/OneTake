@@ -1,8 +1,15 @@
+import type { MessageKey, Params } from './i18n/index.ts';
 import { outputDurationOf } from './plan.ts';
 import type { Cut, Segment, Settings } from './types.ts';
 
 const INVALID_CHARS = /[<>:"/\\|?*\u0000-\u001f]/;
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+/** A problem with a segment, as a translation key plus its parameters. */
+export interface Issue {
+  key: MessageKey;
+  params?: Params;
+}
 
 /** Final file name on disk: the typed name with `.mp3` added unless already present. */
 export function outputFilename(name: string): string {
@@ -10,19 +17,19 @@ export function outputFilename(name: string): string {
   return /\.mp3$/i.test(trimmed) ? trimmed : `${trimmed}.mp3`;
 }
 
-/** Returns a problem description, or null when the name is usable on Windows. */
-export function filenameProblem(name: string): string | null {
-  if (name.trim() === '') return 'Filename is required';
-  if (INVALID_CHARS.test(name)) return 'Filename contains a character Windows does not allow (< > : " / \\ | ? *)';
-  if (/[ .]$/.test(name)) return 'Filename cannot end with a space or a dot';
+/** Returns the problem with a filename, or null when the name is usable on Windows. */
+export function filenameProblem(name: string): Issue | null {
+  if (name.trim() === '') return { key: 'issue.filenameRequired' };
+  if (INVALID_CHARS.test(name)) return { key: 'issue.filenameChars' };
+  if (/[ .]$/.test(name)) return { key: 'issue.filenameEnd' };
   const base = outputFilename(name).replace(/\.mp3$/i, '').split('.')[0];
-  if (RESERVED.test(base)) return `"${base}" is a reserved name on Windows`;
+  if (RESERVED.test(base)) return { key: 'issue.filenameReserved', params: { name: base } };
   return null;
 }
 
 export interface SegmentIssues {
-  errors: string[];
-  warnings: string[];
+  errors: Issue[];
+  warnings: Issue[];
 }
 
 /** Checks every segment; errors block export, warnings are informational. */
@@ -47,17 +54,16 @@ export function validateSegments(
     }
 
     if (seg.end <= seg.start) {
-      issues.errors.push('End is not after start');
+      issues.errors.push({ key: 'issue.endBeforeStart' });
     } else {
       const length = outputDurationOf(seg, cuts, settings);
-      if (length <= 0) issues.errors.push('Nothing is left after the cuts');
-      else if (length < settings.fadeInSec + settings.fadeOutSec)
-        issues.errors.push('Shorter than the fade-in and fade-out together');
+      if (length <= 0) issues.errors.push({ key: 'issue.nothingLeft' });
+      else if (length < settings.fadeInSec + settings.fadeOutSec) issues.errors.push({ key: 'issue.tooShort' });
     }
 
     const next = ordered[i + 1];
     if (next && next.start < seg.end - 5) {
-      issues.warnings.push(`Overlaps #${i + 2} by more than 5 seconds`);
+      issues.warnings.push({ key: 'issue.overlap', params: { n: i + 2 } });
     }
   });
 
@@ -65,7 +71,7 @@ export function validateSegments(
     if (indexes.length < 2) continue;
     for (const i of indexes) {
       const others = indexes.filter((j) => j !== i).map((j) => `#${j + 1}`);
-      result.get(ordered[i].id)!.errors.push(`Same filename as ${others.join(', ')}`);
+      result.get(ordered[i].id)!.errors.push({ key: 'issue.duplicate', params: { others: others.join(', ') } });
     }
   }
   return result;

@@ -2,6 +2,7 @@ import { Worker } from 'node:worker_threads';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { codedError } from '../shared/i18n/index.ts';
 import type { PeakData } from '../shared/types.ts';
 import type { WavLayout } from './wav.ts';
 import type { PeaksWorkerInput, PeaksWorkerMessage } from './peaks-worker.ts';
@@ -57,7 +58,7 @@ function computePeaks(workerFile: string, layout: WavLayout, onProgress: (f: num
     });
     worker.on('error', reject);
     worker.on('exit', (code) => {
-      if (code !== 0) reject(new Error(`Peak scan stopped with code ${code}`));
+      if (code !== 0) reject(codedError('err.peakScan', { code }));
     });
   });
 }

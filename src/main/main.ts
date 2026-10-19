@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { resolveLanguage, setLanguage, t } from '../shared/i18n/index.ts';
 import type { ExportRequest, LoadedAudio, Project, Settings } from '../shared/types.ts';
 import { runExport } from './exporter.ts';
 import { handleMediaScheme, registerMediaScheme } from './media-protocol.ts';
@@ -31,6 +32,11 @@ function wavFromArgs(argv: string[], cwd = process.cwd()): string | null {
   return null;
 }
 
+/** Dialogs shown by the main process (file pickers, close prompt) follow the app language. */
+function applyLanguage(settings: Settings): void {
+  setLanguage(resolveLanguage(settings.language, app.getLocale()));
+}
+
 /** File to open once the UI is ready; handed over (once) when the renderer asks. */
 let startupFile = wavFromArgs(process.argv);
 
@@ -41,7 +47,7 @@ function createWindow(): void {
     minWidth: 1000,
     minHeight: 600,
     backgroundColor: '#17191d',
-    title: 'Studio Audio Editor',
+    title: t('app.name'),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -56,18 +62,21 @@ function createWindow(): void {
   else void win.loadFile(join(__dirname, '../renderer/index.html'));
 
   // Keep the page from navigating away when a file is dropped outside the drop zone.
-  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  // Reloading the app's own page (used to switch language) is allowed.
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url !== win?.webContents.getURL()) e.preventDefault();
+  });
 
   win.on('close', (e) => {
     if (forceClose || !dirty) return;
     e.preventDefault();
     const choice = dialog.showMessageBoxSync(win!, {
       type: 'question',
-      buttons: ['Save', "Don't save", 'Cancel'],
+      buttons: [t('btn.save'), t('btn.dontSave'), t('btn.cancel')],
       defaultId: 0,
       cancelId: 2,
-      title: 'Unsaved changes',
-      message: 'Save the changes to this project before closing?',
+      title: t('dlg.unsaved.title'),
+      message: t('dlg.unsaved.closeMessage'),
     });
     if (choice === 0) win!.webContents.send('app:saveAndClose');
     else if (choice === 1) {
@@ -84,9 +93,9 @@ function createWindow(): void {
 function registerIpc(): void {
   ipcMain.handle('dialog:pickWav', async () => {
     const result = await dialog.showOpenDialog(win!, {
-      title: 'Open WAV file',
+      title: t('dlg.openWav.title'),
       properties: ['openFile'],
-      filters: [{ name: 'WAV audio', extensions: ['wav'] }],
+      filters: [{ name: t('dlg.openWav.filter'), extensions: ['wav'] }],
     });
     return result.canceled ? null : result.filePaths[0];
   });
@@ -104,13 +113,16 @@ function registerIpc(): void {
 
   ipcMain.handle('project:save', (_e, wavPath: string, project: Project) => saveProject(wavPath, project));
   ipcMain.handle('settings:get', () => loadSettings());
-  ipcMain.handle('settings:save', (_e, settings: Settings) => saveSettings(settings));
+  ipcMain.handle('settings:save', async (_e, settings: Settings) => {
+    await saveSettings(settings);
+    applyLanguage(settings);
+  });
   ipcMain.handle('shortcuts:get', () => loadShortcutOverrides());
   ipcMain.handle('shortcuts:save', (_e, overrides: Record<string, string[]>) => saveShortcutOverrides(overrides));
 
   ipcMain.handle('dialog:pickFolder', async (_e, defaultPath: string | null) => {
     const result = await dialog.showOpenDialog(win!, {
-      title: 'Choose output folder',
+      title: t('dlg.folder.title'),
       defaultPath: defaultPath ?? undefined,
       properties: ['openDirectory', 'createDirectory'],
     });
@@ -160,7 +172,8 @@ if (!app.requestSingleInstanceLock()) {
     if (file) win.webContents.send('app:openFile', file);
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    applyLanguage(await loadSettings());
     Menu.setApplicationMenu(null);
     handleMediaScheme((path) => openedWav !== null && resolve(path) === openedWav);
     registerIpc();

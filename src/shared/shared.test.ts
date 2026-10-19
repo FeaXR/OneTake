@@ -46,11 +46,11 @@ test('filename rules', () => {
   assert.equal(outputFilename('Track 1'), 'Track 1.mp3');
   assert.equal(outputFilename('Track 1.MP3'), 'Track 1.MP3');
   assert.equal(filenameProblem('Track 1'), null);
-  assert.match(filenameProblem('')!, /required/);
-  assert.match(filenameProblem('a?b')!, /character/);
-  assert.match(filenameProblem('name.')!, /end with/);
-  assert.match(filenameProblem('con')!, /reserved/);
-  assert.match(filenameProblem('NUL.mp3')!, /reserved/);
+  assert.equal(filenameProblem('')!.key, 'issue.filenameRequired');
+  assert.equal(filenameProblem('a?b')!.key, 'issue.filenameChars');
+  assert.equal(filenameProblem('name.')!.key, 'issue.filenameEnd');
+  assert.deepEqual(filenameProblem('con'), { key: 'issue.filenameReserved', params: { name: 'con' } });
+  assert.equal(filenameProblem('NUL.mp3')!.key, 'issue.filenameReserved');
 });
 
 test('validateSegments flags duplicate names case-insensitively', () => {
@@ -59,15 +59,15 @@ test('validateSegments flags duplicate names case-insensitively', () => {
     [],
     DEFAULT_SETTINGS,
   );
-  assert.match(issues.get('a')!.errors.join(), /Same filename as #2/);
-  assert.match(issues.get('b')!.errors.join(), /Same filename as #1/);
+  assert.deepEqual(issues.get('a')!.errors, [{ key: 'issue.duplicate', params: { others: '#2' } }]);
+  assert.deepEqual(issues.get('b')!.errors, [{ key: 'issue.duplicate', params: { others: '#1' } }]);
   assert.deepEqual(issues.get('c')!.errors, []);
 });
 
 test('validateSegments flags too-short segments and big overlaps', () => {
   const issues = validateSegments([seg('a', 0, 100), seg('b', 90, 91)], [], DEFAULT_SETTINGS);
-  assert.match(issues.get('a')!.warnings.join(), /Overlaps #2/);
-  assert.match(issues.get('b')!.errors.join(), /Shorter than the fade/);
+  assert.deepEqual(issues.get('a')!.warnings, [{ key: 'issue.overlap', params: { n: 2 } }]);
+  assert.deepEqual(issues.get('b')!.errors, [{ key: 'issue.tooShort' }]);
 });
 
 test('time formatting and parsing round-trip', () => {

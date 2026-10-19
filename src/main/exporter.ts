@@ -56,8 +56,8 @@ export async function runExport(
     for (const [index, seg] of segments.entries()) {
       current = seg;
       const filename = outputFilename(seg.filename);
-      const report = (phase: ExportProgress['phase'], fraction: number, message?: string) =>
-        onProgress({ index, total: segments.length, filename, phase, fraction, message });
+      const report = (phase: ExportProgress['phase'], fraction: number, extra: Partial<ExportProgress> = {}) =>
+        onProgress({ index, total: segments.length, filename, phase, fraction, ...extra });
 
       const pieces = keptPieces(seg, req.cuts, xf).map((p) => ({ start: p.start - seg.start, end: p.end - seg.start }));
       const length = joinedDuration(pieces, xf);
@@ -134,7 +134,7 @@ export async function runExport(
       await rename(tempFile, finalPath);
       tempFile = null;
       written.push(finalPath);
-      report('done', 1, `Peak ${(20 * Math.log10(peak || 1e-9)).toFixed(1)} dBFS, gain ${(20 * Math.log10(gain)).toFixed(2)} dB`);
+      report('done', 1, { peakDb: 20 * Math.log10(peak || 1e-9), gainDb: 20 * Math.log10(gain) });
     }
     return { ok: true, cancelled: false, written };
   } catch (err) {

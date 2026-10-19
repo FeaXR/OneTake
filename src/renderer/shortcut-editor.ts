@@ -1,16 +1,17 @@
 import { comboFromEvent, DEFAULT_SHORTCUTS, formatCombo, normalizeCombo, type Command } from './commands.ts';
 import { h } from './dom.ts';
+import { t, type MessageKey } from '../shared/i18n/index.ts';
 
-const GROUPS: [string, string[]][] = [
-  ['File', ['file']],
-  ['Playback', ['play']],
-  ['Playhead', ['playhead']],
-  ['Marking', ['mark']],
-  ['Editing', ['edit', 'nudge']],
-  ['Selection', ['select']],
-  ['Tools', ['tool']],
-  ['View', ['view', 'zoom']],
-  ['App', ['app']],
+const GROUPS: [MessageKey, string[]][] = [
+  ['sc.group.file', ['file']],
+  ['sc.group.playback', ['play']],
+  ['sc.group.playhead', ['playhead']],
+  ['sc.group.marking', ['mark']],
+  ['sc.group.editing', ['edit', 'nudge']],
+  ['sc.group.selection', ['select']],
+  ['sc.group.tools', ['tool']],
+  ['sc.group.view', ['view', 'zoom']],
+  ['sc.group.app', ['app']],
 ];
 
 /**
@@ -59,7 +60,7 @@ export class ShortcutEditor {
     for (const [otherId, combos] of Object.entries(this.bindings)) {
       if (otherId !== id && combos.includes(combo)) {
         this.bindings[otherId] = combos.filter((c) => c !== combo);
-        this.notice = `${formatCombo(combo)} was removed from "${this.labelOf(otherId)}".`;
+        this.notice = t('sc.moved', { combo: formatCombo(combo), command: this.labelOf(otherId) });
       }
     }
     const list = this.bindings[id] ?? [];
@@ -88,23 +89,23 @@ export class ShortcutEditor {
 
   private render(): void {
     const head = h('div', { class: 'sc-head' },
-      h('span', { class: 'form-note' }, 'Click + next to a command, then press the keys. Esc cancels. Click a key to remove it.'),
+      h('span', { class: 'form-note' }, t('sc.help')),
       h('button', {
         onclick: () => {
           for (const id of Object.keys(this.bindings)) this.bindings[id] = [];
           for (const cmd of this.commands) this.resetOne(cmd.id);
-          this.notice = 'All shortcuts reset to the defaults.';
+          this.notice = t('sc.resetAllDone');
           this.capturing = null;
           this.render();
         },
-      }, 'Reset all'),
+      }, t('sc.resetAll')),
     );
 
     const table = h('table', { class: 'shortcut-table' });
     for (const [title, prefixes] of GROUPS) {
       const cmds = this.commands.filter((c) => prefixes.includes(c.id.split('.')[0]));
       if (!cmds.length) continue;
-      table.append(h('tr', { class: 'sc-group' }, h('td', { colSpan: 3 }, title)));
+      table.append(h('tr', { class: 'sc-group' }, h('td', { colSpan: 3 }, t(title))));
       for (const cmd of cmds) table.append(this.row(cmd));
     }
 
@@ -117,7 +118,7 @@ export class ShortcutEditor {
       ...combos.map((combo) =>
         h('button', {
           class: 'sc-key',
-          title: 'Remove this shortcut',
+          title: t('sc.remove.tip'),
           onclick: () => {
             this.bindings[cmd.id] = combos.filter((c) => c !== combo);
             this.notice = '';
@@ -125,13 +126,13 @@ export class ShortcutEditor {
           },
         }, h('kbd', {}, formatCombo(combo)), h('span', { class: 'sc-x' }, '×')),
       ),
-      this.capturing === cmd.id ? h('span', { class: 'sc-capture' }, 'Press keys…') : null,
-      !combos.length && this.capturing !== cmd.id ? h('span', { class: 'sc-none' }, 'none') : null,
+      this.capturing === cmd.id ? h('span', { class: 'sc-capture' }, t('sc.press')) : null,
+      !combos.length && this.capturing !== cmd.id ? h('span', { class: 'sc-none' }, t('sc.none')) : null,
     );
     const actions = h('td', { class: 'sc-actions' },
       h('button', {
         class: 'icon',
-        title: 'Add a shortcut',
+        title: t('sc.add.tip'),
         onclick: () => {
           this.capturing = this.capturing === cmd.id ? null : cmd.id;
           this.notice = '';
@@ -142,7 +143,7 @@ export class ShortcutEditor {
         ? null
         : h('button', {
           class: 'icon',
-          title: 'Back to the default',
+          title: t('sc.reset.tip'),
           onclick: () => {
             this.resetOne(cmd.id);
             this.notice = '';

@@ -1,11 +1,12 @@
+import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting } from '../shared/i18n/index.ts';
 import { formatTime } from '../shared/time.ts';
-import { FADE_CURVES, type ExportProgress, type FadeCurve, type Segment, type Settings } from '../shared/types.ts';
+import { FADE_CURVES, type ExportProgress, type FadeCurve, type Project, type Segment, type Settings } from '../shared/types.ts';
 import { outputFilename, validateSegments } from '../shared/validate.ts';
 import { CommandRegistry, Keymap, overridesFrom } from './commands.ts';
 import { ShortcutEditor } from './shortcut-editor.ts';
 import { choose, closeContextMenu, modalOpen, openModal, showContextMenu, showLoading, toast } from './dialogs.ts';
 import { h } from './dom.ts';
-import { clamp, Editor, MIN_REGION_SEC, type RegionKind, type Tool } from './editor.ts';
+import { clamp, Editor, MIN_REGION_SEC, type RegionKind, type Selection, type Tool } from './editor.ts';
 import { icons } from './icons.ts';
 import { Overview } from './overview.ts';
 import { OutputPanel } from './panel.ts';
@@ -16,9 +17,22 @@ import { Timeline } from './timeline.ts';
 const NUDGE_SEC = 0.01;
 const STEP_SEC = 1;
 const BIG_STEP_SEC = 10;
+/** sessionStorage key holding the open work while the window reloads to switch language. */
+const RELOAD_STATE_KEY = 'sae.reloadState';
 
 const basename = (p: string) => p.replace(/^.*[\\/]/, '');
 const dirname = (p: string) => p.replace(/[\\/][^\\/]*$/, '');
+
+interface ReloadState {
+  wavPath: string;
+  project: Project;
+  dirty: boolean;
+  view: { start: number; secPerPx: number };
+  playhead: number;
+  selection: Selection | null;
+  tool: Tool;
+  skipCuts: boolean;
+}
 
 export class App {
   readonly editor = new Editor();
@@ -36,8 +50,13 @@ export class App {
   };
   private exporting = false;
 
-  constructor() {
+  constructor(settings: Settings) {
     const ed = this.editor;
+    ed.settings = settings;
+    document.documentElement.lang = getLanguage();
+    document.getElementById('empty-title')!.textContent = t('empty.title');
+    document.getElementById('empty-sub')!.textContent = t('empty.sub');
+
     this.player = new Player(document.getElementById('player') as HTMLAudioElement, ed);
     new Overview(document.getElementById('overview') as HTMLCanvasElement, ed);
     new Timeline(document.getElementById('timeline') as HTMLCanvasElement, ed, this.player, {
@@ -67,10 +86,10 @@ export class App {
   }
 
   async init(): Promise<void> {
-    this.editor.settings = await window.studio.getSettings();
     await this.reloadKeymap();
     this.editor.notify('settings', 'ui');
     window.studio.onOpenFile((path) => void this.openPath(path));
+    if (await this.restoreAfterReload()) return;
     const startupFile = await window.studio.takeStartupFile();
     if (startupFile) await this.openPath(startupFile, false);
   }
@@ -94,19 +113,19 @@ export class App {
     const selection = () => ed.selectedRegion();
 
     this.commands.register(
-      { id: 'file.open', label: 'Open WAV…', run: () => this.openWithDialog() },
-      { id: 'file.save', label: 'Save project', run: () => void this.save(), enabled: hasAudio },
-      { id: 'file.export', label: 'Export all', run: () => this.exportAll(), enabled: () => hasAudio() && !this.exporting },
-      { id: 'edit.undo', label: 'Undo', run: () => ed.undo(), enabled: () => ed.canUndo },
-      { id: 'edit.redo', label: 'Redo', run: () => ed.redo(), enabled: () => ed.canRedo },
+      { id: 'file.open', label: t('cmd.file.open'), run: () => this.openWithDialog() },
+      { id: 'file.save', label: t('cmd.file.save'), run: () => void this.save(), enabled: hasAudio },
+      { id: 'file.export', label: t('cmd.file.export'), run: () => this.exportAll(), enabled: () => hasAudio() && !this.exporting },
+      { id: 'edit.undo', label: t('cmd.edit.undo'), run: () => ed.undo(), enabled: () => ed.canUndo },
+      { id: 'edit.redo', label: t('cmd.edit.redo'), run: () => ed.redo(), enabled: () => ed.canRedo },
       {
-        id: 'edit.delete', label: 'Delete selected', enabled: hasSelection,
+        id: 'edit.delete', label: t('cmd.edit.delete'), enabled: hasSelection,
         run: () => {
           if (ed.selection) this.deleteRegion(ed.selection.kind, ed.selection.id);
         },
       },
       {
-        id: 'edit.escape', label: 'Cancel marks / deselect',
+        id: 'edit.escape', label: t('cmd.edit.escape'),
         run: () => {
           if (ed.markIn !== null || ed.cutMark !== null) {
             ed.markIn = null;
@@ -115,84 +134,84 @@ export class App {
           } else ed.select(null);
         },
       },
-      { id: 'edit.setStart', label: 'Set selected start to playhead', enabled: hasSelection, run: () => this.setEdge('start', ed.playhead) },
-      { id: 'edit.setEnd', label: 'Set selected end to playhead', enabled: hasSelection, run: () => this.setEdge('end', ed.playhead) },
-      { id: 'tool.select', label: 'Select tool', run: () => ed.setTool('select') },
-      { id: 'tool.segment', label: 'Segment tool', run: () => ed.setTool('segment') },
-      { id: 'tool.cut', label: 'Cut tool', run: () => ed.setTool('cut') },
-      { id: 'play.toggle', label: 'Play / pause', run: () => this.player.toggle(), enabled: hasAudio },
+      { id: 'edit.setStart', label: t('cmd.edit.setStart'), enabled: hasSelection, run: () => this.setEdge('start', ed.playhead) },
+      { id: 'edit.setEnd', label: t('cmd.edit.setEnd'), enabled: hasSelection, run: () => this.setEdge('end', ed.playhead) },
+      { id: 'tool.select', label: t('cmd.tool.select'), run: () => ed.setTool('select') },
+      { id: 'tool.segment', label: t('cmd.tool.segment'), run: () => ed.setTool('segment') },
+      { id: 'tool.cut', label: t('cmd.tool.cut'), run: () => ed.setTool('cut') },
+      { id: 'play.toggle', label: t('cmd.play.toggle'), run: () => this.player.toggle(), enabled: hasAudio },
       {
-        id: 'play.selection', label: 'Play selection', enabled: hasAudio,
+        id: 'play.selection', label: t('cmd.play.selection'), enabled: hasAudio,
         run: () => (ed.selection ? this.playRegion(ed.selection.kind, ed.selection.id) : void this.player.play()),
       },
       {
-        id: 'play.skipCuts', label: 'Skip cuts while playing',
+        id: 'play.skipCuts', label: t('cmd.play.skipCuts'),
         run: () => {
           ed.skipCuts = !ed.skipCuts;
           ed.notify('ui');
-          toast(ed.skipCuts ? 'Playback skips cuts' : 'Playback plays through cuts');
+          toast(ed.skipCuts ? t('toast.skipCutsOn') : t('toast.skipCutsOff'));
         },
       },
-      { id: 'playhead.start', label: 'Playhead to start of file', run: () => this.moveTo(0), enabled: hasAudio },
-      { id: 'playhead.end', label: 'Playhead to end of file', run: () => this.moveTo(ed.duration), enabled: hasAudio },
+      { id: 'playhead.start', label: t('cmd.playhead.start'), run: () => this.moveTo(0), enabled: hasAudio },
+      { id: 'playhead.end', label: t('cmd.playhead.end'), run: () => this.moveTo(ed.duration), enabled: hasAudio },
       {
-        id: 'playhead.selectionStart', label: 'Playhead to start of selection', enabled: hasSelection,
+        id: 'playhead.selectionStart', label: t('cmd.playhead.selectionStart'), enabled: hasSelection,
         run: () => this.moveTo(selection()!.start),
       },
       {
-        id: 'playhead.selectionEnd', label: 'Playhead to end of selection', enabled: hasSelection,
+        id: 'playhead.selectionEnd', label: t('cmd.playhead.selectionEnd'), enabled: hasSelection,
         run: () => this.moveTo(selection()!.end),
       },
       {
-        id: 'playhead.segmentStart', label: 'Playhead to start of the segment it is in', enabled: hasAudio,
+        id: 'playhead.segmentStart', label: t('cmd.playhead.segmentStart'), enabled: hasAudio,
         run: () => this.toSegmentEdge('start'),
       },
       {
-        id: 'playhead.segmentEnd', label: 'Playhead to end of the segment it is in', enabled: hasAudio,
+        id: 'playhead.segmentEnd', label: t('cmd.playhead.segmentEnd'), enabled: hasAudio,
         run: () => this.toSegmentEdge('end'),
       },
-      { id: 'playhead.prevEdge', label: 'Playhead to previous segment/cut edge', run: () => this.jumpToEdge(-1), enabled: hasAudio },
-      { id: 'playhead.nextEdge', label: 'Playhead to next segment/cut edge', run: () => this.jumpToEdge(1), enabled: hasAudio },
-      { id: 'playhead.show', label: 'Scroll to playhead', run: () => this.centerOn(ed.playhead), enabled: hasAudio },
-      { id: 'view.pageBack', label: 'Scroll one screen left', run: () => ed.scrollBy(-ed.view.widthPx * 0.9), enabled: hasAudio },
-      { id: 'view.pageForward', label: 'Scroll one screen right', run: () => ed.scrollBy(ed.view.widthPx * 0.9), enabled: hasAudio },
-      { id: 'playhead.back', label: `Playhead back ${STEP_SEC} s`, run: () => seekBy(-STEP_SEC), enabled: hasAudio },
-      { id: 'playhead.forward', label: `Playhead forward ${STEP_SEC} s`, run: () => seekBy(STEP_SEC), enabled: hasAudio },
-      { id: 'playhead.backBig', label: `Playhead back ${BIG_STEP_SEC} s`, run: () => seekBy(-BIG_STEP_SEC), enabled: hasAudio },
-      { id: 'playhead.forwardBig', label: `Playhead forward ${BIG_STEP_SEC} s`, run: () => seekBy(BIG_STEP_SEC), enabled: hasAudio },
-      { id: 'mark.in', label: 'Mark segment start at playhead', run: () => this.markIn(), enabled: hasAudio },
-      { id: 'mark.out', label: 'Mark segment end at playhead', run: () => this.markOut(), enabled: hasAudio },
-      { id: 'mark.cut', label: 'Mark cut start / end at playhead', run: () => this.markCut(), enabled: hasAudio },
-      { id: 'nudge.startBack', label: 'Nudge start earlier (10 ms)', run: () => this.nudge('start', -NUDGE_SEC), enabled: hasSelection },
-      { id: 'nudge.startForward', label: 'Nudge start later (10 ms)', run: () => this.nudge('start', NUDGE_SEC), enabled: hasSelection },
-      { id: 'nudge.endBack', label: 'Nudge end earlier (10 ms)', run: () => this.nudge('end', -NUDGE_SEC), enabled: hasSelection },
-      { id: 'nudge.endForward', label: 'Nudge end later (10 ms)', run: () => this.nudge('end', NUDGE_SEC), enabled: hasSelection },
-      { id: 'select.next', label: 'Select next segment', run: () => this.cycleSegment(1), enabled: hasAudio },
-      { id: 'select.prev', label: 'Select previous segment', run: () => this.cycleSegment(-1), enabled: hasAudio },
-      { id: 'zoom.in', label: 'Zoom in', run: () => this.zoom(1.6), enabled: hasAudio },
-      { id: 'zoom.out', label: 'Zoom out', run: () => this.zoom(1 / 1.6), enabled: hasAudio },
-      { id: 'zoom.fit', label: 'Zoom to whole file', run: () => ed.zoomToFit(), enabled: hasAudio },
+      { id: 'playhead.prevEdge', label: t('cmd.playhead.prevEdge'), run: () => this.jumpToEdge(-1), enabled: hasAudio },
+      { id: 'playhead.nextEdge', label: t('cmd.playhead.nextEdge'), run: () => this.jumpToEdge(1), enabled: hasAudio },
+      { id: 'playhead.show', label: t('cmd.playhead.show'), run: () => this.centerOn(ed.playhead), enabled: hasAudio },
+      { id: 'view.pageBack', label: t('cmd.view.pageBack'), run: () => ed.scrollBy(-ed.view.widthPx * 0.9), enabled: hasAudio },
+      { id: 'view.pageForward', label: t('cmd.view.pageForward'), run: () => ed.scrollBy(ed.view.widthPx * 0.9), enabled: hasAudio },
+      { id: 'playhead.back', label: t('cmd.playhead.back', { sec: STEP_SEC }), run: () => seekBy(-STEP_SEC), enabled: hasAudio },
+      { id: 'playhead.forward', label: t('cmd.playhead.forward', { sec: STEP_SEC }), run: () => seekBy(STEP_SEC), enabled: hasAudio },
+      { id: 'playhead.backBig', label: t('cmd.playhead.backBig', { sec: BIG_STEP_SEC }), run: () => seekBy(-BIG_STEP_SEC), enabled: hasAudio },
+      { id: 'playhead.forwardBig', label: t('cmd.playhead.forwardBig', { sec: BIG_STEP_SEC }), run: () => seekBy(BIG_STEP_SEC), enabled: hasAudio },
+      { id: 'mark.in', label: t('cmd.mark.in'), run: () => this.markIn(), enabled: hasAudio },
+      { id: 'mark.out', label: t('cmd.mark.out'), run: () => this.markOut(), enabled: hasAudio },
+      { id: 'mark.cut', label: t('cmd.mark.cut'), run: () => this.markCut(), enabled: hasAudio },
+      { id: 'nudge.startBack', label: t('cmd.nudge.startBack'), run: () => this.nudge('start', -NUDGE_SEC), enabled: hasSelection },
+      { id: 'nudge.startForward', label: t('cmd.nudge.startForward'), run: () => this.nudge('start', NUDGE_SEC), enabled: hasSelection },
+      { id: 'nudge.endBack', label: t('cmd.nudge.endBack'), run: () => this.nudge('end', -NUDGE_SEC), enabled: hasSelection },
+      { id: 'nudge.endForward', label: t('cmd.nudge.endForward'), run: () => this.nudge('end', NUDGE_SEC), enabled: hasSelection },
+      { id: 'select.next', label: t('cmd.select.next'), run: () => this.cycleSegment(1), enabled: hasAudio },
+      { id: 'select.prev', label: t('cmd.select.prev'), run: () => this.cycleSegment(-1), enabled: hasAudio },
+      { id: 'zoom.in', label: t('cmd.zoom.in'), run: () => this.zoom(1.6), enabled: hasAudio },
+      { id: 'zoom.out', label: t('cmd.zoom.out'), run: () => this.zoom(1 / 1.6), enabled: hasAudio },
+      { id: 'zoom.fit', label: t('cmd.zoom.fit'), run: () => ed.zoomToFit(), enabled: hasAudio },
       {
-        id: 'zoom.selection', label: 'Zoom to selection', enabled: hasSelection,
+        id: 'zoom.selection', label: t('cmd.zoom.selection'), enabled: hasSelection,
         run: () => {
           const r = ed.selectedRegion();
           if (r) ed.zoomToRange(r.start, r.end);
         },
       },
-      { id: 'app.settings', label: 'Settings', run: () => this.openSettings() },
-      { id: 'app.devtools', label: 'Developer tools', run: () => window.studio.toggleDevTools() },
+      { id: 'app.settings', label: t('cmd.app.settings'), run: () => this.openSettings() },
+      { id: 'app.devtools', label: t('cmd.app.devtools'), run: () => window.studio.toggleDevTools() },
     );
   }
 
   /** Keyboard playhead moves: seek, and scroll so the playhead stays on screen. */
-  private moveTo(t: number): void {
-    this.player.seek(t);
+  private moveTo(time: number): void {
+    this.player.seek(time);
     this.editor.ensureVisible(this.editor.playhead);
   }
 
-  private centerOn(t: number): void {
+  private centerOn(time: number): void {
     const ed = this.editor;
-    ed.scrollTo(t - (ed.view.widthPx * ed.view.secPerPx) / 2);
+    ed.scrollTo(time - (ed.view.widthPx * ed.view.secPerPx) / 2);
   }
 
   /**
@@ -201,14 +220,14 @@ export class App {
    */
   private segmentAtPlayhead(): Segment | undefined {
     const ed = this.editor;
-    const t = ed.playhead;
-    const under = ed.sortedSegments().filter((s) => t >= s.start && t <= s.end);
+    const time = ed.playhead;
+    const under = ed.sortedSegments().filter((s) => time >= s.start && time <= s.end);
     return under.find((s) => s.id === ed.selection?.id) ?? under.at(-1);
   }
 
   private toSegmentEdge(edge: 'start' | 'end'): void {
     const seg = this.segmentAtPlayhead();
-    if (!seg) return toast('The playhead is not inside a segment.', 'error');
+    if (!seg) return toast(t('toast.notInSegment'), 'error');
     this.moveTo(seg[edge]);
   }
 
@@ -219,7 +238,7 @@ export class App {
     for (const r of [...ed.project.segments, ...ed.project.cuts]) edges.push(r.start, r.end);
     edges.sort((a, b) => a - b);
     const eps = 0.0005;
-    const target = dir === 1 ? edges.find((t) => t > ed.playhead + eps) : edges.findLast((t) => t < ed.playhead - eps);
+    const target = dir === 1 ? edges.find((e) => e > ed.playhead + eps) : edges.findLast((e) => e < ed.playhead - eps);
     if (target !== undefined) this.moveTo(target);
   }
 
@@ -236,18 +255,18 @@ export class App {
       const end = Math.max(ed.markIn, ed.playhead);
       ed.markIn = null;
       if (end - start < MIN_REGION_SEC) {
-        toast('The segment would be empty: move the playhead past the IN mark first.', 'error');
+        toast(t('toast.emptySegment'), 'error');
         ed.notify('ui');
         return;
       }
       const s = ed.newSegment(start, end);
       ed.commit((p) => p.segments.push(s));
       ed.select({ kind: 'segment', id: s.id });
-      toast(`Segment #${ed.segmentNumber(s.id)} added. Name it in the list on the right.`);
+      toast(t('toast.segmentAdded', { n: ed.segmentNumber(s.id) }));
     } else if (ed.selectedSegment()) {
       this.setEdge('end', ed.playhead);
     } else {
-      toast('Press I at the start first (or select a segment to move its end).', 'error');
+      toast(t('toast.pressInFirst', { key: this.keymap.label('mark.in') || 'I' }), 'error');
     }
   }
 
@@ -270,15 +289,15 @@ export class App {
     ed.select({ kind: 'cut', id: c.id });
   }
 
-  private setEdge(edge: 'start' | 'end', t: number): void {
+  private setEdge(edge: 'start' | 'end', time: number): void {
     const ed = this.editor;
     const sel = ed.selection;
     if (!sel) return;
     ed.commit(() => {
       const r = ed.region(sel);
       if (!r) return;
-      if (edge === 'start') r.start = clamp(t, 0, r.end - MIN_REGION_SEC);
-      else r.end = clamp(t, r.start + MIN_REGION_SEC, ed.duration);
+      if (edge === 'start') r.start = clamp(time, 0, r.end - MIN_REGION_SEC);
+      else r.end = clamp(time, r.start + MIN_REGION_SEC, ed.duration);
     });
   }
 
@@ -309,7 +328,7 @@ export class App {
     this.editor.select({ kind, id });
     // Around a cut: two seconds either side, so the join can be heard (the cut itself is skipped).
     if (kind === 'cut') {
-      if (!this.editor.skipCuts) toast('Skip cuts is off: you will hear the cut audio too.');
+      if (!this.editor.skipCuts) toast(t('toast.skipCutsIsOff'));
       void this.player.play(Math.max(0, r.start - 2), Math.min(this.editor.duration, r.end + 2));
     } else void this.player.play(r.start, r.end);
   }
@@ -328,10 +347,10 @@ export class App {
   /** Returns false if the user cancelled. */
   private async confirmDiscard(): Promise<boolean> {
     if (!this.editor.dirty) return true;
-    const answer = await choose('Unsaved changes', 'Save the changes to the current project first?', [
-      { label: 'Cancel', value: 'cancel' },
-      { label: "Don't save", value: 'discard' },
-      { label: 'Save', value: 'save', primary: true },
+    const answer = await choose(t('dlg.unsaved.title'), t('dlg.unsaved.message'), [
+      { label: t('btn.cancel'), value: 'cancel' },
+      { label: t('btn.dontSave'), value: 'discard' },
+      { label: t('btn.save'), value: 'save', primary: true },
     ], 'cancel');
     if (answer === 'cancel') return false;
     if (answer === 'save') return this.save();
@@ -344,11 +363,15 @@ export class App {
     if (path) await this.openPath(path, false);
   }
 
-  async openPath(path: string, confirm = true): Promise<void> {
-    if (this.exporting) return toast('Wait for the export to finish first.', 'error');
-    if (confirm && !(await this.confirmDiscard())) return;
+  /** Opens a WAV. Resolves to true when it loaded. */
+  async openPath(path: string, confirm = true, quiet = false): Promise<boolean> {
+    if (this.exporting) {
+      toast(t('toast.waitForExport'), 'error');
+      return false;
+    }
+    if (confirm && !(await this.confirmDiscard())) return false;
     this.player.pause();
-    const loading = showLoading(`Reading ${basename(path)}…`);
+    const loading = showLoading(t('dlg.loading', { name: basename(path) }));
     const off = window.studio.onLoadProgress((f) => loading.update(f));
     try {
       const loaded = await window.studio.loadAudio(path);
@@ -356,9 +379,11 @@ export class App {
       this.editor.loadAudio(loaded.info.path, loaded.info, peaks, loaded.project);
       if (!this.editor.project.outputDir) this.editor.project.outputDir = dirname(loaded.info.path);
       this.player.load(loaded.info.path);
-      if (loaded.project) toast(`Loaded the saved project for ${basename(path)}`);
+      if (loaded.project && !quiet) toast(t('toast.projectLoaded', { name: basename(path) }));
+      return true;
     } catch (err) {
-      toast(`Could not open ${basename(path)}: ${errorText(err)}`, 'error');
+      toast(t('toast.openFailed', { name: basename(path), error: errorText(err) }), 'error');
+      return false;
     } finally {
       off();
       loading.close();
@@ -371,10 +396,10 @@ export class App {
     try {
       await window.studio.saveProject(ed.wavPath, ed.project);
       ed.setDirty(false);
-      toast('Project saved');
+      toast(t('toast.saved'));
       return true;
     } catch (err) {
-      toast(`Saving failed: ${errorText(err)}`, 'error');
+      toast(t('toast.saveFailed', { error: errorText(err) }), 'error');
       return false;
     }
   }
@@ -386,19 +411,75 @@ export class App {
     return dir;
   }
 
+  // ---------- Language switch ----------
+
+  /**
+   * The UI is built once in the chosen language, so switching reloads the window. The open
+   * file, its unsaved edits and the view are carried over in sessionStorage (undo history is not).
+   */
+  private reloadForLanguage(): void {
+    const ed = this.editor;
+    if (ed.wavPath) {
+      const state: ReloadState = {
+        wavPath: ed.wavPath,
+        project: ed.project,
+        dirty: ed.dirty,
+        view: { start: ed.view.start, secPerPx: ed.view.secPerPx },
+        playhead: ed.playhead,
+        selection: ed.selection,
+        tool: ed.tool,
+        skipCuts: ed.skipCuts,
+      };
+      try {
+        sessionStorage.setItem(RELOAD_STATE_KEY, JSON.stringify(state));
+      } catch {
+        // Without storage the file simply is not reopened.
+      }
+    }
+    // The reload itself must not trigger the unsaved-changes prompt; the edits travel along.
+    window.studio.setDirty(false);
+    location.reload();
+  }
+
+  private async restoreAfterReload(): Promise<boolean> {
+    let state: ReloadState | null = null;
+    try {
+      const raw = sessionStorage.getItem(RELOAD_STATE_KEY);
+      sessionStorage.removeItem(RELOAD_STATE_KEY);
+      state = raw ? (JSON.parse(raw) as ReloadState) : null;
+    } catch {
+      state = null;
+    }
+    if (!state) return false;
+    toast(t('toast.languageReloaded'));
+    if (!(await this.openPath(state.wavPath, false, true))) return true;
+
+    const ed = this.editor;
+    ed.project = state.project;
+    ed.setDirty(state.dirty);
+    ed.tool = state.tool;
+    ed.skipCuts = state.skipCuts;
+    ed.selection = state.selection && ed.region(state.selection) ? state.selection : null;
+    ed.view.secPerPx = state.view.secPerPx;
+    ed.scrollTo(state.view.start);
+    this.player.seek(state.playhead);
+    ed.notify('project', 'selection', 'view', 'ui');
+    return true;
+  }
+
   // ---------- Export ----------
 
   private async exportAll(): Promise<void> {
     const ed = this.editor;
     if (!ed.wavPath || this.exporting) return;
     const segments = ed.sortedSegments();
-    if (!segments.length) return toast('There is nothing to export yet. Mark at least one segment.', 'error');
+    if (!segments.length) return toast(t('toast.nothingToExport'), 'error');
 
     const issues = validateSegments(segments, ed.project.cuts, ed.settings);
     const firstBad = segments.find((s) => issues.get(s.id)!.errors.length);
     if (firstBad) {
       const count = segments.filter((s) => issues.get(s.id)!.errors.length).length;
-      toast(`${count} output file${count > 1 ? 's need' : ' needs'} fixing first (see the red notes in the list).`, 'error');
+      toast(t('toast.needsFixing', { count }), 'error');
       ed.select({ kind: 'segment', id: firstBad.id });
       this.panel.focusName(firstBad.id);
       return;
@@ -410,10 +491,11 @@ export class App {
     const names = segments.map((s) => outputFilename(s.filename));
     const existing = await window.studio.existingFiles(outputDir, names);
     if (existing.length) {
-      const list = existing.length <= 6 ? existing.join(', ') : `${existing.slice(0, 6).join(', ')} and ${existing.length - 6} more`;
-      const answer = await choose('Overwrite files?',
-        `${existing.length} file${existing.length > 1 ? 's' : ''} already exist${existing.length > 1 ? '' : 's'} in the output folder and will be replaced: ${list}`,
-        [{ label: 'Cancel', value: 'cancel' }, { label: 'Overwrite', value: 'ok', primary: true }], 'cancel');
+      const list = existing.length <= 6
+        ? existing.join(', ')
+        : t('dlg.overwrite.more', { list: existing.slice(0, 6).join(', '), n: existing.length - 6 });
+      const answer = await choose(t('dlg.overwrite.title'), t('dlg.overwrite.message', { count: existing.length, list }),
+        [{ label: t('btn.cancel'), value: 'cancel' }, { label: t('btn.overwrite'), value: 'ok', primary: true }], 'cancel');
       if (answer !== 'ok') return;
     }
 
@@ -423,14 +505,15 @@ export class App {
     const items = segments.map((s, i) => {
       const fill = h('div');
       const bar = h('div', { class: 'bar' }, fill);
-      const detail = h('div', { class: 'detail' }, `${s.bitrate} kbps · peak ${s.peakTarget === 1 ? '100%' : '60%'}`);
+      const detail = h('div', { class: 'detail' },
+        t('export.itemDetail', { bitrate: s.bitrate, peak: s.peakTarget === 1 ? '100%' : '60%' }));
       const el = h('div', { class: 'export-item' }, h('div', { class: 'name' }, `#${i + 1}  ${names[i]}`), bar, detail);
       return { el, bar, fill, detail };
     });
 
-    const modal = openModal(`Exporting ${segments.length} file${segments.length > 1 ? 's' : ''}`, { wide: true, dismissable: false });
-    modal.body.append(h('div', { class: 'form-note' }, `To ${outputDir}`), ...items.map((i) => i.el));
-    const cancelBtn = h('button', { onclick: () => void window.studio.cancelExport() }, 'Cancel');
+    const modal = openModal(t('export.title', { count: segments.length }), { wide: true, dismissable: false });
+    modal.body.append(h('div', { class: 'form-note' }, t('export.to', { dir: outputDir })), ...items.map((i) => i.el));
+    const cancelBtn = h('button', { onclick: () => void window.studio.cancelExport() }, t('btn.cancel'));
     modal.foot.append(cancelBtn);
 
     const off = window.studio.onExportProgress((p: ExportProgress) => {
@@ -438,11 +521,14 @@ export class App {
       if (!item) return;
       const overall = p.phase === 'measure' ? p.fraction * 0.35 : p.phase === 'encode' ? 0.35 + p.fraction * 0.65 : 1;
       item.fill.style.width = `${Math.round(overall * 100)}%`;
-      if (p.phase === 'measure') item.detail.textContent = 'Measuring peak…';
-      if (p.phase === 'encode') item.detail.textContent = 'Encoding MP3…';
+      if (p.phase === 'measure') item.detail.textContent = t('export.measuring');
+      if (p.phase === 'encode') item.detail.textContent = t('export.encoding');
       if (p.phase === 'done') {
         item.bar.classList.add('done');
-        item.detail.textContent = `Done. ${p.message ?? ''}`;
+        item.detail.textContent = t('export.done', {
+          peak: formatNumber(p.peakDb ?? 0, 1),
+          gain: formatNumber(p.gainDb ?? 0, 2),
+        });
       }
     });
 
@@ -455,29 +541,29 @@ export class App {
         settings: ed.settings,
       });
       cancelBtn.remove();
+      const count = result.written.length;
       if (result.ok) {
-        modal.body.prepend(h('div', { style: { color: 'var(--ok)', fontWeight: '600' } }, `All ${result.written.length} files exported.`));
+        modal.body.prepend(h('div', { style: { color: 'var(--ok)', fontWeight: '600' } }, t('export.allDone', { count })));
         if (ed.dirty) await this.save();
       } else {
-        const failedIndex = result.written.length;
-        const item = items[failedIndex];
+        const item = items[count];
         if (item) {
           item.bar.classList.add('failed');
           item.detail.classList.add('err');
-          item.detail.textContent = result.cancelled ? 'Cancelled' : (result.error ?? 'Failed');
+          item.detail.textContent = result.cancelled ? t('export.cancelled') : translateCodes(result.error ?? t('export.failed'));
         }
         modal.body.prepend(h('div', { style: { color: result.cancelled ? 'var(--warn)' : 'var(--danger)', fontWeight: '600' } },
-          result.cancelled ? `Cancelled. ${result.written.length} file(s) were written.` : `Export stopped with an error. ${result.written.length} file(s) were written.`));
+          result.cancelled ? t('export.cancelledSummary', { count }) : t('export.errorSummary', { count })));
       }
-      if (result.written.length) {
-        modal.foot.append(h('button', { onclick: () => void window.studio.showInFolder(result.written[0]) }, 'Show in folder'));
+      if (count) {
+        modal.foot.append(h('button', { onclick: () => void window.studio.showInFolder(result.written[0]) }, t('btn.showInFolder')));
       }
-      const close = h('button', { class: 'primary', onclick: () => modal.close() }, 'Close');
+      const close = h('button', { class: 'primary', onclick: () => modal.close() }, t('btn.close'));
       modal.foot.append(close);
       close.focus();
     } catch (err) {
       modal.close();
-      toast(`Export failed: ${errorText(err)}`, 'error');
+      toast(t('toast.exportFailed', { error: errorText(err) }), 'error');
     } finally {
       off();
       this.exporting = false;
@@ -502,7 +588,16 @@ export class App {
       });
     const curveSelect = (value: FadeCurve, set: (v: FadeCurve) => void) => {
       const sel = h('select', { onchange: () => set(sel.value as FadeCurve) });
-      for (const [k, label] of Object.entries(FADE_CURVES)) sel.append(h('option', { value: k, selected: k === value }, label));
+      for (const k of FADE_CURVES) sel.append(h('option', { value: k, selected: k === value }, t(`curve.${k}`)));
+      return sel;
+    };
+    const languageSelect = () => {
+      const sel = h('select', { onchange: () => (s.language = sel.value as LanguageSetting) });
+      const options: [LanguageSetting, string][] = [
+        ['system', t('settings.languageSystem')],
+        ...(Object.entries(LANGUAGES) as [LanguageSetting, string][]),
+      ];
+      for (const [value, label] of options) sel.append(h('option', { value, selected: value === s.language }, label));
       return sel;
     };
     const choice = <T extends string | number>(options: [T, string][], value: T, set: (v: T) => void) => {
@@ -521,44 +616,51 @@ export class App {
     };
 
     const shortcuts = new ShortcutEditor(this.commands.all(), this.keymap.toRecord());
-    const m = openModal('Settings', { wide: true, onClose: () => shortcuts.dispose() });
+    const m = openModal(t('settings.title'), { wide: true, onClose: () => shortcuts.dispose() });
     m.body.append(
-      h('div', { class: 'form-section' }, 'Fades (same for every file)'),
+      h('div', { class: 'form-section' }, t('settings.language')),
       h('div', { class: 'form-grid' },
-        h('label', {}, 'Fade-in'),
-        h('div', { class: 'inline' }, num(s.fadeInSec, 0, 60, 0.1, (v) => (s.fadeInSec = v)), 'seconds', curveSelect(s.fadeInCurve, (v) => (s.fadeInCurve = v))),
-        h('label', {}, 'Fade-out'),
-        h('div', { class: 'inline' }, num(s.fadeOutSec, 0, 60, 0.1, (v) => (s.fadeOutSec = v)), 'seconds', curveSelect(s.fadeOutCurve, (v) => (s.fadeOutCurve = v))),
+        h('label', {}, t('settings.languageLabel')),
+        h('div', { class: 'inline' }, languageSelect()),
       ),
-      h('div', { class: 'form-section' }, 'Export'),
+      h('div', { class: 'form-section' }, t('settings.fades')),
       h('div', { class: 'form-grid' },
-        h('label', {}, '"100%" peak level'),
+        h('label', {}, t('settings.fadeIn')),
+        h('div', { class: 'inline' }, num(s.fadeInSec, 0, 60, 0.1, (v) => (s.fadeInSec = v)), t('settings.seconds'), curveSelect(s.fadeInCurve, (v) => (s.fadeInCurve = v))),
+        h('label', {}, t('settings.fadeOut')),
+        h('div', { class: 'inline' }, num(s.fadeOutSec, 0, 60, 0.1, (v) => (s.fadeOutSec = v)), t('settings.seconds'), curveSelect(s.fadeOutCurve, (v) => (s.fadeOutCurve = v))),
+      ),
+      h('div', { class: 'form-section' }, t('settings.export')),
+      h('div', { class: 'form-grid' },
+        h('label', {}, t('settings.ceiling')),
         h('div', { class: 'inline' }, num(s.ceilingDb, -3, 0, 0.1, (v) => (s.ceilingDb = v)), 'dBFS',
-          h('span', { class: 'form-note' }, '0 = full scale. −0.3 to −1 avoids slight MP3 clipping.')),
-        h('label', {}, 'Crossfade at cuts'),
+          h('span', { class: 'form-note' }, t('settings.ceilingNote'))),
+        h('label', {}, t('settings.crossfade')),
         h('div', { class: 'inline' }, num(s.cutCrossfadeMs, 1, 200, 1, (v) => (s.cutCrossfadeMs = v)), 'ms'),
-        h('label', {}, 'New segments use'),
+        h('label', {}, t('settings.defaults')),
         h('div', { class: 'inline' },
           choice<number>([[1, '100%'], [0.6, '60%']], s.defaultPeakTarget, (v) => (s.defaultPeakTarget = v as Settings['defaultPeakTarget'])),
           choice<number>([[320, '320 kbps'], [192, '192 kbps']], s.defaultBitrate, (v) => (s.defaultBitrate = v as Settings['defaultBitrate'])),
         ),
       ),
-      h('div', { class: 'form-section' }, 'Keyboard shortcuts'),
+      h('div', { class: 'form-section' }, t('settings.shortcuts')),
       shortcuts.el,
     );
     m.foot.append(
-      h('button', { onclick: () => m.close() }, 'Cancel'),
+      h('button', { onclick: () => m.close() }, t('btn.cancel')),
       h('button', {
         class: 'primary',
         onclick: async () => {
+          const languageChanged = resolveLanguage(s.language, navigator.language) !== getLanguage();
           ed.settings = s;
           await window.studio.saveSettings(s);
           await window.studio.saveShortcutOverrides(overridesFrom(shortcuts.result()));
+          m.close();
+          if (languageChanged) return this.reloadForLanguage();
           await this.reloadKeymap();
           ed.notify('settings', 'project');
-          m.close();
         },
-      }, 'Save'),
+      }, t('btn.save')),
     );
   }
 
@@ -573,40 +675,40 @@ export class App {
       this.toolbarButtons.push({ el, command, active });
       return el;
     };
-    const tool = (t: Tool, icon: string, text: string, title: string) =>
-      btn(`tool.${t}`, icon, text, title, () => this.editor.tool === t);
+    const tool = (tl: Tool, icon: string, text: string, title: string) =>
+      btn(`tool.${tl}`, icon, text, title, () => this.editor.tool === tl);
     const group = (...els: HTMLElement[]) => h('div', { class: 'tb-group' }, ...els);
     const sep = () => h('div', { class: 'tb-sep' });
 
-    const playBtn = btn('play.toggle', icons.play, null, 'Play / pause');
+    const playBtn = btn('play.toggle', icons.play, null, t('tb.play.tip'));
     this.toolbarButtons.at(-1)!.active = () => this.editor.playing;
 
     bar.append(
-      group(btn('file.open', icons.open, 'Open', 'Open a WAV file'), btn('file.save', icons.save, 'Save', 'Save segments and cuts next to the WAV')),
+      group(btn('file.open', icons.open, t('tb.open'), t('tb.open.tip')), btn('file.save', icons.save, t('tb.save'), t('tb.save.tip'))),
       sep(),
-      group(btn('edit.undo', icons.undo, null, 'Undo'), btn('edit.redo', icons.redo, null, 'Redo')),
+      group(btn('edit.undo', icons.undo, null, t('tb.undo.tip')), btn('edit.redo', icons.redo, null, t('tb.redo.tip'))),
       sep(),
       h('div', { class: 'segmented' },
-        tool('select', icons.pointer, 'Select', 'Select tool: click to select and move the playhead, drag to scroll'),
-        tool('segment', icons.segment, 'Segment', 'Segment tool: drag on the waveform to mark an output file'),
-        tool('cut', icons.cut, 'Cut', 'Cut tool: drag on the waveform to mark audio to remove'),
+        tool('select', icons.pointer, t('tb.select'), t('tb.select.tip')),
+        tool('segment', icons.segment, t('tb.segment'), t('tb.segment.tip')),
+        tool('cut', icons.cut, t('tb.cut'), t('tb.cut.tip')),
       ),
       sep(),
       group(
         playBtn,
-        btn('play.selection', icons.playSelection, null, 'Play the selected segment or the audio around the selected cut'),
-        btn('play.skipCuts', icons.skip, 'Skip cuts', 'Skip cuts during playback, to hear the result', () => this.editor.skipCuts),
+        btn('play.selection', icons.playSelection, null, t('tb.playSelection.tip')),
+        btn('play.skipCuts', icons.skip, t('tb.skipCuts'), t('tb.skipCuts.tip'), () => this.editor.skipCuts),
       ),
       sep(),
       group(
-        btn('zoom.out', icons.zoomOut, null, 'Zoom out'),
-        btn('zoom.in', icons.zoomIn, null, 'Zoom in'),
-        btn('zoom.selection', icons.zoomSel, null, 'Zoom to selection'),
-        btn('zoom.fit', icons.fit, null, 'Zoom to whole file'),
+        btn('zoom.out', icons.zoomOut, null, t('tb.zoomOut.tip')),
+        btn('zoom.in', icons.zoomIn, null, t('tb.zoomIn.tip')),
+        btn('zoom.selection', icons.zoomSel, null, t('tb.zoomSelection.tip')),
+        btn('zoom.fit', icons.fit, null, t('tb.zoomFit.tip')),
       ),
       h('div', { class: 'tb-spacer' }),
       this.clock,
-      btn('app.settings', icons.settings, null, 'Settings: fades, peak level, shortcuts'),
+      btn('app.settings', icons.settings, null, t('tb.settings.tip')),
     );
   }
 
@@ -630,27 +732,32 @@ export class App {
     document.getElementById('empty-state')!.classList.toggle('hidden', !!ed.info);
 
     const info = ed.info;
-    this.status.file.textContent = info
-      ? `${basename(info.path)} · ${info.sampleRate / 1000} kHz · ${info.bitsPerSample}-bit ${info.sampleFormat === 'float' ? 'float' : ''} · ${info.channels === 1 ? 'mono' : info.channels === 2 ? 'stereo' : `${info.channels} ch`} · ${formatTime(info.duration, 1)}`
-      : 'No file';
+    if (info) {
+      const channels = info.channels === 1 ? t('status.mono') : info.channels === 2 ? t('status.stereo') : t('status.channels', { n: info.channels });
+      const bits = `${info.bitsPerSample}-bit${info.sampleFormat === 'float' ? ` ${t('status.float')}` : ''}`;
+      this.status.file.textContent =
+        `${basename(info.path)} · ${formatNumber(info.sampleRate / 1000, info.sampleRate % 1000 ? 1 : 0)} kHz · ${bits} · ${channels} · ${formatTime(info.duration, 1)}`;
+    } else {
+      this.status.file.textContent = t('status.noFile');
+    }
     const r = ed.selectedRegion();
     this.status.selection.textContent = r
-      ? `${ed.selection!.kind === 'segment' ? `Segment #${ed.segmentNumber(r.id)}` : 'Cut'}: ${formatTime(r.start)} – ${formatTime(r.end)} (${formatTime(r.end - r.start)})`
+      ? `${ed.selection!.kind === 'segment' ? t('status.segment', { n: ed.segmentNumber(r.id) }) : t('status.cut')}: ${formatTime(r.start)} – ${formatTime(r.end)} (${formatTime(r.end - r.start)})`
       : '';
     const msPerPx = ed.view.secPerPx * 1000;
-    this.status.zoom.textContent = info ? `1 px = ${msPerPx < 10 ? msPerPx.toFixed(2) : msPerPx.toFixed(0)} ms` : '';
+    this.status.zoom.textContent = info ? t('status.zoom', { ms: formatNumber(msPerPx, msPerPx < 10 ? 2 : 0) }) : '';
 
     let hint = '';
-    if (ed.markIn !== null) hint = `IN marked at ${formatTime(ed.markIn)}. Press ${this.keymap.label('mark.out') || 'O'} at the end of the segment, or Esc to cancel.`;
-    else if (ed.cutMark !== null) hint = `Cut start marked at ${formatTime(ed.cutMark)}. Press ${this.keymap.label('mark.cut') || 'X'} again at the end of the cut, or Esc to cancel.`;
+    if (ed.markIn !== null) hint = t('hint.markIn', { time: formatTime(ed.markIn), key: this.keymap.label('mark.out') || 'O' });
+    else if (ed.cutMark !== null) hint = t('hint.cutMark', { time: formatTime(ed.cutMark), key: this.keymap.label('mark.cut') || 'X' });
     else if (!info) hint = '';
-    else if (ed.tool === 'segment') hint = 'Drag on the waveform to mark an output file. Drag edges to adjust. Hold Alt to turn off snapping.';
-    else if (ed.tool === 'cut') hint = 'Drag on the waveform to mark audio to cut out. Drag edges to adjust. Hold Alt to turn off snapping.';
-    else hint = 'Drag in the top lane to add a segment, in the bottom lane to add a cut. Wheel zooms, Shift+wheel scrolls. Right-click for more.';
+    else if (ed.tool === 'segment') hint = t('hint.segment');
+    else if (ed.tool === 'cut') hint = t('hint.cut');
+    else hint = t('hint.select');
     this.status.hint.textContent = hint;
 
     const name = ed.wavPath ? basename(ed.wavPath) : null;
-    document.title = `${name ? `${name}${ed.dirty ? ' •' : ''} — ` : ''}Studio Audio Editor`;
+    document.title = `${name ? `${name}${ed.dirty ? ' •' : ''} — ` : ''}${t('app.name')}`;
     window.studio.setTitle(document.title);
   }
 
@@ -693,7 +800,7 @@ export class App {
       const file = e.dataTransfer?.files[0];
       if (!file) return;
       const path = window.studio.pathForDroppedFile(file);
-      if (!/\.wav$/i.test(path)) return toast('Only .wav files can be opened.', 'error');
+      if (!/\.wav$/i.test(path)) return toast(t('toast.onlyWav'), 'error');
       void this.openPath(path);
     });
 
@@ -705,6 +812,6 @@ export class App {
 
 function errorText(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  // Electron prefixes errors thrown in the main process.
-  return msg.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+  // Electron prefixes errors thrown in the main process; coded errors become the UI language.
+  return translateCodes(msg.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''));
 }

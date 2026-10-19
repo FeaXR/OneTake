@@ -60,6 +60,7 @@ To change them, open **Settings** (the gear icon) and go to **Keyboard shortcuts
 
 ## Settings
 
+- **Language**: English or Magyar (Hungarian). The default, "Same as Windows", follows the Windows display language. Switching reloads the window; the open file and any unsaved edits are kept, but the undo history starts fresh.
 - **Fade-in / fade-out**: length and curve. The defaults are 0.5 s linear in and 2 s exponential out. Set these to match what you used in GoldWave.
 - **"100%" peak level**: 0 dBFS by default. MP3 encoding can overshoot by a fraction of a dB, so −0.3 to −1 dBFS is safer if you want to avoid clipping.
 - **Crossfade at cuts**: 10 ms by default.
@@ -92,3 +93,4 @@ Layout:
 - `src/preload/`: the IPC bridge (`window.studio`)
 - `src/renderer/`: UI (canvas timeline and overview, output list, commands and shortcuts)
 - `src/shared/`: types, time formatting, cut/segment planning and filename validation
+- `src/shared/i18n/`: translations. `en.ts` is the master list of texts; to add a language, copy `hu.ts`, translate it, and register it in `index.ts` (the type checker reports any missing text, and a test checks the placeholders)

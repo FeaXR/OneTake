@@ -1,3 +1,4 @@
+import { formatNumber, t as tr } from '../shared/i18n/index.ts';
 import { formatTime } from '../shared/time.ts';
 import type { Cut, Segment } from '../shared/types.ts';
 import { clamp, MIN_REGION_SEC, type Editor, type RegionKind, type Selection } from './editor.ts';
@@ -434,41 +435,41 @@ export class Timeline {
       const r = ed.region(sel)!;
       ed.select(sel);
       items.push(
-        { label: hit.kind === 'segment' ? 'Play segment' : 'Play around cut', key: key('play.selection'), run: () => this.host.run('play.selection') },
-        { label: 'Zoom to this', key: key('zoom.selection'), run: () => ed.zoomToRange(r.start, r.end) },
+        { label: hit.kind === 'segment' ? tr('ctx.playSegment') : tr('ctx.playAroundCut'), key: key('play.selection'), run: () => this.host.run('play.selection') },
+        { label: tr('ctx.zoomTo'), key: key('zoom.selection'), run: () => ed.zoomToRange(r.start, r.end) },
         { separator: true, label: '' },
-        { label: 'Move playhead to start', key: key('playhead.selectionStart'), run: () => this.player.seek(r.start) },
-        { label: 'Move playhead to end', key: key('playhead.selectionEnd'), run: () => this.player.seek(r.end) },
+        { label: tr('ctx.playheadToStart'), key: key('playhead.selectionStart'), run: () => this.player.seek(r.start) },
+        { label: tr('ctx.playheadToEnd'), key: key('playhead.selectionEnd'), run: () => this.player.seek(r.end) },
         { separator: true, label: '' },
-        { label: 'Set start to playhead', run: () => this.setEdgeAt(sel, 'start', ed.playhead) },
-        { label: 'Set end to playhead', run: () => this.setEdgeAt(sel, 'end', ed.playhead) },
+        { label: tr('ctx.setStart'), run: () => this.setEdgeAt(sel, 'start', ed.playhead) },
+        { label: tr('ctx.setEnd'), run: () => this.setEdgeAt(sel, 'end', ed.playhead) },
         { separator: true, label: '' },
       );
       if (hit.kind === 'segment') {
-        items.push({ label: 'Rename…', run: () => this.host.focusSegmentName(hit.id) });
-        items.push({ label: 'Convert to cut', run: () => this.convert(sel) });
+        items.push({ label: tr('ctx.rename'), run: () => this.host.focusSegmentName(hit.id) });
+        items.push({ label: tr('ctx.toCut'), run: () => this.convert(sel) });
       } else {
-        items.push({ label: 'Convert to segment', run: () => this.convert(sel) });
+        items.push({ label: tr('ctx.toSegment'), run: () => this.convert(sel) });
       }
-      items.push({ label: 'Delete', key: key('edit.delete'), run: () => this.host.run('edit.delete') });
+      items.push({ label: tr('ctx.delete'), key: key('edit.delete'), run: () => this.host.run('edit.delete') });
     } else {
       const span = Math.max(1, 80 * ed.view.secPerPx);
       items.push(
-        { label: 'Move playhead here', run: () => this.player.seek(t) },
-        { label: 'Play from here', run: () => void this.player.play(t) },
+        { label: tr('ctx.playheadHere'), run: () => this.player.seek(t) },
+        { label: tr('ctx.playFromHere'), run: () => void this.player.play(t) },
         {
-          label: 'Playhead to start of its segment',
+          label: tr('ctx.segmentStart'),
           key: key('playhead.segmentStart'),
           run: () => this.host.run('playhead.segmentStart'),
         },
         {
-          label: 'Playhead to end of its segment',
+          label: tr('ctx.segmentEnd'),
           key: key('playhead.segmentEnd'),
           run: () => this.host.run('playhead.segmentEnd'),
         },
         { separator: true, label: '' },
         {
-          label: 'New segment here',
+          label: tr('ctx.newSegment'),
           run: () => {
             const s = ed.newSegment(t, Math.min(ed.duration, t + span * 4));
             ed.commit((p) => p.segments.push(s));
@@ -477,7 +478,7 @@ export class Timeline {
           },
         },
         {
-          label: 'New cut here',
+          label: tr('ctx.newCut'),
           run: () => {
             const c = ed.newCut(t, Math.min(ed.duration, t + span));
             ed.commit((p) => p.cuts.push(c));
@@ -485,7 +486,7 @@ export class Timeline {
           },
         },
         { separator: true, label: '' },
-        { label: 'Zoom to fit', key: key('zoom.fit'), run: () => ed.zoomToFit() },
+        { label: tr('ctx.zoomFit'), key: key('zoom.fit'), run: () => ed.zoomToFit() },
       );
     }
     this.host.showContextMenu(e.clientX, e.clientY, items);
@@ -646,7 +647,7 @@ export class Timeline {
         ctx.stroke();
       }
 
-      const label = `#${ed.segmentNumber(s.id)}  ${s.filename.trim() || '(unnamed)'}`;
+      const label = `#${ed.segmentNumber(s.id)}  ${s.filename.trim() || tr('tl.unnamed')}`;
       const textX = Math.max(x0, 0) + 6;
       const maxW = x1 - textX - 4;
       if (maxW > 12) {
@@ -736,7 +737,7 @@ export class Timeline {
       }
       ctx.fillRect(Math.round(x0), top, 1.5, bottom - top);
       ctx.fillRect(Math.round(x1) - 1, top, 1.5, bottom - top);
-      const label = `cut ${(c.end - c.start).toFixed(2)}s`;
+      const label = tr('tl.cutLabel', { sec: formatNumber(c.end - c.start, 2) });
       if (width > ctx.measureText(label).width + 10) {
         ctx.fillStyle = '#1a0d0d';
         ctx.fillText(label, x0 + 5, bottom + CUT_LANE_H / 2);
@@ -761,8 +762,8 @@ export class Timeline {
       ctx.font = 'bold 10px "Segoe UI", sans-serif';
       ctx.fillText(label, x + 3, top + 8);
     };
-    if (ed.markIn !== null) dashed(ed.markIn, COLORS.markIn, 'IN');
-    if (ed.cutMark !== null) dashed(ed.cutMark, COLORS.cut, 'CUT');
+    if (ed.markIn !== null) dashed(ed.markIn, COLORS.markIn, tr('tl.markIn'));
+    if (ed.cutMark !== null) dashed(ed.cutMark, COLORS.cut, tr('tl.markCut'));
 
     const x = Math.round(ed.timeToX(ed.playhead));
     ctx.fillStyle = COLORS.playhead;

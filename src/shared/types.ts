@@ -1,3 +1,5 @@
+import type { LanguageSetting } from './i18n/index.ts';
+
 export type PeakTarget = 1 | 0.6;
 export type Bitrate = 320 | 192;
 
@@ -26,21 +28,13 @@ export interface Project {
   outputDir: string | null;
 }
 
-/** ffmpeg `afade` curve names offered in the settings. */
-export const FADE_CURVES = {
-  tri: 'Linear',
-  exp: 'Exponential',
-  log: 'Logarithmic',
-  qsin: 'Quarter sine',
-  hsin: 'Half sine',
-  esin: 'Exponential sine',
-  cub: 'Cubic',
-  squ: 'Square root',
-} as const;
-export type FadeCurve = keyof typeof FADE_CURVES;
+/** ffmpeg `afade` curve names offered in the settings (labels are translated as `curve.<name>`). */
+export const FADE_CURVES = ['tri', 'exp', 'log', 'qsin', 'hsin', 'esin', 'cub', 'squ'] as const;
+export type FadeCurve = (typeof FADE_CURVES)[number];
 
 /** App-wide settings that are the same for every file. */
 export interface Settings {
+  language: LanguageSetting;
   fadeInSec: number;
   fadeInCurve: FadeCurve;
   fadeOutSec: number;
@@ -54,6 +48,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  language: 'system',
   fadeInSec: 0.5,
   fadeInCurve: 'tri',
   fadeOutSec: 2,
@@ -103,7 +98,9 @@ export interface ExportProgress {
   phase: 'measure' | 'encode' | 'done' | 'error';
   /** 0..1 within the current file. */
   fraction: number;
-  message?: string;
+  /** Set when phase is 'done': measured peak and applied gain, in dB. */
+  peakDb?: number;
+  gainDb?: number;
 }
 
 export interface ExportResult {
