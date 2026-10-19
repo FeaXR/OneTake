@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src media:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <title>Studio Audio Editor</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="toolbar"></header>
+      <main id="workspace">
+        <section id="editor">
+          <canvas id="overview"></canvas>
+          <div id="timeline-wrap">
+            <canvas id="timeline"></canvas>
+          </div>
+          <div id="empty-state">
+            <div class="drop-card">
+              <div class="drop-title">Open a WAV file to start</div>
+              <div class="drop-sub">Click here, press Ctrl+O, or drop a .wav file anywhere on this window.</div>
+            </div>
+          </div>
+        </section>
+        <aside id="panel"></aside>
+      </main>
+      <footer id="statusbar"></footer>
+    </div>
+    <div id="overlay-root"></div>
+    <audio id="player" preload="auto"></audio>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
