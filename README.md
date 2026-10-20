@@ -17,7 +17,7 @@ Most audio editors work the other way round: many tracks in, one file out. Studi
 - **Per-file peak normalization** to 100% or 60%, and **per-file bitrate** of 320 or 192 kbps (MP3, constant bitrate).
 - **Built for long files.** A 90-minute 24-bit recording opens in about 3 seconds and stays smooth while zooming and scrolling. The waveform overview is cached, so reopening is instant.
 - **Mouse or keyboard.** Every action works with the mouse, and every action can also have a shortcut. Mark files with I/O and cuts with X while listening, and rebind any key in Settings.
-- **Hear the result.** Playback skips the cuts by default, and inside the selected segment it plays that file's fade-in and fade-out too. Two buttons on each file play just its start or its end, to check the fades quickly.
+- **Hear the result.** Playback skips the cuts by default, joining them with the same crossfade as the export, and inside the selected segment it plays that file's fade-in and fade-out too. Two buttons on each file play just its start or its end, to check the fades quickly.
 - **Safe export.** Filenames are checked before anything is written, you're asked before files are overwritten, and a cancelled export never leaves half-written files.
 - **Sessions are saved** next to the WAV, so you can come back later and re-export.
 - **English and Hungarian** interface.
@@ -154,7 +154,7 @@ git push origin v0.2.0
 
 ### Project layout
 
-- `src/main/`: Electron main process (WAV parsing, waveform scan and cache, ffmpeg export, the `media://` protocol used for playback)
+- `src/main/`: Electron main process (WAV parsing, waveform scan and cache, ffmpeg export, reading samples for playback)
 - `src/preload/`: the bridge between the UI and the main process (`window.studio`)
 - `src/renderer/`: the UI (canvas timeline and overview, output list, commands and shortcuts)
 - `src/shared/`: types, time formatting, cut/segment planning and filename validation

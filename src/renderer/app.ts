@@ -59,7 +59,7 @@ export class App {
     document.getElementById('empty-title')!.textContent = t('empty.title');
     document.getElementById('empty-sub')!.textContent = t('empty.sub');
 
-    this.player = new Player(document.getElementById('player') as HTMLAudioElement, ed);
+    this.player = new Player(ed);
     new Overview(document.getElementById('overview') as HTMLCanvasElement, ed);
     new Timeline(document.getElementById('timeline') as HTMLCanvasElement, ed, this.player, {
       showContextMenu,
@@ -400,7 +400,7 @@ export class App {
       const peaks = new PeakPyramid(loaded.peaks);
       this.editor.loadAudio(loaded.info.path, loaded.info, peaks, loaded.project);
       if (!this.editor.project.outputDirs.length) this.editor.project.outputDirs = [dirname(loaded.info.path)];
-      this.player.load(loaded.info.path);
+      this.player.load();
       if (loaded.project && !quiet) toast(t('toast.projectLoaded', { name: basename(path) }));
       return true;
     } catch (err) {

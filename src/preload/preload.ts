@@ -12,6 +12,7 @@ const api: StudioApi = {
   pathForDroppedFile: (file) => webUtils.getPathForFile(file),
   loadAudio: (path) => ipcRenderer.invoke('audio:load', path),
   onLoadProgress: (cb) => subscribe('audio:loadProgress', cb),
+  readAudio: (start, count) => ipcRenderer.invoke('audio:read', start, count),
   takeStartupFile: () => ipcRenderer.invoke('app:takeStartupFile'),
   onOpenFile: (cb) => subscribe('app:openFile', cb),
 

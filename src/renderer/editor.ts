@@ -184,22 +184,30 @@ export class Editor {
    * Fades run on the joined audio, so time inside cuts is not counted.
    */
   previewGain(t: number): number {
+    return this.previewGainCurve()?.(t) ?? 1;
+  }
+
+  /** previewGain() with the segment's pieces worked out once; null when nothing is previewed. */
+  previewGainCurve(): ((t: number) => number) | null {
     const seg = this.previewSegment;
-    if (!seg || t < seg.start || t > seg.end) return 1;
+    if (!seg) return null;
     const { fadeInSec, fadeOutSec, fadeInCurve, fadeOutCurve, cutCrossfadeMs } = this.settings;
     const xf = cutCrossfadeMs / 1000;
     const pieces = keptPieces(seg, this.project.cuts, xf);
     const total = joinedDuration(pieces, xf);
-    let pos = 0;
-    for (const [i, p] of pieces.entries()) {
-      if (t <= p.start) break;
-      pos += Math.min(t, p.end) - p.start - (i > 0 ? xf : 0);
-    }
-    pos = clamp(pos, 0, total);
-    let gain = 1;
-    if (fadeInSec > 0 && pos < fadeInSec) gain *= fadeGain(fadeInCurve, pos / fadeInSec);
-    if (fadeOutSec > 0 && total - pos < fadeOutSec) gain *= fadeGain(fadeOutCurve, (total - pos) / fadeOutSec);
-    return gain;
+    return (t) => {
+      if (t < seg.start || t > seg.end) return 1;
+      let pos = 0;
+      for (const [i, p] of pieces.entries()) {
+        if (t <= p.start) break;
+        pos += Math.min(t, p.end) - p.start - (i > 0 ? xf : 0);
+      }
+      pos = clamp(pos, 0, total);
+      let gain = 1;
+      if (fadeInSec > 0 && pos < fadeInSec) gain *= fadeGain(fadeInCurve, pos / fadeInSec);
+      if (fadeOutSec > 0 && total - pos < fadeOutSec) gain *= fadeGain(fadeOutCurve, (total - pos) / fadeOutSec);
+      return gain;
+    };
   }
 
   sortedSegments(): Segment[] {

@@ -4,17 +4,15 @@ import { join, resolve } from 'node:path';
 import { resolveLanguage, setLanguage, t } from '../shared/i18n/index.ts';
 import type { ExportRequest, LoadedAudio, Project, Settings } from '../shared/types.ts';
 import { runExport } from './exporter.ts';
-import { handleMediaScheme, registerMediaScheme } from './media-protocol.ts';
 import { loadPeaks } from './peaks.ts';
 import {
   loadProject, loadSettings, loadShortcutOverrides, peaksCacheDir, saveProject, saveSettings, saveShortcutOverrides,
 } from './store.ts';
-import { readWavLayout } from './wav.ts';
-
-registerMediaScheme();
+import { readFrames, readWavLayout, type WavLayout } from './wav.ts';
 
 let win: BrowserWindow | null = null;
-let openedWav: string | null = null;
+/** The WAV the renderer has open; playback reads its samples. */
+let openedWav: WavLayout | null = null;
 let dirty = false;
 let forceClose = false;
 let exportAbort: AbortController | null = null;
@@ -109,11 +107,15 @@ function registerIpc(): void {
     const peaks = await loadPeaks(layout, peaksCacheDir(), join(__dirname, 'peaks-worker.cjs'), (fraction) =>
       e.sender.send('audio:loadProgress', fraction),
     );
-    openedWav = resolve(path);
+    openedWav = { ...layout, path: resolve(path) };
     const { sampleRate, channels, bitsPerSample, sampleFormat, frames, duration } = layout;
-    const info = { path: openedWav, sampleRate, channels, bitsPerSample, sampleFormat, frames, duration };
+    const info = { path: openedWav.path, sampleRate, channels, bitsPerSample, sampleFormat, frames, duration };
     return { info, peaks, project: await loadProject(path) };
   });
+
+  ipcMain.handle('audio:read', (_e, start: number, count: number): Float32Array[] =>
+    openedWav ? readFrames(openedWav, start, count) : [],
+  );
 
   ipcMain.handle('project:save', (_e, wavPath: string, project: Project) => saveProject(wavPath, project));
   ipcMain.handle('settings:get', () => loadSettings());
@@ -179,7 +181,6 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(async () => {
     applyLanguage(await loadSettings());
     Menu.setApplicationMenu(null);
-    handleMediaScheme((path) => openedWav !== null && resolve(path) === openedWav);
     registerIpc();
     createWindow();
   });

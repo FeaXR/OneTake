@@ -94,3 +94,64 @@ export function readWavLayout(path: string): WavLayout {
     closeSync(fd);
   }
 }
+
+/**
+ * Returns a reader for sample i (interleaved) of a block of raw WAV data, scaled to -1..1.
+ * `chunk` must start at a frame boundary.
+ */
+export function sampleReader(layout: WavLayout, chunk: ArrayBuffer, samples: number): (i: number) => number {
+  const { bitsPerSample, sampleFormat } = layout;
+  const bytes = new Uint8Array(chunk);
+  if (sampleFormat === 'float' && bitsPerSample === 32) {
+    const view = new Float32Array(chunk, 0, samples);
+    return (i) => view[i];
+  }
+  if (sampleFormat === 'float') {
+    const view = new Float64Array(chunk, 0, samples);
+    return (i) => view[i];
+  }
+  if (bitsPerSample === 16) {
+    const view = new Int16Array(chunk, 0, samples);
+    return (i) => view[i] / 32768;
+  }
+  if (bitsPerSample === 24) {
+    return (i) => {
+      const o = i * 3;
+      return (((bytes[o] | (bytes[o + 1] << 8) | (bytes[o + 2] << 16)) << 8) >> 8) / 8388608;
+    };
+  }
+  if (bitsPerSample === 32) {
+    const view = new Int32Array(chunk, 0, samples);
+    return (i) => view[i] / 2147483648;
+  }
+  return (i) => (bytes[i] - 128) / 128;
+}
+
+/** Reads `count` frames from `start` as one Float32Array per channel (shorter at the end of the file). */
+export function readFrames(layout: WavLayout, start: number, count: number): Float32Array[] {
+  const { channels, blockAlign } = layout;
+  const first = Math.max(0, Math.min(layout.frames, Math.floor(start)));
+  const frames = Math.max(0, Math.min(layout.frames - first, Math.floor(count)));
+  const chunk = new ArrayBuffer(frames * blockAlign);
+  const buf = Buffer.from(chunk);
+  let got = 0;
+  if (frames > 0) {
+    const fd = openSync(layout.path, 'r');
+    try {
+      while (got < buf.length) {
+        const n = readSync(fd, buf, got, buf.length - got, layout.dataOffset + first * blockAlign + got);
+        if (n === 0) break;
+        got += n;
+      }
+    } finally {
+      closeSync(fd);
+    }
+  }
+  const usable = Math.floor(got / blockAlign);
+  const sampleAt = sampleReader(layout, chunk, usable * channels);
+  const out = Array.from({ length: channels }, () => new Float32Array(usable));
+  for (let f = 0; f < usable; f++) {
+    for (let c = 0; c < channels; c++) out[c][f] = sampleAt(f * channels + c);
+  }
+  return out;
+}

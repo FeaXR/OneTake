@@ -6,6 +6,8 @@ export interface StudioApi {
   pathForDroppedFile(file: File): string;
   loadAudio(path: string): Promise<LoadedAudio>;
   onLoadProgress(cb: (fraction: number) => void): () => void;
+  /** Samples of the open WAV for playback: one array per channel, from frame `start`. */
+  readAudio(start: number, count: number): Promise<Float32Array[]>;
   /** WAV the app was launched with (file dropped on the .exe), or null. Returns it only once. */
   takeStartupFile(): Promise<string | null>;
   /** A WAV dropped on the icon while the app is already running. */

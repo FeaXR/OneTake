@@ -1,7 +1,7 @@
 // Worker thread: scans the WAV data once and builds the min/max envelope used for drawing.
 import { parentPort, workerData } from 'node:worker_threads';
 import { openSync, readSync, closeSync } from 'node:fs';
-import type { WavLayout } from './wav.ts';
+import { sampleReader, type WavLayout } from './wav.ts';
 
 export interface PeaksWorkerInput {
   layout: WavLayout;
@@ -17,7 +17,7 @@ const { layout, framesPerBucket } = workerData as PeaksWorkerInput;
 const post = (msg: PeaksWorkerMessage, transfer: ArrayBuffer[] = []) => parentPort!.postMessage(msg, transfer);
 
 try {
-  const { channels, bitsPerSample, sampleFormat, blockAlign, frames } = layout;
+  const { channels, blockAlign, frames } = layout;
   const bucketCount = Math.ceil(frames / framesPerBucket);
   const mins = new Int16Array(bucketCount);
   const maxs = new Int16Array(bucketCount);
@@ -25,7 +25,6 @@ try {
   // Chunk size is a whole number of buckets so buckets never straddle a read.
   const framesPerChunk = framesPerBucket * 4096;
   const chunk = new ArrayBuffer(framesPerChunk * blockAlign);
-  const bytes = new Uint8Array(chunk);
   const buf = Buffer.from(chunk);
 
   const fd = openSync(layout.path, 'r');
@@ -47,28 +46,7 @@ try {
       if (chunkFrames === 0) break;
       const samples = chunkFrames * channels;
 
-      // Returns sample i of this chunk scaled to -1..1.
-      let sampleAt: (i: number) => number;
-      if (sampleFormat === 'float' && bitsPerSample === 32) {
-        const view = new Float32Array(chunk, 0, samples);
-        sampleAt = (i) => view[i];
-      } else if (sampleFormat === 'float') {
-        const view = new Float64Array(chunk, 0, samples);
-        sampleAt = (i) => view[i];
-      } else if (bitsPerSample === 16) {
-        const view = new Int16Array(chunk, 0, samples);
-        sampleAt = (i) => view[i] / 32768;
-      } else if (bitsPerSample === 24) {
-        sampleAt = (i) => {
-          const o = i * 3;
-          return (((bytes[o] | (bytes[o + 1] << 8) | (bytes[o + 2] << 16)) << 8) >> 8) / 8388608;
-        };
-      } else if (bitsPerSample === 32) {
-        const view = new Int32Array(chunk, 0, samples);
-        sampleAt = (i) => view[i] / 2147483648;
-      } else {
-        sampleAt = (i) => (bytes[i] - 128) / 128;
-      }
+      const sampleAt = sampleReader(layout, chunk, samples);
 
       for (let start = 0; start < chunkFrames; start += framesPerBucket) {
         const end = Math.min(start + framesPerBucket, chunkFrames) * channels;
