@@ -28,7 +28,7 @@ export interface Cut {
   end: number;
 }
 
-/** Editable session state, saved next to the WAV as `<name>.wav.sae.json`. */
+/** Editable session state, saved in Documents/Studio Audio Editor/Sessions (one file per WAV). */
 export interface Project {
   version: 1;
   segments: Segment[];
@@ -109,7 +109,7 @@ export interface PeakData {
 export interface LoadedAudio {
   info: AudioInfo;
   peaks: PeakData;
-  /** Project sidecar found next to the WAV, if any. */
+  /** The WAV's saved session, if any. */
   project: Project | null;
 }
 

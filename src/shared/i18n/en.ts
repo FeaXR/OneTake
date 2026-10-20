@@ -59,7 +59,7 @@ export const en = {
   'tb.open': 'Open',
   'tb.open.tip': 'Open a WAV file',
   'tb.save': 'Save',
-  'tb.save.tip': 'Save segments and cuts next to the WAV',
+  'tb.save.tip': 'Save the segments and cuts of this WAV (in Documents → Studio Audio Editor)',
   'tb.undo.tip': 'Undo',
   'tb.redo.tip': 'Redo',
   'tb.select': 'Select',

@@ -19,7 +19,7 @@ Most audio editors work the other way round: many tracks in, one file out. Studi
 - **Mouse or keyboard.** Every action works with the mouse, and every action can also have a shortcut. Mark files with I/O and cuts with X while listening, and rebind any key in Settings.
 - **Hear the result.** Playback skips the cuts by default, joining them with the same crossfade as the export, and inside the selected segment it plays that file's fade-in and fade-out too. Two buttons on each file play just its start or its end, to check the fades quickly.
 - **Safe export.** Filenames are checked before anything is written, you're asked before files are overwritten, and a cancelled export never leaves half-written files.
-- **Sessions are saved** next to the WAV, so you can come back later and re-export.
+- **Sessions are saved** in one place (Documents → Studio Audio Editor), so you can come back later and re-export.
 - **English and Hungarian** interface.
 
 | Fades at a track boundary | A cut, ready to be removed |
@@ -66,7 +66,7 @@ Builds of every commit are also available from the [Actions page](https://github
    - Keyboard: press **X** where the noise starts and **X** again where it ends.
 5. **Export all** with Ctrl+E. Files go to the folder shown at the top of the list, which defaults to the WAV's folder. To send some files elsewhere, use **+ Add folder**: each file then gets a folder picker, and the first folder stays the default.
 
-Your segments and cuts are saved next to the WAV as `<file>.wav.sae.json` (Ctrl+S). They're also saved after every successful export, and they load again when you reopen the WAV.
+Your segments and cuts are saved in `Documents/Studio Audio Editor/Sessions`, one file per WAV (Ctrl+S). The session is tied to the WAV's location, so moving or renaming the WAV starts a new one. Sessions saved next to the WAV by older versions (`<file>.wav.sae.json`) still open. They're also saved after every successful export, and they load again when you reopen the WAV.
 
 ### Mouse
 

@@ -56,7 +56,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'tb.open': 'Megnyitás',
   'tb.open.tip': 'WAV fájl megnyitása',
   'tb.save': 'Mentés',
-  'tb.save.tip': 'A szakaszok és kivágások mentése a WAV mellé',
+  'tb.save.tip': 'A WAV szakaszainak és kivágásainak mentése (Dokumentumok → Studio Audio Editor)',
   'tb.undo.tip': 'Visszavonás',
   'tb.redo.tip': 'Mégis',
   'tb.select': 'Kijelölés',
