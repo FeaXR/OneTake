@@ -61,7 +61,14 @@ export class Editor {
       this.frame = 0;
       const batch = this.pending;
       this.pending = new Set();
-      for (const fn of this.listeners) fn(batch);
+      // One failing view must not keep the others from updating.
+      for (const fn of this.listeners) {
+        try {
+          fn(batch);
+        } catch (err) {
+          reportError(err);
+        }
+      }
     });
   }
 

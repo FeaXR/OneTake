@@ -94,7 +94,8 @@ export class Overview {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#121418';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    if (!ed.info) return;
+    // Not measured yet (a file opened before the first layout); resize() draws again.
+    if (!ed.info || !w || !h) return;
 
     this.waveCache ??= this.renderWave();
     ctx.drawImage(this.waveCache, 0, 0);
