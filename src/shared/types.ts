@@ -68,6 +68,8 @@ export interface Settings {
   defaultBitrate: Bitrate;
   defaultPeakTarget: PeakTarget;
   folderRules: FolderRule[];
+  /** Show each file's start and end time in the file list (they can be set on the timeline too). */
+  showSegmentTimes: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -82,6 +84,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultBitrate: 320,
   defaultPeakTarget: 1,
   folderRules: [],
+  showSegmentTimes: false,
 };
 
 export interface AudioInfo {

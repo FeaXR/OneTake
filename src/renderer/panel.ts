@@ -33,6 +33,8 @@ interface Row {
   start: HTMLInputElement;
   end: HTMLInputElement;
   dur: HTMLElement;
+  titleLine: HTMLElement;
+  timesLine: HTMLElement;
   peak: Map<PeakTarget, HTMLButtonElement>;
   bitrate: Map<Bitrate, HTMLButtonElement>;
   peakGroup: HTMLElement;
@@ -250,6 +252,8 @@ export class OutputPanel {
 
     const index = h('span', { class: 'row-index' });
     const dur = h('span', { class: 'row-dur' });
+    const titleLine = h('div', { class: 'row-line' }, index, prefix, name, h('span', { class: 'row-ext' }, '.mp3'));
+    const timesLine = h('div', { class: 'row-line' }, start, h('span', { class: 'row-ext' }, '→'), end);
     const issues = h('div', { class: 'row-issues' });
     const iconBtn = (icon: string, title: string, onclick: () => void, cls = '') =>
       h('button', { class: `icon ${cls}`, html: icon, title, onclick });
@@ -264,11 +268,8 @@ export class OutputPanel {
         }
       },
     },
-      h('div', { class: 'row-line' }, index, prefix, name, h('span', { class: 'row-ext' }, '.mp3')),
-      h('div', { class: 'row-line' },
-        start, h('span', { class: 'row-ext' }, '→'), end,
-        dur,
-      ),
+      titleLine,
+      timesLine,
       h('div', { class: 'row-line' },
         peakGroup, bitrateGroup,
         h('span', { style: { flex: '1' } }),
@@ -281,7 +282,7 @@ export class OutputPanel {
       folderLine,
       issues,
     );
-    return { el, index, prefix, name, start, end, dur, peak, bitrate, peakGroup, bitrateGroup, folderLine, folder, folderKey: '', issues };
+    return { el, index, prefix, name, start, end, dur, titleLine, timesLine, peak, bitrate, peakGroup, bitrateGroup, folderLine, folder, folderKey: '', issues };
   }
 
   private fillRow(row: Row, seg: Segment, i: number, issues: SegmentIssues): void {
@@ -299,6 +300,11 @@ export class OutputPanel {
     const cutAway = seg.end - seg.start - length;
     row.dur.textContent = formatTime(Math.max(0, length), 1) + (cutAway > 0.005 ? ` (−${formatNumber(cutAway, 1)} s)` : '');
     row.dur.title = t('panel.length.tip');
+    // With the times hidden, the length moves up next to the name.
+    const showTimes = ed.settings.showSegmentTimes;
+    row.timesLine.style.display = showTimes ? '' : 'none';
+    const durLine = showTimes ? row.timesLine : row.titleLine;
+    if (row.dur.parentElement !== durLine) durLine.append(row.dur);
     const options = ed.outputOptions(seg);
     for (const [v, b] of row.peak) b.classList.toggle('active', options.peakTarget === v);
     for (const [v, b] of row.bitrate) b.classList.toggle('active', options.bitrate === v);
