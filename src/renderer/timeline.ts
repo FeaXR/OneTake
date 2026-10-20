@@ -13,9 +13,9 @@ const EDGE_PX = 6;
 const SNAP_PX = 8;
 const DRAG_THRESHOLD_PX = 3;
 const FADE_MARKER_DASHES: Record<FadeMarkerStyle, number[]> = {
-  dotted: [1, 2],
-  dashed: [4, 3],
-  dashdot: [6, 2, 1, 2],
+  dotted: [2, 4],
+  dashed: [8, 5],
+  dashdot: [10, 4, 2, 4],
 };
 
 const COLORS = {
@@ -689,7 +689,7 @@ export class Timeline {
         const xm = Math.round(ed.timeToX(markAt)) + 0.5;
         ctx.save();
         ctx.setLineDash(dash);
-        ctx.strokeStyle = withAlpha(ed.segmentColor(s.id), 0.6);
+        ctx.strokeStyle = withAlpha(ed.segmentColor(s.id), 0.85);
         ctx.beginPath();
         ctx.moveTo(xm, mid - half);
         ctx.lineTo(xm, mid + half);
