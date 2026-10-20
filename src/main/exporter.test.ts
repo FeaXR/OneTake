@@ -62,10 +62,9 @@ test('export writes normalized, cut MP3s', async () => {
     const result = await runExport(
       {
         wavPath: wav,
-        outputDir: dir,
         segments: [
-          { id: 'a', filename: 'Full', start: 0, end: 10, peakTarget: 1, bitrate: 320 },
-          { id: 'b', filename: 'Quiet.mp3', start: 9.5, end: 20, peakTarget: 0.6, bitrate: 192 },
+          { id: 'a', filename: 'Full', start: 0, end: 10, peakTarget: 1, bitrate: 320, outputDir: dir },
+          { id: 'b', filename: 'Quiet.mp3', start: 9.5, end: 20, peakTarget: 0.6, bitrate: 192, outputDir: dir },
         ],
         cuts: [{ id: 'c', start: 12, end: 14 }],
         settings: DEFAULT_SETTINGS,

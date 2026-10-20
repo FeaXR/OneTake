@@ -107,6 +107,7 @@ export const en = {
   'toast.projectLoaded': 'Loaded the saved project for {name}',
   'toast.openFailed': 'Could not open {name}: {error}',
   'toast.saved': 'Project saved',
+  'toast.folderAlreadyAdded': '{dir} is already in the folder list',
   'toast.saveFailed': 'Saving failed: {error}',
   'toast.nothingToExport': 'There is nothing to export yet. Mark at least one segment.',
   'toast.needsFixing': (p) =>
@@ -138,6 +139,7 @@ export const en = {
   // Export progress
   'export.title': (p) => `Exporting ${p.count} file${s(p.count)}`,
   'export.to': 'To {dir}',
+  'export.toMany': 'To {count} folders',
   'export.itemDetail': '{bitrate} kbps · peak {peak}',
   'export.measuring': 'Measuring peak…',
   'export.encoding': 'Encoding MP3…',
@@ -153,6 +155,13 @@ export const en = {
   'panel.folder': 'Folder…',
   'panel.folder.tip': 'Choose the folder the MP3 files are written to',
   'panel.noFolder': 'No output folder chosen',
+  'panel.default': 'Default',
+  'panel.defaultFolder': '{name} (default)',
+  'panel.extraFolder.tip': 'Choose a different folder here; files that use it move along',
+  'panel.removeFolder.tip': 'Remove this folder; its files go back to the default folder',
+  'panel.addFolder': '+ Add folder',
+  'panel.addFolder.tip': 'Add another output folder that files can be sent to',
+  'panel.rowFolder.tip': 'Folder this file is written to',
   'panel.exportAll': 'Export all',
   'panel.toFix': '{n} to fix',
   'panel.emptyNoFile': 'Open a WAV file to begin.',
@@ -216,6 +225,7 @@ export const en = {
   'settings.fadeIn': 'Fade-in',
   'settings.fadeOut': 'Fade-out',
   'settings.seconds': 'seconds',
+  'settings.fadeMarker': 'Fade boundary line',
   'settings.export': 'Export',
   'settings.ceiling': '"100%" peak level',
   'settings.ceilingNote': '0 = full scale. −0.3 to −1 avoids slight MP3 clipping.',
@@ -230,6 +240,9 @@ export const en = {
   'curve.esin': 'Exponential sine',
   'curve.cub': 'Cubic',
   'curve.squ': 'Square root',
+  'marker.dotted': 'Dotted',
+  'marker.dashed': 'Dashed',
+  'marker.dashdot': 'Dash-dotted',
 
   // Shortcut editor
   'sc.help': 'Click + next to a command, then press the keys. Esc cancels. Click a key to remove it.',

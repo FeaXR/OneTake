@@ -11,6 +11,8 @@ export interface Segment {
   end: number;
   peakTarget: PeakTarget;
   bitrate: Bitrate;
+  /** One of the project's extra output folders; unset means the default (first) folder. */
+  outputDir?: string;
 }
 
 /** A span of the source that is removed from every segment that contains it. */
@@ -25,12 +27,23 @@ export interface Project {
   version: 1;
   segments: Segment[];
   cuts: Cut[];
-  outputDir: string | null;
+  /** Output folders; the first is the default for segments that do not choose another. */
+  outputDirs: string[];
+}
+
+/** The folder a segment is written to, or null when the project has no folder yet. */
+export function segmentFolder(project: Pick<Project, 'outputDirs'>, seg: Segment): string | null {
+  if (seg.outputDir && project.outputDirs.includes(seg.outputDir)) return seg.outputDir;
+  return project.outputDirs[0] ?? null;
 }
 
 /** ffmpeg `afade` curve names offered in the settings (labels are translated as `curve.<name>`). */
 export const FADE_CURVES = ['tri', 'exp', 'log', 'qsin', 'hsin', 'esin', 'cub', 'squ'] as const;
 export type FadeCurve = (typeof FADE_CURVES)[number];
+
+/** Line styles for the timeline markers where fades meet full volume (labels are translated as `marker.<name>`). */
+export const FADE_MARKER_STYLES = ['dotted', 'dashed', 'dashdot'] as const;
+export type FadeMarkerStyle = (typeof FADE_MARKER_STYLES)[number];
 
 /** App-wide settings that are the same for every file. */
 export interface Settings {
@@ -39,6 +52,7 @@ export interface Settings {
   fadeInCurve: FadeCurve;
   fadeOutSec: number;
   fadeOutCurve: FadeCurve;
+  fadeMarkerStyle: FadeMarkerStyle;
   /** Where "100%" lands, in dBFS. 0 matches classic peak normalization; a little below avoids MP3 overshoot. */
   ceilingDb: number;
   /** Crossfade length used to join the audio on both sides of a cut. */
@@ -53,6 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fadeInCurve: 'tri',
   fadeOutSec: 2,
   fadeOutCurve: 'exp',
+  fadeMarkerStyle: 'dashed',
   ceilingDb: 0,
   cutCrossfadeMs: 10,
   defaultBitrate: 320,
@@ -85,8 +100,8 @@ export interface LoadedAudio {
 
 export interface ExportRequest {
   wavPath: string;
-  outputDir: string;
-  segments: Segment[];
+  /** Each segment with the folder it is written to resolved. */
+  segments: (Segment & { outputDir: string })[];
   cuts: Cut[];
   settings: Settings;
 }

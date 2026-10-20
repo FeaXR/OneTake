@@ -107,7 +107,7 @@ export async function runExport(
 
       // Pass 2: same graph plus gain, encoded to a temp file that is renamed on success.
       const gain = normalizeGain(peak, seg.peakTarget, settings.ceilingDb);
-      const finalPath = join(req.outputDir, filename);
+      const finalPath = join(seg.outputDir, filename);
       tempFile = `${finalPath}.part`;
       report('encode', 0);
       let progressText = '';

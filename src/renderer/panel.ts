@@ -1,6 +1,6 @@
 import { formatNumber, t } from '../shared/i18n/index.ts';
 import { formatTime, parseTime } from '../shared/time.ts';
-import type { Bitrate, PeakTarget, Segment } from '../shared/types.ts';
+import { segmentFolder, type Bitrate, type PeakTarget, type Segment } from '../shared/types.ts';
 import { outputDurationOf } from '../shared/plan.ts';
 import { validateSegments, type SegmentIssues } from '../shared/validate.ts';
 import { h } from './dom.ts';
@@ -8,8 +8,13 @@ import { clamp, MIN_REGION_SEC, type Change, type Editor } from './editor.ts';
 import { toast } from './dialogs.ts';
 import { icons } from './icons.ts';
 
+const folderName = (dir: string) => dir.replace(/[\\/]+$/, '').replace(/^.*[\\/]/, '') || dir;
+
 export interface PanelActions {
-  pickFolder(): void;
+  /** Replaces folder `index` (0 = the default). */
+  changeFolder(index: number): void;
+  addFolder(): void;
+  removeFolder(index: number): void;
   exportAll(): void;
   playRegion(kind: 'segment' | 'cut', id: string): void;
   zoomTo(kind: 'segment' | 'cut', id: string): void;
@@ -26,6 +31,9 @@ interface Row {
   dur: HTMLElement;
   peak: Map<PeakTarget, HTMLButtonElement>;
   bitrate: Map<Bitrate, HTMLButtonElement>;
+  folderLine: HTMLElement;
+  folder: HTMLSelectElement;
+  folderKey: string;
   issues: HTMLElement;
 }
 
@@ -37,7 +45,8 @@ export class OutputPanel {
   private readonly rowsEl = h('div', { class: 'rows' });
   private readonly emptyEl = h('div', { class: 'rows-empty' });
   private readonly countEl = h('span', { class: 'count' });
-  private readonly folderEl = h('div', { class: 'folder-path' });
+  private readonly foldersEl = h('div', { class: 'folder-list' });
+  private foldersKey: string | null = null;
   private readonly cutsSummary = h('summary');
   private readonly cutsList = h('div', { class: 'cuts-list' });
   private readonly exportBtn: HTMLButtonElement;
@@ -52,10 +61,7 @@ export class OutputPanel {
     root.append(
       h('div', { class: 'panel-head' },
         h('div', { class: 'panel-title' }, t('panel.title'), this.countEl),
-        h('div', { class: 'folder-row' },
-          this.folderEl,
-          h('button', { html: icons.folder, title: t('panel.folder.tip'), onclick: () => actions.pickFolder() }, t('panel.folder')),
-        ),
+        this.foldersEl,
       ),
       this.rowsEl,
       h('details', { class: 'cuts' }, this.cutsSummary, this.cutsList),
@@ -84,7 +90,7 @@ export class OutputPanel {
   private update(scrollToSelection = false): void {
     const ed = this.editor;
     const segments = ed.sortedSegments();
-    const issues = validateSegments(segments, ed.project.cuts, ed.settings);
+    const issues = validateSegments(segments, ed.project.cuts, ed.settings, (s) => segmentFolder(ed.project, s));
 
     this.countEl.textContent = segments.length ? `(${segments.length})` : '';
     this.emptyEl.style.display = segments.length ? 'none' : '';
@@ -110,10 +116,7 @@ export class OutputPanel {
       }
     }
 
-    const dir = ed.project.outputDir;
-    this.folderEl.textContent = dir ?? t('panel.noFolder');
-    this.folderEl.title = dir ?? '';
-    this.folderEl.classList.toggle('missing', !dir);
+    this.updateFolders();
 
     const errorCount = [...issues.values()].filter((v) => v.errors.length).length;
     this.exportBtn.disabled = !ed.info || segments.length === 0;
@@ -200,6 +203,18 @@ export class OutputPanel {
       bitrateGroup.append(b);
     }
 
+    const folder = h('select', {
+      title: t('panel.rowFolder.tip'),
+      onfocus: () => ed.select({ kind: 'segment', id }),
+      onchange: () => ed.commit(() => {
+        const s = seg();
+        if (!s) return;
+        if (folder.value) s.outputDir = folder.value;
+        else delete s.outputDir;
+      }),
+    });
+    const folderLine = h('div', { class: 'row-line row-folder' }, h('span', { class: 'row-ext', html: icons.folder }), folder);
+
     const index = h('span', { class: 'row-index' });
     const dur = h('span', { class: 'row-dur' });
     const issues = h('div', { class: 'row-issues' });
@@ -228,9 +243,10 @@ export class OutputPanel {
         iconBtn(icons.target, t('panel.zoom.tip'), () => this.actions.zoomTo('segment', id)),
         iconBtn(icons.trash, t('panel.delete.tip'), () => this.actions.deleteRegion('segment', id), 'danger'),
       ),
+      folderLine,
       issues,
     );
-    return { el, index, name, start, end, dur, peak, bitrate, issues };
+    return { el, index, name, start, end, dur, peak, bitrate, folderLine, folder, folderKey: '', issues };
   }
 
   private fillRow(row: Row, seg: Segment, i: number, issues: SegmentIssues): void {
@@ -249,10 +265,52 @@ export class OutputPanel {
     row.dur.title = t('panel.length.tip');
     for (const [v, b] of row.peak) b.classList.toggle('active', seg.peakTarget === v);
     for (const [v, b] of row.bitrate) b.classList.toggle('active', seg.bitrate === v);
+    this.fillFolder(row, seg);
     row.issues.replaceChildren(
       ...issues.errors.map((e) => h('div', { class: 'err' }, t(e.key, e.params))),
       ...issues.warnings.map((w) => h('div', { class: 'warn' }, t(w.key, w.params))),
     );
+  }
+
+  /** The folder choice only appears once the project has more than one folder. */
+  private fillFolder(row: Row, seg: Segment): void {
+    const dirs = this.editor.project.outputDirs;
+    row.folderLine.style.display = dirs.length > 1 ? '' : 'none';
+    if (dirs.length < 2) return;
+    const key = dirs.join('\n');
+    if (row.folderKey !== key) {
+      row.folderKey = key;
+      row.folder.replaceChildren(
+        ...dirs.map((dir, i) => h('option', { value: i === 0 ? '' : dir, title: dir },
+          i === 0 ? t('panel.defaultFolder', { name: folderName(dir) }) : folderName(dir))),
+      );
+    }
+    const current = segmentFolder(this.editor.project, seg);
+    row.folder.value = current === dirs[0] ? '' : current ?? '';
+    row.folder.title = current ?? '';
+  }
+
+  /** Folder list in the header: the first is the default, the others can be chosen per file. */
+  private updateFolders(): void {
+    const dirs = this.editor.project.outputDirs;
+    const key = dirs.join('\n');
+    if (key === this.foldersKey) return;
+    this.foldersKey = key;
+    const line = (i: number) => {
+      const dir = dirs[i] ?? null;
+      const path = h('div', { class: `folder-path${dir ? '' : ' missing'}`, title: dir ?? '' }, dir ?? t('panel.noFolder'));
+      return h('div', { class: 'folder-row' },
+        dirs.length > 1 ? h('span', { class: 'folder-tag' }, i === 0 ? t('panel.default') : `${i + 1}`) : null,
+        path,
+        h('button', { class: dirs.length > 1 ? 'icon' : '', html: icons.folder, title: i === 0 ? t('panel.folder.tip') : t('panel.extraFolder.tip'), onclick: () => this.actions.changeFolder(i) },
+          dirs.length > 1 ? null : t('panel.folder')),
+        i > 0 ? h('button', { class: 'icon danger', html: icons.trash, title: t('panel.removeFolder.tip'), onclick: () => this.actions.removeFolder(i) }) : null,
+      );
+    };
+    this.foldersEl.replaceChildren(...(dirs.length ? dirs.map((_, i) => line(i)) : [line(0)]));
+    if (dirs.length) {
+      this.foldersEl.append(h('button', { class: 'folder-add', title: t('panel.addFolder.tip'), onclick: () => this.actions.addFolder() }, t('panel.addFolder')));
+    }
   }
 
   private updateCuts(): void {

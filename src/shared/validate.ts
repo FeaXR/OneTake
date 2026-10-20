@@ -32,11 +32,15 @@ export interface SegmentIssues {
   warnings: Issue[];
 }
 
-/** Checks every segment; errors block export, warnings are informational. */
+/**
+ * Checks every segment; errors block export, warnings are informational. Filenames only
+ * clash with segments written to the same folder (`folderOf`).
+ */
 export function validateSegments(
   segments: readonly Segment[],
   cuts: readonly Cut[],
   settings: Settings,
+  folderOf: (seg: Segment) => string | null = () => null,
 ): Map<string, SegmentIssues> {
   const result = new Map<string, SegmentIssues>();
   const byName = new Map<string, number[]>();
@@ -49,7 +53,7 @@ export function validateSegments(
     const problem = filenameProblem(seg.filename);
     if (problem) issues.errors.push(problem);
     else {
-      const key = outputFilename(seg.filename).toLowerCase();
+      const key = `${folderOf(seg) ?? ''}\0${outputFilename(seg.filename)}`.toLowerCase();
       byName.set(key, [...(byName.get(key) ?? []), i]);
     }
 

@@ -62,7 +62,7 @@ Builds of every commit are also available from the [Actions page](https://github
 4. **Mark cuts.**
    - Mouse: drag in the **bottom lane**, or use the **Cut** tool.
    - Keyboard: press **X** where the noise starts and **X** again where it ends.
-5. **Export all** with Ctrl+E. Files go to the folder shown at the top of the list, which defaults to the WAV's folder.
+5. **Export all** with Ctrl+E. Files go to the folder shown at the top of the list, which defaults to the WAV's folder. To send some files elsewhere, use **+ Add folder**: each file then gets a folder picker, and the first folder stays the default.
 
 Your segments and cuts are saved next to the WAV as `<file>.wav.sae.json` (Ctrl+S). They're also saved after every successful export, and they load again when you reopen the WAV.
 

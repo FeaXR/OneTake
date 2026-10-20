@@ -1,6 +1,6 @@
 import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting } from '../shared/i18n/index.ts';
 import { formatTime } from '../shared/time.ts';
-import { FADE_CURVES, type ExportProgress, type FadeCurve, type Project, type Segment, type Settings } from '../shared/types.ts';
+import { FADE_CURVES, FADE_MARKER_STYLES, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type Project, type Segment, type Settings, segmentFolder } from '../shared/types.ts';
 import { outputFilename, validateSegments } from '../shared/validate.ts';
 import { CommandRegistry, Keymap, overridesFrom } from './commands.ts';
 import { ShortcutEditor } from './shortcut-editor.ts';
@@ -66,7 +66,9 @@ export class App {
       run: (id) => this.commands.run(id),
     });
     this.panel = new OutputPanel(document.getElementById('panel')!, ed, {
-      pickFolder: () => void this.pickFolder(),
+      changeFolder: (index) => void this.changeFolder(index),
+      addFolder: () => void this.addFolder(),
+      removeFolder: (index) => this.removeFolder(index),
       exportAll: () => this.commands.run('file.export'),
       playRegion: (kind, id) => this.playRegion(kind, id),
       zoomTo: (kind, id) => {
@@ -377,7 +379,7 @@ export class App {
       const loaded = await window.studio.loadAudio(path);
       const peaks = new PeakPyramid(loaded.peaks);
       this.editor.loadAudio(loaded.info.path, loaded.info, peaks, loaded.project);
-      if (!this.editor.project.outputDir) this.editor.project.outputDir = dirname(loaded.info.path);
+      if (!this.editor.project.outputDirs.length) this.editor.project.outputDirs = [dirname(loaded.info.path)];
       this.player.load(loaded.info.path);
       if (loaded.project && !quiet) toast(t('toast.projectLoaded', { name: basename(path) }));
       return true;
@@ -404,11 +406,46 @@ export class App {
     }
   }
 
-  private async pickFolder(): Promise<string | null> {
+  // ---------- Output folders ----------
+
+  /** Asks for a folder, refusing one that is already in the list (except at `keep`). */
+  private async askFolder(start: string | null, keep = -1): Promise<string | null> {
     const ed = this.editor;
-    const dir = await window.studio.pickFolder(ed.project.outputDir ?? (ed.wavPath ? dirname(ed.wavPath) : null));
-    if (dir && dir !== ed.project.outputDir) ed.commit((p) => (p.outputDir = dir));
+    const dir = await window.studio.pickFolder(start ?? ed.project.outputDirs[0] ?? (ed.wavPath ? dirname(ed.wavPath) : null));
+    if (!dir) return null;
+    const at = ed.project.outputDirs.indexOf(dir);
+    if (at >= 0 && at !== keep) {
+      toast(t('toast.folderAlreadyAdded', { dir }), 'error');
+      return null;
+    }
     return dir;
+  }
+
+  /** Replaces folder `index`; segments that used it move along. Index 0 on an empty list sets the default. */
+  private async changeFolder(index: number): Promise<string | null> {
+    const ed = this.editor;
+    const old = ed.project.outputDirs[index] ?? null;
+    const dir = await this.askFolder(old, index);
+    if (!dir || dir === old) return dir;
+    ed.commit((p) => {
+      p.outputDirs[index] = dir;
+      for (const s of p.segments) if (old && s.outputDir === old) s.outputDir = dir;
+    });
+    return dir;
+  }
+
+  private async addFolder(): Promise<void> {
+    const dir = await this.askFolder(null);
+    if (dir) this.editor.commit((p) => p.outputDirs.push(dir));
+  }
+
+  /** Removes an extra folder; its segments go back to the default folder. */
+  private removeFolder(index: number): void {
+    if (index <= 0) return;
+    this.editor.commit((p) => {
+      const [removed] = p.outputDirs.splice(index, 1);
+      for (const s of p.segments) if (s.outputDir === removed) delete s.outputDir;
+    });
   }
 
   // ---------- Language switch ----------
@@ -475,7 +512,7 @@ export class App {
     const segments = ed.sortedSegments();
     if (!segments.length) return toast(t('toast.nothingToExport'), 'error');
 
-    const issues = validateSegments(segments, ed.project.cuts, ed.settings);
+    const issues = validateSegments(segments, ed.project.cuts, ed.settings, (s) => segmentFolder(ed.project, s));
     const firstBad = segments.find((s) => issues.get(s.id)!.errors.length);
     if (firstBad) {
       const count = segments.filter((s) => issues.get(s.id)!.errors.length).length;
@@ -485,11 +522,18 @@ export class App {
       return;
     }
 
-    const outputDir = ed.project.outputDir ?? (await this.pickFolder());
-    if (!outputDir) return;
+    if (!ed.project.outputDirs.length && !(await this.changeFolder(0))) return;
+    const folders = segments.map((s) => segmentFolder(ed.project, s)!);
+    const multipleFolders = new Set(folders).size > 1;
 
     const names = segments.map((s) => outputFilename(s.filename));
-    const existing = await window.studio.existingFiles(outputDir, names);
+    const existing: string[] = [];
+    for (const dir of new Set(folders)) {
+      const inDir = names.filter((_, i) => folders[i] === dir);
+      for (const name of await window.studio.existingFiles(dir, inDir)) {
+        existing.push(multipleFolders ? `${basename(dir)}/${name}` : name);
+      }
+    }
     if (existing.length) {
       const list = existing.length <= 6
         ? existing.join(', ')
@@ -507,12 +551,17 @@ export class App {
       const bar = h('div', { class: 'bar' }, fill);
       const detail = h('div', { class: 'detail' },
         t('export.itemDetail', { bitrate: s.bitrate, peak: s.peakTarget === 1 ? '100%' : '60%' }));
-      const el = h('div', { class: 'export-item' }, h('div', { class: 'name' }, `#${i + 1}  ${names[i]}`), bar, detail);
+      const name = h('div', { class: 'name' }, `#${i + 1}  ${names[i]}`);
+      if (multipleFolders) name.append(h('span', { class: 'form-note', title: folders[i] }, `  → ${basename(folders[i])}`));
+      const el = h('div', { class: 'export-item' }, name, bar, detail);
       return { el, bar, fill, detail };
     });
 
     const modal = openModal(t('export.title', { count: segments.length }), { wide: true, dismissable: false });
-    modal.body.append(h('div', { class: 'form-note' }, t('export.to', { dir: outputDir })), ...items.map((i) => i.el));
+    modal.body.append(
+      h('div', { class: 'form-note' }, multipleFolders ? t('export.toMany', { count: new Set(folders).size }) : t('export.to', { dir: folders[0] })),
+      ...items.map((i) => i.el),
+    );
     const cancelBtn = h('button', { onclick: () => void window.studio.cancelExport() }, t('btn.cancel'));
     modal.foot.append(cancelBtn);
 
@@ -535,8 +584,7 @@ export class App {
     try {
       const result = await window.studio.startExport({
         wavPath: ed.wavPath,
-        outputDir,
-        segments,
+        segments: segments.map((s, i) => ({ ...s, outputDir: folders[i] })),
         cuts: ed.project.cuts,
         settings: ed.settings,
       });
@@ -629,6 +677,9 @@ export class App {
         h('div', { class: 'inline' }, num(s.fadeInSec, 0, 60, 0.1, (v) => (s.fadeInSec = v)), t('settings.seconds'), curveSelect(s.fadeInCurve, (v) => (s.fadeInCurve = v))),
         h('label', {}, t('settings.fadeOut')),
         h('div', { class: 'inline' }, num(s.fadeOutSec, 0, 60, 0.1, (v) => (s.fadeOutSec = v)), t('settings.seconds'), curveSelect(s.fadeOutCurve, (v) => (s.fadeOutCurve = v))),
+        h('label', {}, t('settings.fadeMarker')),
+        h('div', { class: 'inline' },
+          choice(FADE_MARKER_STYLES.map((k): [FadeMarkerStyle, string] => [k, t(`marker.${k}`)]), s.fadeMarkerStyle, (v) => (s.fadeMarkerStyle = v))),
       ),
       h('div', { class: 'form-section' }, t('settings.export')),
       h('div', { class: 'form-grid' },

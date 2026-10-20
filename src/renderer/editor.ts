@@ -16,7 +16,7 @@ export const MIN_REGION_SEC = 0.05;
 /** Deepest zoom: frames per CSS pixel. */
 const MIN_FRAMES_PER_PX = 8;
 
-export const emptyProject = (): Project => ({ version: 1, segments: [], cuts: [], outputDir: null });
+export const emptyProject = (): Project => ({ version: 1, segments: [], cuts: [], outputDirs: [] });
 
 const SEGMENT_COLORS = ['#4f9cf7', '#4cc38a', '#c77dff', '#f2a541', '#2ec4c4', '#f06292'];
 
@@ -317,7 +317,9 @@ export function clamp(v: number, lo: number, hi: number): number {
 }
 
 /** Clamps saved regions to the current file and drops ones that no longer fit. */
-function sanitizeProject(p: Project, duration: number): Project {
+function sanitizeProject(p: Project & { outputDir?: string | null }, duration: number): Project {
+  // Sessions saved before multiple folders had a single `outputDir`.
+  const outputDirs = Array.isArray(p.outputDirs) ? [...new Set(p.outputDirs.filter(Boolean))] : p.outputDir ? [p.outputDir] : [];
   const fix = <T extends { start: number; end: number }>(r: T): T => ({
     ...r,
     start: clamp(r.start, 0, duration),
@@ -325,8 +327,12 @@ function sanitizeProject(p: Project, duration: number): Project {
   });
   return {
     version: 1,
-    outputDir: p.outputDir ?? null,
-    segments: (p.segments ?? []).map(fix).filter((s) => s.end - s.start >= MIN_REGION_SEC),
+    outputDirs,
+    segments: (p.segments ?? []).map(fix).filter((s) => s.end - s.start >= MIN_REGION_SEC).map((s) => {
+      // Only extra folders are stored per segment; anything else falls back to the default.
+      const { outputDir, ...rest } = s;
+      return outputDir && outputDirs.indexOf(outputDir) > 0 ? { ...rest, outputDir } : rest;
+    }),
     cuts: (p.cuts ?? []).map(fix).filter((c) => c.end > c.start),
   };
 }

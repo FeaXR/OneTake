@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { joinedDuration, keptPieces, normalizeGain } from './plan.ts';
 import { filenameProblem, outputFilename, validateSegments } from './validate.ts';
 import { formatTime, parseTime } from './time.ts';
-import { DEFAULT_SETTINGS, type Segment } from './types.ts';
+import { DEFAULT_SETTINGS, segmentFolder, type Segment } from './types.ts';
 
 const seg = (id: string, start: number, end: number, filename = id): Segment => ({
   id, filename, start, end, peakTarget: 1, bitrate: 320,
@@ -62,6 +62,17 @@ test('validateSegments flags duplicate names case-insensitively', () => {
   assert.deepEqual(issues.get('a')!.errors, [{ key: 'issue.duplicate', params: { others: '#2' } }]);
   assert.deepEqual(issues.get('b')!.errors, [{ key: 'issue.duplicate', params: { others: '#1' } }]);
   assert.deepEqual(issues.get('c')!.errors, []);
+});
+
+test('validateSegments only flags duplicate names within the same folder', () => {
+  const project = { outputDirs: ['/main', '/extra'] };
+  const a = seg('a', 0, 60, 'Intro');
+  const b = { ...seg('b', 60, 120, 'Intro'), outputDir: '/extra' };
+  const c = { ...seg('c', 120, 180, 'Intro'), outputDir: '/gone' };
+  const issues = validateSegments([a, b, c], [], DEFAULT_SETTINGS, (s) => segmentFolder(project, s));
+  assert.equal(segmentFolder(project, c), '/main');
+  assert.deepEqual(issues.get('a')!.errors, [{ key: 'issue.duplicate', params: { others: '#3' } }]);
+  assert.deepEqual(issues.get('b')!.errors, []);
 });
 
 test('validateSegments flags too-short segments and big overlaps', () => {
