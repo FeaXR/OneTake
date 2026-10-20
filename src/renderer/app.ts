@@ -1,6 +1,7 @@
 import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting } from '../shared/i18n/index.ts';
+import { highestNumber, usesToken, type FolderRule } from '../shared/naming.ts';
 import { formatTime } from '../shared/time.ts';
-import { FADE_CURVES, FADE_MARKER_STYLES, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type Project, type Segment, type Settings, segmentFolder } from '../shared/types.ts';
+import { FADE_CURVES, FADE_MARKER_STYLES, type Bitrate, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type PeakTarget, type Project, type Segment, type Settings, segmentFolder } from '../shared/types.ts';
 import { outputFilename, validateSegments } from '../shared/validate.ts';
 import { CommandRegistry, Keymap, overridesFrom } from './commands.ts';
 import { ShortcutEditor } from './shortcut-editor.ts';
@@ -51,6 +52,8 @@ export class App {
     hint: h('span', { class: 'hint' }),
   };
   private exporting = false;
+  /** Output folders being scanned for their next free {nn}. */
+  private readonly numbering = new Map<string, Promise<void>>();
 
   constructor(settings: Settings) {
     const ed = this.editor;
@@ -88,6 +91,9 @@ export class App {
     this.buildStatusbar();
     this.bindGlobalEvents();
     ed.subscribe(() => this.refreshChrome());
+    ed.subscribe((changes) => {
+      if (changes.has('project') || changes.has('settings') || changes.has('audio')) void this.ensureNumbering();
+    });
   }
 
   async init(): Promise<void> {
@@ -428,6 +434,37 @@ export class App {
 
   // ---------- Output folders ----------
 
+  /**
+   * Gives each output folder whose naming rule uses {nn} its first number: one past the highest
+   * already in the folder. Found once and kept in the session, so exporting again does not
+   * count the session's own files.
+   */
+  private ensureNumbering(): Promise<void> {
+    const ed = this.editor;
+    const pending: Promise<void>[] = [];
+    for (const seg of ed.project.segments) {
+      const rule = ed.namingRule(seg);
+      const folder = segmentFolder(ed.project, seg);
+      if (!rule || !folder || !usesToken(rule.template, 'nn') || folder in ed.project.numberStarts) continue;
+      let scan = this.numbering.get(folder);
+      if (!scan) {
+        scan = this.scanNumbers(folder, rule).finally(() => this.numbering.delete(folder));
+        this.numbering.set(folder, scan);
+      }
+      pending.push(scan);
+    }
+    return Promise.all(pending).then(() => {});
+  }
+
+  private async scanNumbers(folder: string, rule: FolderRule): Promise<void> {
+    const ed = this.editor;
+    const files = await window.studio.listFiles(folder);
+    if (folder in ed.project.numberStarts) return;
+    // Not an edit of its own: it is saved with the next save or export.
+    ed.project.numberStarts[folder] = highestNumber(rule.template, rule.types, files) + 1;
+    ed.notify('project');
+  }
+
   /** Asks for a folder, refusing one that is already in the list (except at `keep`). */
   private async askFolder(start: string | null, keep = -1): Promise<string | null> {
     const ed = this.editor;
@@ -532,7 +569,10 @@ export class App {
     const segments = ed.sortedSegments();
     if (!segments.length) return toast(t('toast.nothingToExport'), 'error');
 
-    const issues = validateSegments(segments, ed.project.cuts, ed.settings, (s) => segmentFolder(ed.project, s));
+    if (!ed.project.outputDirs.length && !(await this.changeFolder(0))) return;
+    await this.ensureNumbering();
+
+    const issues = validateSegments(segments, ed.project.cuts, ed.settings, (s) => segmentFolder(ed.project, s), (s) => ed.fileName(s));
     const firstBad = segments.find((s) => issues.get(s.id)!.errors.length);
     if (firstBad) {
       const count = segments.filter((s) => issues.get(s.id)!.errors.length).length;
@@ -542,11 +582,11 @@ export class App {
       return;
     }
 
-    if (!ed.project.outputDirs.length && !(await this.changeFolder(0))) return;
     const folders = segments.map((s) => segmentFolder(ed.project, s)!);
     const multipleFolders = new Set(folders).size > 1;
 
-    const names = segments.map((s) => outputFilename(s.filename));
+    const names = segments.map((s) => outputFilename(ed.fileName(s).name));
+    const options = segments.map((s) => ed.outputOptions(s));
     const existing: string[] = [];
     for (const dir of new Set(folders)) {
       const inDir = names.filter((_, i) => folders[i] === dir);
@@ -570,7 +610,7 @@ export class App {
       const fill = h('div');
       const bar = h('div', { class: 'bar' }, fill);
       const detail = h('div', { class: 'detail' },
-        t('export.itemDetail', { bitrate: s.bitrate, peak: s.peakTarget === 1 ? '100%' : '60%' }));
+        t('export.itemDetail', { bitrate: options[i].bitrate, peak: options[i].peakTarget === 1 ? '100%' : '60%' }));
       const name = h('div', { class: 'name' }, `#${i + 1}  ${names[i]}`);
       if (multipleFolders) name.append(h('span', { class: 'form-note', title: folders[i] }, `  → ${basename(folders[i])}`));
       const el = h('div', { class: 'export-item' }, name, bar, detail);
@@ -604,7 +644,9 @@ export class App {
     try {
       const result = await window.studio.startExport({
         wavPath: ed.wavPath,
-        segments: segments.map((s, i) => ({ ...s, outputDir: folders[i] })),
+        segments: segments.map((s, i) => ({
+          ...s, filename: names[i], outputDir: folders[i], peakTarget: options[i].peakTarget, bitrate: options[i].bitrate,
+        })),
         cuts: ed.project.cuts,
         settings: ed.settings,
       });
@@ -612,7 +654,8 @@ export class App {
       const count = result.written.length;
       if (result.ok) {
         modal.body.prepend(h('div', { style: { color: 'var(--ok)', fontWeight: '600' } }, t('export.allDone', { count })));
-        if (ed.dirty) await this.save();
+        // Always saved, so the numbers found for the folders stay with what was exported.
+        await this.save();
       } else {
         const item = items[count];
         if (item) {
@@ -643,7 +686,7 @@ export class App {
 
   private openSettings(): void {
     const ed = this.editor;
-    const s: Settings = { ...ed.settings };
+    const s: Settings = { ...ed.settings, folderRules: ed.settings.folderRules.map((r) => ({ ...r, types: [...r.types] })) };
     const num = (value: number, min: number, max: number, step: number, set: (v: number) => void) =>
       h('input', {
         type: 'number', value: String(value), min: String(min), max: String(max), step: String(step),
@@ -701,6 +744,9 @@ export class App {
         h('div', { class: 'inline' },
           choice(FADE_MARKER_STYLES.map((k): [FadeMarkerStyle, string] => [k, t(`marker.${k}`)]), s.fadeMarkerStyle, (v) => (s.fadeMarkerStyle = v))),
       ),
+      h('div', { class: 'form-section' }, t('settings.naming')),
+      h('div', { class: 'form-note', html: t('settings.naming.note') }),
+      this.folderRulesEditor(s.folderRules),
       h('div', { class: 'form-section' }, t('settings.export')),
       h('div', { class: 'form-grid' },
         h('label', {}, t('settings.ceiling')),
@@ -733,6 +779,82 @@ export class App {
         },
       }, t('btn.save')),
     );
+  }
+
+  /** Editable list of naming rules (folder, start of the name, {type} options); edits `rules` in place. */
+  private folderRulesEditor(rules: FolderRule[]): HTMLElement {
+    const list = h('div', { class: 'naming-rules' });
+    const render = () => {
+      list.replaceChildren(
+        ...rules.map((rule, i) => {
+          const template = h('input', {
+            type: 'text', class: 'naming-template', value: rule.template, placeholder: '{nn}_{type}_',
+            spellcheck: false, title: t('settings.naming.template'),
+            oninput: () => (rule.template = template.value),
+          });
+          const types = h('input', {
+            type: 'text', class: 'naming-types', value: rule.types.join(', '), placeholder: t('settings.naming.types'),
+            spellcheck: false, title: t('settings.naming.types'),
+            onchange: () => {
+              rule.types = [...new Set(types.value.split(',').map((v) => v.trim()).filter(Boolean))];
+              types.value = rule.types.join(', ');
+            },
+          });
+          const option = <T extends number>(values: [T, string][], value: T | undefined, set: (v: T | undefined) => void) => {
+            const sel = h('select', { onchange: () => set(sel.value === '' ? undefined : (Number(sel.value) as T)) });
+            sel.append(h('option', { value: '', selected: value === undefined }, t('settings.rule.notSet')));
+            for (const [v, label] of values) sel.append(h('option', { value: String(v), selected: v === value }, label));
+            return sel;
+          };
+          const options = h('div', { class: 'naming-rule-options' },
+            t('settings.rule.peak'),
+            option<PeakTarget>([[1, '100%'], [0.6, '60%']], rule.peakTarget, (v) => {
+              if (v === undefined) delete rule.peakTarget;
+              else rule.peakTarget = v;
+            }),
+            t('settings.rule.bitrate'),
+            option<Bitrate>([[320, '320 kbps'], [192, '192 kbps']], rule.bitrate, (v) => {
+              if (v === undefined) delete rule.bitrate;
+              else rule.bitrate = v;
+            }),
+          );
+          return h('div', { class: 'naming-rule-wrap' }, h('div', { class: 'naming-rule' },
+            h('div', { class: 'folder-path', title: rule.folder }, rule.folder),
+            h('button', {
+              class: 'icon', html: icons.folder, title: t('settings.naming.folder.tip'),
+              onclick: async () => {
+                const dir = await window.studio.pickFolder(rule.folder);
+                if (dir) {
+                  rule.folder = dir;
+                  render();
+                }
+              },
+            }),
+            template,
+            types,
+            h('button', {
+              class: 'icon danger', html: icons.trash, title: t('settings.naming.remove.tip'),
+              onclick: () => {
+                rules.splice(i, 1);
+                render();
+              },
+            }),
+          ), options);
+        }),
+      );
+      if (!rules.length) list.append(h('div', { class: 'form-note' }, t('settings.naming.empty')));
+      list.append(h('button', {
+        class: 'folder-add',
+        onclick: async () => {
+          const dir = await window.studio.pickFolder(this.editor.project.outputDirs[0] ?? null);
+          if (!dir) return;
+          rules.push({ id: crypto.randomUUID(), folder: dir, template: '', types: [] });
+          render();
+        },
+      }, t('settings.naming.add')));
+    };
+    render();
+    return list;
   }
 
   // ---------- Chrome: toolbar, status bar, title ----------

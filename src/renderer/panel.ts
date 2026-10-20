@@ -1,12 +1,14 @@
 import { formatNumber, t } from '../shared/i18n/index.ts';
 import { formatTime, parseTime } from '../shared/time.ts';
+import { ruleFor, usesToken } from '../shared/naming.ts';
 import { segmentFolder, type Bitrate, type PeakTarget, type Segment } from '../shared/types.ts';
 import { outputDurationOf } from '../shared/plan.ts';
 import { validateSegments, type SegmentIssues } from '../shared/validate.ts';
 import { h } from './dom.ts';
 import { clamp, MIN_REGION_SEC, type Change, type Editor } from './editor.ts';
-import { toast } from './dialogs.ts';
+import { showContextMenu, toast } from './dialogs.ts';
 import { icons } from './icons.ts';
+import type { ContextItem } from './timeline.ts';
 
 const folderName = (dir: string) => dir.replace(/[\\/]+$/, '').replace(/^.*[\\/]/, '') || dir;
 
@@ -26,12 +28,15 @@ export interface PanelActions {
 interface Row {
   el: HTMLElement;
   index: HTMLElement;
+  prefix: HTMLButtonElement;
   name: HTMLInputElement;
   start: HTMLInputElement;
   end: HTMLInputElement;
   dur: HTMLElement;
   peak: Map<PeakTarget, HTMLButtonElement>;
   bitrate: Map<Bitrate, HTMLButtonElement>;
+  peakGroup: HTMLElement;
+  bitrateGroup: HTMLElement;
   folderLine: HTMLElement;
   folder: HTMLSelectElement;
   folderKey: string;
@@ -91,7 +96,7 @@ export class OutputPanel {
   private update(scrollToSelection = false): void {
     const ed = this.editor;
     const segments = ed.sortedSegments();
-    const issues = validateSegments(segments, ed.project.cuts, ed.settings, (s) => segmentFolder(ed.project, s));
+    const issues = validateSegments(segments, ed.project.cuts, ed.settings, (s) => segmentFolder(ed.project, s), (s) => ed.fileName(s));
 
     this.countEl.textContent = segments.length ? `(${segments.length})` : '';
     this.emptyEl.style.display = segments.length ? 'none' : '';
@@ -189,17 +194,32 @@ export class OutputPanel {
     const start = timeInput('start');
     const end = timeInput('end');
 
+    // Choosing the folder's default clears the file's own choice, so it follows the folder again.
     const peak = new Map<PeakTarget, HTMLButtonElement>();
-    const peakGroup = h('div', { class: 'segmented', title: t('panel.peak.tip') });
+    const peakGroup = h('div', { class: 'segmented' });
     for (const [value, label] of [[1, '100%'], [0.6, '60%']] as const) {
-      const b = h('button', { onclick: () => ed.commit(() => { const s = seg(); if (s) s.peakTarget = value; }) }, label);
+      const b = h('button', {
+        onclick: () => ed.commit(() => {
+          const s = seg();
+          if (!s) return;
+          if (value === ed.outputOptions(s).peakDefault) delete s.peakTarget;
+          else s.peakTarget = value;
+        }),
+      }, label);
       peak.set(value, b);
       peakGroup.append(b);
     }
     const bitrate = new Map<Bitrate, HTMLButtonElement>();
-    const bitrateGroup = h('div', { class: 'segmented', title: t('panel.bitrate.tip') });
+    const bitrateGroup = h('div', { class: 'segmented' });
     for (const value of [320, 192] as const) {
-      const b = h('button', { onclick: () => ed.commit(() => { const s = seg(); if (s) s.bitrate = value; }) }, String(value));
+      const b = h('button', {
+        onclick: () => ed.commit(() => {
+          const s = seg();
+          if (!s) return;
+          if (value === ed.outputOptions(s).bitrateDefault) delete s.bitrate;
+          else s.bitrate = value;
+        }),
+      }, String(value));
       bitrate.set(value, b);
       bitrateGroup.append(b);
     }
@@ -215,6 +235,18 @@ export class OutputPanel {
       }),
     });
     const folderLine = h('div', { class: 'row-line row-folder' }, h('span', { class: 'row-ext', html: icons.folder }), folder);
+
+    const prefix = h('button', {
+      class: 'name-prefix',
+      onclick: () => {
+        const s = seg();
+        if (!s) return;
+        ed.select({ kind: 'segment', id });
+        if (!ed.namingRule(s)) return this.restoreAutoName(s);
+        const r = prefix.getBoundingClientRect();
+        this.showNameMenu(s, r.left, r.bottom + 2);
+      },
+    });
 
     const index = h('span', { class: 'row-index' });
     const dur = h('span', { class: 'row-dur' });
@@ -232,7 +264,7 @@ export class OutputPanel {
         }
       },
     },
-      h('div', { class: 'row-line' }, index, name, h('span', { class: 'row-ext' }, '.mp3')),
+      h('div', { class: 'row-line' }, index, prefix, name, h('span', { class: 'row-ext' }, '.mp3')),
       h('div', { class: 'row-line' },
         start, h('span', { class: 'row-ext' }, '→'), end,
         dur,
@@ -249,7 +281,7 @@ export class OutputPanel {
       folderLine,
       issues,
     );
-    return { el, index, name, start, end, dur, peak, bitrate, folderLine, folder, folderKey: '', issues };
+    return { el, index, prefix, name, start, end, dur, peak, bitrate, peakGroup, bitrateGroup, folderLine, folder, folderKey: '', issues };
   }
 
   private fillRow(row: Row, seg: Segment, i: number, issues: SegmentIssues): void {
@@ -259,6 +291,7 @@ export class OutputPanel {
     row.el.classList.toggle('has-error', issues.errors.length > 0);
     row.index.textContent = `#${i + 1}`;
     if (document.activeElement !== row.name) row.name.value = seg.filename;
+    this.fillPrefix(row, seg, issues);
     row.name.classList.toggle('invalid', issues.errors.some((e) => e.key.startsWith('issue.filename') || e.key === 'issue.duplicate'));
     if (document.activeElement !== row.start) row.start.value = formatTime(seg.start);
     if (document.activeElement !== row.end) row.end.value = formatTime(seg.end);
@@ -266,13 +299,74 @@ export class OutputPanel {
     const cutAway = seg.end - seg.start - length;
     row.dur.textContent = formatTime(Math.max(0, length), 1) + (cutAway > 0.005 ? ` (−${formatNumber(cutAway, 1)} s)` : '');
     row.dur.title = t('panel.length.tip');
-    for (const [v, b] of row.peak) b.classList.toggle('active', seg.peakTarget === v);
-    for (const [v, b] of row.bitrate) b.classList.toggle('active', seg.bitrate === v);
+    const options = ed.outputOptions(seg);
+    for (const [v, b] of row.peak) b.classList.toggle('active', options.peakTarget === v);
+    for (const [v, b] of row.bitrate) b.classList.toggle('active', options.bitrate === v);
+    // Marked when the file differs from its folder, so overrides stand out.
+    const source = (own: boolean, folderValue: string) => (own ? t('panel.option.own', { value: folderValue }) : t('panel.option.folder'));
+    row.peakGroup.classList.toggle('override', seg.peakTarget !== undefined);
+    row.peakGroup.title = `${t('panel.peak.tip')}. ${source(seg.peakTarget !== undefined, options.peakDefault === 1 ? '100%' : '60%')}`;
+    row.bitrateGroup.classList.toggle('override', seg.bitrate !== undefined);
+    row.bitrateGroup.title = `${t('panel.bitrate.tip')}. ${source(seg.bitrate !== undefined, `${options.bitrateDefault} kbps`)}`;
     this.fillFolder(row, seg);
     row.issues.replaceChildren(
       ...issues.errors.map((e) => h('div', { class: 'err' }, t(e.key, e.params))),
       ...issues.warnings.map((w) => h('div', { class: 'warn' }, t(w.key, w.params))),
     );
+  }
+
+  /**
+   * The start of the name a naming rule generates, shown before the typed part. Without a rule
+   * it is hidden, or offers to switch the rule back on for a file whose name was typed in full.
+   */
+  private fillPrefix(row: Row, seg: Segment, issues: SegmentIssues): void {
+    const ed = this.editor;
+    const { prefix, rule } = ed.fileName(seg);
+    const ruleOff = !rule && seg.autoName === false && !!ruleFor(ed.settings.folderRules, segmentFolder(ed.project, seg));
+    row.prefix.style.display = rule || ruleOff ? '' : 'none';
+    row.prefix.textContent = rule ? `${prefix}${rule.types.length > 1 ? ' ▾' : ''}` : ruleOff ? t('panel.autoName') : '';
+    row.prefix.title = rule ? t('panel.prefix.tip') : t('panel.autoName.tip');
+    row.prefix.classList.toggle('invalid', issues.errors.some((e) => e.key === 'issue.noDate'));
+    row.name.placeholder = rule ? t('panel.filenameRest') : t('panel.filename');
+  }
+
+  private showNameMenu(seg: Segment, x: number, y: number): void {
+    const ed = this.editor;
+    const rule = ed.namingRule(seg)!;
+    const current = seg.type && rule.types.includes(seg.type) ? seg.type : rule.types[0];
+    const siblings = ed.namingSiblings(seg);
+    const setType = (targets: Segment[], type: string) => ed.commit(() => {
+      for (const s of targets) s.type = type;
+    });
+    const items: ContextItem[] = rule.types.map((type) => ({ label: `${type === current ? '✓' : '\u2003'} ${type}`, run: () => setType([seg], type) }));
+    if (rule.types.length > 1) {
+      const after = siblings.slice(siblings.findIndex((s) => s.id === seg.id));
+      items.push({ label: '', separator: true });
+      for (const type of rule.types) items.push({ label: t('panel.type.following', { type }), run: () => setType(after, type) });
+      for (const type of rule.types) items.push({ label: t('panel.type.all', { type }), run: () => setType(siblings, type) });
+    }
+    if (items.length) items.push({ label: '', separator: true });
+    items.push({
+      label: t('panel.typeWholeName'),
+      run: () => {
+        const name = ed.fileName(seg).name;
+        ed.commit(() => {
+          seg.filename = name;
+          seg.autoName = false;
+        });
+      },
+    });
+    showContextMenu(x, y, items);
+  }
+
+  /** Switches the naming rule back on, dropping the generated part if it was kept in the name. */
+  private restoreAutoName(seg: Segment): void {
+    const ed = this.editor;
+    ed.commit(() => {
+      delete seg.autoName;
+      const { prefix } = ed.fileName(seg);
+      if (prefix && seg.filename.startsWith(prefix)) seg.filename = seg.filename.slice(prefix.length);
+    });
   }
 
   /** The folder choice only appears once the project has more than one folder. */
@@ -295,8 +389,9 @@ export class OutputPanel {
 
   /** Folder list in the header: the first is the default, the others can be chosen per file. */
   private updateFolders(): void {
-    const dirs = this.editor.project.outputDirs;
-    const key = dirs.join('\n');
+    const ed = this.editor;
+    const dirs = ed.project.outputDirs;
+    const key = [dirs.join('\n'), JSON.stringify(ed.project.numberStarts), ed.settings.folderRules.map((r) => `${r.folder}|${r.template}`).join('\n')].join('\0');
     if (key === this.foldersKey) return;
     this.foldersKey = key;
     const line = (i: number) => {
@@ -305,6 +400,7 @@ export class OutputPanel {
       return h('div', { class: 'folder-row' },
         dirs.length > 1 ? h('span', { class: 'folder-tag' }, i === 0 ? t('panel.default') : `${i + 1}`) : null,
         path,
+        dir ? this.numberStartInput(dir) : null,
         h('button', { class: dirs.length > 1 ? 'icon' : '', html: icons.folder, title: i === 0 ? t('panel.folder.tip') : t('panel.extraFolder.tip'), onclick: () => this.actions.changeFolder(i) },
           dirs.length > 1 ? null : t('panel.folder')),
         i > 0 ? h('button', { class: 'icon danger', html: icons.trash, title: t('panel.removeFolder.tip'), onclick: () => this.actions.removeFolder(i) }) : null,
@@ -314,6 +410,26 @@ export class OutputPanel {
     if (dirs.length) {
       this.foldersEl.append(h('button', { class: 'folder-add', title: t('panel.addFolder.tip'), onclick: () => this.actions.addFolder() }, t('panel.addFolder')));
     }
+  }
+
+  /** First {nn} for a folder whose naming rule numbers the files; editable in case the guess is off. */
+  private numberStartInput(dir: string): HTMLElement | null {
+    const ed = this.editor;
+    const rule = ruleFor(ed.settings.folderRules, dir);
+    if (!rule || !usesToken(rule.template, 'nn')) return null;
+    const value = ed.project.numberStarts[dir];
+    const input = h('input', {
+      type: 'number', min: '0', step: '1', value: value === undefined ? '' : String(value), placeholder: '…',
+      onchange: () => {
+        const v = Math.round(Number(input.value));
+        if (input.value === '' || !Number.isFinite(v) || v < 0) {
+          input.value = value === undefined ? '' : String(value);
+          return;
+        }
+        ed.commit((p) => (p.numberStarts[dir] = v));
+      },
+    });
+    return h('label', { class: 'folder-num', title: t('panel.numberFrom.tip') }, t('panel.numberFrom'), input);
   }
 
   private updateCuts(): void {

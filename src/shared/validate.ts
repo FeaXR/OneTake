@@ -11,6 +11,12 @@ export interface Issue {
   params?: Params;
 }
 
+/** A segment's full name (naming rule prefix plus the typed part), and why it cannot be built. */
+export interface ResolvedName {
+  name: string;
+  issue?: Issue;
+}
+
 /** Final file name on disk: the typed name with `.mp3` added unless already present. */
 export function outputFilename(name: string): string {
   const trimmed = name.trim();
@@ -34,13 +40,15 @@ export interface SegmentIssues {
 
 /**
  * Checks every segment; errors block export, warnings are informational. Filenames only
- * clash with segments written to the same folder (`folderOf`).
+ * clash with segments written to the same folder (`folderOf`); `nameOf` gives the full name
+ * when a naming rule adds to the typed part.
  */
 export function validateSegments(
   segments: readonly Segment[],
   cuts: readonly Cut[],
   settings: Settings,
   folderOf: (seg: Segment) => string | null = () => null,
+  nameOf: (seg: Segment) => ResolvedName = (seg) => ({ name: seg.filename }),
 ): Map<string, SegmentIssues> {
   const result = new Map<string, SegmentIssues>();
   const byName = new Map<string, number[]>();
@@ -50,10 +58,12 @@ export function validateSegments(
     const issues: SegmentIssues = { errors: [], warnings: [] };
     result.set(seg.id, issues);
 
-    const problem = filenameProblem(seg.filename);
+    const resolved = nameOf(seg);
+    const problem: Issue | null = seg.filename.trim() === '' ? { key: 'issue.filenameRequired' } : filenameProblem(resolved.name);
+    if (resolved.issue) issues.errors.push(resolved.issue);
     if (problem) issues.errors.push(problem);
     else {
-      const key = `${folderOf(seg) ?? ''}\0${outputFilename(seg.filename)}`.toLowerCase();
+      const key = `${folderOf(seg) ?? ''}\0${outputFilename(resolved.name)}`.toLowerCase();
       byName.set(key, [...(byName.get(key) ?? []), i]);
     }
 

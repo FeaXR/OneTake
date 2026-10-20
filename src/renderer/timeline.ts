@@ -652,7 +652,7 @@ export class Timeline {
         ctx.stroke();
       }
 
-      const label = `#${ed.segmentNumber(s.id)}  ${s.filename.trim() || tr('tl.unnamed')}`;
+      const label = `#${ed.segmentNumber(s.id)}  ${ed.fileName(s).name.trim() || tr('tl.unnamed')}`;
       const textX = Math.max(x0, 0) + 6;
       const maxW = x1 - textX - 4;
       if (maxW > 12) {

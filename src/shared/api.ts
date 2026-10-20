@@ -22,6 +22,8 @@ export interface StudioApi {
 
   pickFolder(defaultPath: string | null): Promise<string | null>;
   existingFiles(dir: string, names: string[]): Promise<string[]>;
+  /** Names in a folder; empty when it does not exist. */
+  listFiles(dir: string): Promise<string[]>;
   showInFolder(path: string): Promise<void>;
 
   startExport(req: ExportRequest): Promise<ExportResult>;

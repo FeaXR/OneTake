@@ -1,4 +1,5 @@
 import type { LanguageSetting } from './i18n/index.ts';
+import type { FolderRule } from './naming.ts';
 
 export type PeakTarget = 1 | 0.6;
 export type Bitrate = 320 | 192;
@@ -9,10 +10,15 @@ export interface Segment {
   filename: string;
   start: number;
   end: number;
-  peakTarget: PeakTarget;
-  bitrate: Bitrate;
+  /** Set when this file differs from its folder's default (see FolderRule and Settings). */
+  peakTarget?: PeakTarget;
+  bitrate?: Bitrate;
   /** One of the project's extra output folders; unset means the default (first) folder. */
   outputDir?: string;
+  /** Choice for the naming rule's {type}; unset means its first option. */
+  type?: string;
+  /** False when the whole name is typed, ignoring the folder's naming rule. */
+  autoName?: false;
 }
 
 /** A span of the source that is removed from every segment that contains it. */
@@ -29,6 +35,8 @@ export interface Project {
   cuts: Cut[];
   /** Output folders; the first is the default for segments that do not choose another. */
   outputDirs: string[];
+  /** First {nn} per output folder, found once from the files already there and then kept. */
+  numberStarts: Record<string, number>;
 }
 
 /** The folder a segment is written to, or null when the project has no folder yet. */
@@ -59,6 +67,7 @@ export interface Settings {
   cutCrossfadeMs: number;
   defaultBitrate: Bitrate;
   defaultPeakTarget: PeakTarget;
+  folderRules: FolderRule[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -72,6 +81,7 @@ export const DEFAULT_SETTINGS: Settings = {
   cutCrossfadeMs: 10,
   defaultBitrate: 320,
   defaultPeakTarget: 1,
+  folderRules: [],
 };
 
 export interface AudioInfo {
@@ -82,6 +92,8 @@ export interface AudioInfo {
   sampleFormat: 'int' | 'float';
   frames: number;
   duration: number;
+  /** File modification time (ms), used to tell the year of a date in the file name. */
+  modified?: number;
 }
 
 /** Min/max envelope of the whole file (all channels combined), one pair per bucket of frames. */
@@ -100,8 +112,8 @@ export interface LoadedAudio {
 
 export interface ExportRequest {
   wavPath: string;
-  /** Each segment with the folder it is written to resolved. */
-  segments: (Segment & { outputDir: string })[];
+  /** Each segment with its full filename, folder and output options resolved. */
+  segments: (Segment & { outputDir: string; peakTarget: PeakTarget; bitrate: Bitrate })[];
   cuts: Cut[];
   settings: Settings;
 }

@@ -59,6 +59,8 @@ Builds of every commit are also available from the [Actions page](https://github
    - Mouse: drag in the **top lane** above the waveform, or drag on the waveform with the **Segment** tool (active at startup).
    - Keyboard, while listening: press **I** at the start and **O** at the end.
 3. **Name each file** in the list on the right, and choose **100% / 60%** and **320 / 192** for each one.
+   - **Settings → Folder rules** can set the volume and bitrate for everything written to a folder (and its subfolders). Each file follows its folder unless you pick something else for it; overridden choices are outlined, and picking the folder's value again makes the file follow the folder.
+   - With a naming rule for the output folder, the start of each name is filled in for you: `{nn}` is the next free number in the folder, `{n}` the order within the recording, `{date}` comes from the WAV name (`1018_….wav` → `261018`), and `{type}` is a per-file choice such as SH / HSZ. Rules also apply to subfolders. Click the generated part to change the type, for one file, it and the ones after it, or the whole folder.
 4. **Mark cuts.**
    - Mouse: drag in the **bottom lane**, or use the **Cut** tool.
    - Keyboard: press **X** where the noise starts and **X** again where it ends.

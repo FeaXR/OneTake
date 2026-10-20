@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { resolveLanguage, setLanguage, t } from '../shared/i18n/index.ts';
 import type { ExportRequest, LoadedAudio, Project, Settings } from '../shared/types.ts';
@@ -109,7 +109,8 @@ function registerIpc(): void {
     );
     openedWav = { ...layout, path: resolve(path) };
     const { sampleRate, channels, bitsPerSample, sampleFormat, frames, duration } = layout;
-    const info = { path: openedWav.path, sampleRate, channels, bitsPerSample, sampleFormat, frames, duration };
+    const modified = statSync(path).mtimeMs;
+    const info = { path: openedWav.path, sampleRate, channels, bitsPerSample, sampleFormat, frames, duration, modified };
     return { info, peaks, project: await loadProject(path) };
   });
 
@@ -133,6 +134,13 @@ function registerIpc(): void {
       properties: ['openDirectory', 'createDirectory'],
     });
     return result.canceled ? null : result.filePaths[0];
+  });
+  ipcMain.handle('fs:list', (_e, dir: string): string[] => {
+    try {
+      return readdirSync(dir);
+    } catch {
+      return [];
+    }
   });
   ipcMain.handle('fs:existing', (_e, dir: string, names: string[]) => names.filter((n) => existsSync(join(dir, n))));
   ipcMain.handle('shell:showInFolder', (_e, path: string) => shell.showItemInFolder(path));

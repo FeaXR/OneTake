@@ -1,5 +1,7 @@
-import type { AudioInfo, Cut, Project, Segment, Settings } from '../shared/types.ts';
-import { DEFAULT_SETTINGS } from '../shared/types.ts';
+import { expandTemplate, folderDefault, formatDate, recordingDate, ruleFor, usesToken, type FolderRule } from '../shared/naming.ts';
+import type { AudioInfo, Bitrate, Cut, PeakTarget, Project, Segment, Settings } from '../shared/types.ts';
+import { DEFAULT_SETTINGS, segmentFolder } from '../shared/types.ts';
+import type { ResolvedName } from '../shared/validate.ts';
 import { joinedDuration, keptPieces } from '../shared/plan.ts';
 import { fadeGain } from './draw.ts';
 import { PeakPyramid } from './peaks.ts';
@@ -18,7 +20,7 @@ export const MIN_REGION_SEC = 0.05;
 /** Deepest zoom: frames per CSS pixel. */
 const MIN_FRAMES_PER_PX = 8;
 
-export const emptyProject = (): Project => ({ version: 1, segments: [], cuts: [], outputDirs: [] });
+export const emptyProject = (): Project => ({ version: 1, segments: [], cuts: [], outputDirs: [], numberStarts: {} });
 
 const SEGMENT_COLORS = ['#4f9cf7', '#4cc38a', '#c77dff', '#f2a541', '#2ec4c4', '#f06292'];
 
@@ -80,7 +82,7 @@ export class Editor {
     this.wavPath = path;
     this.info = info;
     this.peaks = peaks;
-    this.project = project ? sanitizeProject(project, info.duration) : emptyProject();
+    this.project = project ? sanitizeProject(project, info.duration, this.settings) : emptyProject();
     this.selection = null;
     this.playhead = 0;
     this.markIn = null;
@@ -173,6 +175,50 @@ export class Editor {
 
   // ---------- Queries ----------
 
+  /**
+   * A file's volume target and bitrate: its own choice, else its folder's default, else the
+   * Settings default. `*Default` is what it would be without its own choice.
+   */
+  outputOptions(seg: Segment): { peakTarget: PeakTarget; bitrate: Bitrate; peakDefault: PeakTarget; bitrateDefault: Bitrate } {
+    const folder = segmentFolder(this.project, seg);
+    const rules = this.settings.folderRules;
+    const peakDefault = folderDefault(rules, folder, 'peakTarget') ?? this.settings.defaultPeakTarget;
+    const bitrateDefault = folderDefault(rules, folder, 'bitrate') ?? this.settings.defaultBitrate;
+    return { peakTarget: seg.peakTarget ?? peakDefault, bitrate: seg.bitrate ?? bitrateDefault, peakDefault, bitrateDefault };
+  }
+
+  /** The naming rule a segment follows, or null when its name is typed in full. */
+  namingRule(seg: Segment): FolderRule | null {
+    return seg.autoName === false ? null : ruleFor(this.settings.folderRules, segmentFolder(this.project, seg));
+  }
+
+  /**
+   * Segments numbered together with `seg`: same folder, in time order. Files with a typed full
+   * name keep their place, so switching one does not renumber the others.
+   */
+  namingSiblings(seg: Segment): Segment[] {
+    const folder = segmentFolder(this.project, seg);
+    return this.sortedSegments().filter((s) => segmentFolder(this.project, s) === folder);
+  }
+
+  /** The rule's generated start of the name (empty without a rule), and the full name. */
+  fileName(seg: Segment): ResolvedName & { prefix: string; rule: FolderRule | null } {
+    const rule = this.namingRule(seg);
+    if (!rule) return { name: seg.filename, prefix: '', rule: null };
+    const folder = segmentFolder(this.project, seg)!;
+    const order = this.namingSiblings(seg).findIndex((s) => s.id === seg.id) + 1;
+    const date = this.info ? recordingDate(this.info.path, this.info.modified ?? Date.now()) : null;
+    const type = seg.type && rule.types.includes(seg.type) ? seg.type : rule.types[0] ?? '';
+    const prefix = expandTemplate(rule.template, {
+      number: (this.project.numberStarts[folder] ?? 1) + order - 1,
+      order,
+      date: date ? formatDate(date) : null,
+      type,
+    });
+    const issue = usesToken(rule.template, 'date') && !date ? { key: 'issue.noDate' as const } : undefined;
+    return { name: prefix + seg.filename, prefix, rule, issue };
+  }
+
   /** The segment whose fades playback previews: the selected one. */
   get previewSegment(): Segment | undefined {
     const sel = this.selection;
@@ -263,8 +309,6 @@ export class Editor {
       filename: '',
       start: clamp(Math.min(start, end), 0, this.duration),
       end: clamp(Math.max(start, end), 0, this.duration),
-      peakTarget: this.settings.defaultPeakTarget,
-      bitrate: this.settings.defaultBitrate,
     };
   }
 
@@ -363,7 +407,19 @@ export function clamp(v: number, lo: number, hi: number): number {
 }
 
 /** Clamps saved regions to the current file and drops ones that no longer fit. */
-function sanitizeProject(p: Project & { outputDir?: string | null }, duration: number): Project {
+function sanitizeProject(p: Project & { outputDir?: string | null }, duration: number, settings: Settings): Project {
+  // Sessions from before folder defaults stored every file's volume and bitrate. Values equal
+  // to the Settings defaults were never really chosen, so they follow the folder from now on.
+  const legacy = !('numberStarts' in p);
+  const options = (s: Segment): Segment => {
+    if (!legacy) return s;
+    const { peakTarget, bitrate, ...rest } = s;
+    return {
+      ...rest,
+      ...(peakTarget !== settings.defaultPeakTarget && { peakTarget }),
+      ...(bitrate !== settings.defaultBitrate && { bitrate }),
+    };
+  };
   // Sessions saved before multiple folders had a single `outputDir`.
   const outputDirs = Array.isArray(p.outputDirs) ? [...new Set(p.outputDirs.filter(Boolean))] : p.outputDir ? [p.outputDir] : [];
   const fix = <T extends { start: number; end: number }>(r: T): T => ({
@@ -374,10 +430,13 @@ function sanitizeProject(p: Project & { outputDir?: string | null }, duration: n
   return {
     version: 1,
     outputDirs,
+    numberStarts: Object.fromEntries(
+      Object.entries(p.numberStarts ?? {}).filter(([, v]) => Number.isInteger(v) && v >= 0),
+    ),
     segments: (p.segments ?? []).map(fix).filter((s) => s.end - s.start >= MIN_REGION_SEC).map((s) => {
       // Only extra folders are stored per segment; anything else falls back to the default.
       const { outputDir, ...rest } = s;
-      return outputDir && outputDirs.indexOf(outputDir) > 0 ? { ...rest, outputDir } : rest;
+      return options(outputDir && outputDirs.indexOf(outputDir) > 0 ? { ...rest, outputDir } : rest);
     }),
     cuts: (p.cuts ?? []).map(fix).filter((c) => c.end > c.start),
   };
