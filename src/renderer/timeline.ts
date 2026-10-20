@@ -677,10 +677,12 @@ export class Timeline {
     const ed = this.editor;
     const { fadeInSec, fadeOutSec, fadeInCurve, fadeOutCurve, fadeMarkerStyle } = ed.settings;
     const dash = FADE_MARKER_DASHES[fadeMarkerStyle] ?? FADE_MARKER_DASHES.dashed;
-    ctx.lineWidth = 1.25;
+    const previewId = ed.previewSegment?.id;
 
     for (const s of ed.project.segments) {
-      const color = withAlpha(ed.segmentColor(s.id), 0.9);
+      // The selected segment's fades are the ones playback applies, so they stand out.
+      const previewed = s.id === previewId;
+      const color = withAlpha(ed.segmentColor(s.id), previewed ? 1 : 0.9);
       const curve = (from: number, to: number, gain: (x: number) => number, markAt: number) => {
         const x0 = ed.timeToX(from);
         const x1 = ed.timeToX(to);
@@ -688,6 +690,7 @@ export class Timeline {
         // Vertical line where the fade meets full volume.
         const xm = Math.round(ed.timeToX(markAt)) + 0.5;
         ctx.save();
+        ctx.lineWidth = 1.25;
         ctx.setLineDash(dash);
         ctx.strokeStyle = withAlpha(ed.segmentColor(s.id), 0.85);
         ctx.beginPath();
@@ -695,6 +698,7 @@ export class Timeline {
         ctx.lineTo(xm, mid + half);
         ctx.stroke();
         ctx.restore();
+        ctx.lineWidth = previewed ? 2.25 : 1.25;
         for (const sign of [-1, 1]) {
           ctx.beginPath();
           const steps = Math.min(64, Math.ceil(x1 - x0));

@@ -17,6 +17,7 @@ export interface PanelActions {
   removeFolder(index: number): void;
   exportAll(): void;
   playRegion(kind: 'segment' | 'cut', id: string): void;
+  playSegmentEdge(id: string, edge: 'start' | 'end'): void;
   zoomTo(kind: 'segment' | 'cut', id: string): void;
   deleteRegion(kind: 'segment' | 'cut', id: string): void;
   shortcut(commandId: string): string;
@@ -239,7 +240,9 @@ export class OutputPanel {
       h('div', { class: 'row-line' },
         peakGroup, bitrateGroup,
         h('span', { style: { flex: '1' } }),
+        iconBtn(icons.playStart, t('panel.playStart.tip'), () => this.actions.playSegmentEdge(id, 'start')),
         iconBtn(icons.playSelection, t('panel.play.tip'), () => this.actions.playRegion('segment', id)),
+        iconBtn(icons.playEnd, t('panel.playEnd.tip'), () => this.actions.playSegmentEdge(id, 'end')),
         iconBtn(icons.target, t('panel.zoom.tip'), () => this.actions.zoomTo('segment', id)),
         iconBtn(icons.trash, t('panel.delete.tip'), () => this.actions.deleteRegion('segment', id), 'danger'),
       ),

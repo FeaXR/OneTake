@@ -17,7 +17,7 @@ Most audio editors work the other way round: many tracks in, one file out. Studi
 - **Per-file peak normalization** to 100% or 60%, and **per-file bitrate** of 320 or 192 kbps (MP3, constant bitrate).
 - **Built for long files.** A 90-minute 24-bit recording opens in about 3 seconds and stays smooth while zooming and scrolling. The waveform overview is cached, so reopening is instant.
 - **Mouse or keyboard.** Every action works with the mouse, and every action can also have a shortcut. Mark files with I/O and cuts with X while listening, and rebind any key in Settings.
-- **Hear the result.** Playback skips the cuts by default, so you hear exactly what will be exported.
+- **Hear the result.** Playback skips the cuts by default, and inside the selected segment it plays that file's fade-in and fade-out too. Two buttons on each file play just its start or its end, to check the fades quickly.
 - **Safe export.** Filenames are checked before anything is written, you're asked before files are overwritten, and a cancelled export never leaves half-written files.
 - **Sessions are saved** next to the WAV, so you can come back later and re-export.
 - **English and Hungarian** interface.
@@ -86,6 +86,7 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 | --- | --- |
 | Space | Play / pause |
 | P | Play the selected segment, or the audio around the selected cut |
+| Shift+P / Alt+P | Play the start (fade-in) or the end (fade-out) of the segment |
 | I / O | Mark a segment's start / end at the playhead |
 | Shift+I / Shift+O | Move the selected segment's start / end to the playhead |
 | X | Mark a cut's start, then its end |

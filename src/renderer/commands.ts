@@ -52,6 +52,8 @@ export const DEFAULT_SHORTCUTS: Record<string, string[]> = {
   'play.toggle': ['Space'],
   'play.selection': ['P'],
   'play.skipCuts': ['K'],
+  'play.segmentStart': ['Shift+P'],
+  'play.segmentEnd': ['Alt+P'],
   'playhead.start': ['Home'],
   'playhead.end': ['End'],
   'playhead.back': ['ArrowLeft'],

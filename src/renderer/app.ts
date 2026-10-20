@@ -20,6 +20,8 @@ const BIG_STEP_SEC = 10;
 /** sessionStorage key holding the open work while the window reloads to switch language. */
 const RELOAD_STATE_KEY = 'sae.reloadState';
 
+/** Context played after a fade-in or before a fade-out by the segment start/end preview. */
+const EDGE_PREVIEW_SEC = 3;
 const basename = (p: string) => p.replace(/^.*[\\/]/, '');
 const dirname = (p: string) => p.replace(/[\\/][^\\/]*$/, '');
 
@@ -71,6 +73,7 @@ export class App {
       removeFolder: (index) => this.removeFolder(index),
       exportAll: () => this.commands.run('file.export'),
       playRegion: (kind, id) => this.playRegion(kind, id),
+      playSegmentEdge: (id, edge) => this.playSegmentEdge(edge, id),
       zoomTo: (kind, id) => {
         const r = ed.region({ kind, id });
         if (r) ed.zoomToRange(r.start, r.end);
@@ -146,6 +149,8 @@ export class App {
         id: 'play.selection', label: t('cmd.play.selection'), enabled: hasAudio,
         run: () => (ed.selection ? this.playRegion(ed.selection.kind, ed.selection.id) : void this.player.play()),
       },
+      { id: 'play.segmentStart', label: t('cmd.play.segmentStart'), enabled: hasAudio, run: () => this.playSegmentEdge('start') },
+      { id: 'play.segmentEnd', label: t('cmd.play.segmentEnd'), enabled: hasAudio, run: () => this.playSegmentEdge('end') },
       {
         id: 'play.skipCuts', label: t('cmd.play.skipCuts'),
         run: () => {
@@ -333,6 +338,21 @@ export class App {
       if (!this.editor.skipCuts) toast(t('toast.skipCutsIsOff'));
       void this.player.play(Math.max(0, r.start - 2), Math.min(this.editor.duration, r.end + 2));
     } else void this.player.play(r.start, r.end);
+  }
+
+  /**
+   * Plays just the fade-in (start) or fade-out (end) of a segment with a few seconds of
+   * context: the segment given, else the selected one, else the one under the playhead.
+   */
+  private playSegmentEdge(edge: 'start' | 'end', id?: string): void {
+    const ed = this.editor;
+    const seg = id ? ed.project.segments.find((s) => s.id === id) : ed.previewSegment ?? this.segmentAtPlayhead();
+    if (!seg) return toast(t('toast.notInSegment'), 'error');
+    ed.select({ kind: 'segment', id: seg.id });
+    if (!ed.skipCuts) toast(t('toast.skipCutsIsOff'));
+    const { fadeInSec, fadeOutSec } = ed.settings;
+    if (edge === 'start') void this.player.play(seg.start, Math.min(seg.end, seg.start + fadeInSec + EDGE_PREVIEW_SEC));
+    else void this.player.play(Math.max(seg.start, seg.end - fadeOutSec - EDGE_PREVIEW_SEC), seg.end);
   }
 
   private deleteRegion(kind: RegionKind, id: string): void {

@@ -12,6 +12,8 @@ export const icons = {
   cut: svg('<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>'),
   play: svg('<path d="M7 4v16l13-8z" fill="currentColor"/>'),
   pause: svg('<rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/>'),
+  playStart: svg('<path d="M4 5v14"/><path d="M9 7v10l8-5z" fill="currentColor"/>'),
+  playEnd: svg('<path d="M20 5v14"/><path d="M6 7v10l8-5z" fill="currentColor"/>'),
   playSelection: svg('<path d="M3 5v14M21 5v14"/><path d="M8 7v10l8-5z" fill="currentColor"/>'),
   skip: svg('<path d="M4 12h4M16 12h4"/><path d="M8 8l8 8M16 8l-8 8"/>'),
   zoomIn: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M8 11h6M11 8v6"/>'),

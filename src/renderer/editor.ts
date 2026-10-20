@@ -1,5 +1,7 @@
 import type { AudioInfo, Cut, Project, Segment, Settings } from '../shared/types.ts';
 import { DEFAULT_SETTINGS } from '../shared/types.ts';
+import { joinedDuration, keptPieces } from '../shared/plan.ts';
+import { fadeGain } from './draw.ts';
 import { PeakPyramid } from './peaks.ts';
 
 export type Tool = 'select' | 'segment' | 'cut';
@@ -170,6 +172,35 @@ export class Editor {
   }
 
   // ---------- Queries ----------
+
+  /** The segment whose fades playback previews: the selected one. */
+  get previewSegment(): Segment | undefined {
+    const sel = this.selection;
+    return sel?.kind === 'segment' ? this.project.segments.find((s) => s.id === sel.id) : undefined;
+  }
+
+  /**
+   * Gain the export's fades apply at source time `t`, for the preview segment (1 outside it).
+   * Fades run on the joined audio, so time inside cuts is not counted.
+   */
+  previewGain(t: number): number {
+    const seg = this.previewSegment;
+    if (!seg || t < seg.start || t > seg.end) return 1;
+    const { fadeInSec, fadeOutSec, fadeInCurve, fadeOutCurve, cutCrossfadeMs } = this.settings;
+    const xf = cutCrossfadeMs / 1000;
+    const pieces = keptPieces(seg, this.project.cuts, xf);
+    const total = joinedDuration(pieces, xf);
+    let pos = 0;
+    for (const [i, p] of pieces.entries()) {
+      if (t <= p.start) break;
+      pos += Math.min(t, p.end) - p.start - (i > 0 ? xf : 0);
+    }
+    pos = clamp(pos, 0, total);
+    let gain = 1;
+    if (fadeInSec > 0 && pos < fadeInSec) gain *= fadeGain(fadeInCurve, pos / fadeInSec);
+    if (fadeOutSec > 0 && total - pos < fadeOutSec) gain *= fadeGain(fadeOutCurve, (total - pos) / fadeOutSec);
+    return gain;
+  }
 
   sortedSegments(): Segment[] {
     return [...this.project.segments].sort((a, b) => a.start - b.start || a.end - b.end);

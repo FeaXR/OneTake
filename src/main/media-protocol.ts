@@ -8,7 +8,7 @@ export const MEDIA_SCHEME = 'media';
 /** Must run before the app is ready. */
 export function registerMediaScheme(): void {
   protocol.registerSchemesAsPrivileged([
-    { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
+    { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true } },
   ]);
 }
 
@@ -30,7 +30,8 @@ export function handleMediaScheme(isAllowed: (path: string) => boolean): void {
       return new Response('Not found', { status: 404 });
     }
 
-    const headers = new Headers({ 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes' });
+    // CORS lets the renderer route the audio through Web Audio (for the fade preview).
+    const headers = new Headers({ 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*' });
     const range = /bytes=(\d*)-(\d*)/.exec(request.headers.get('Range') ?? '');
     if (!range || (range[1] === '' && range[2] === '')) {
       headers.set('Content-Length', String(size));
