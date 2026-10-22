@@ -14,7 +14,9 @@ Most audio editors work the other way round: many tracks in, one file out. Studi
 - **One input, many outputs.** Mark any number of output files (segments) on a single WAV. Segments may slightly overlap.
 - **Cuts.** Remove coughs, clicks or chatter. A cut applies to every segment it falls in, and the audio either side is joined with a short crossfade.
 - **Consistent fades.** The same fade-in and fade-out on every file: linear in and exponential out by default, with other curves available.
-- **Per-file peak normalization** to 100% or 60%, and **per-file bitrate** of 320 or 192 kbps (MP3, constant bitrate).
+- **Per-file peak normalization** to 100% or 60%, and **per-file bitrate** of 320 or 192 kbps (MP3, constant bitrate). Folders can have their own defaults, and any file can still differ.
+- **Several output folders.** Files go to the session's default folder, or to any other folder you add for them.
+- **Folder rules for names.** A rule can fill in the repetitive start of each filename: the next free number in the folder, the order within the recording, the date from the WAV's name, or a per-file type such as SH / HSZ. You type only the rest.
 - **Built for long files.** A 90-minute 24-bit recording opens in about 3 seconds and stays smooth while zooming and scrolling. The waveform overview is cached, so reopening is instant.
 - **Mouse or keyboard.** Every action works with the mouse, and every action can also have a shortcut. Mark files with I/O and cuts with X while listening, and rebind any key in Settings.
 - **Hear the result.** Playback skips the cuts by default, joining them with the same crossfade as the export, and inside the selected segment it plays that file's fade-in and fade-out too. Two buttons on each file play just its start or its end, to check the fades quickly.
@@ -114,7 +116,10 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 - **Fade-in / fade-out:** length and curve. The defaults are 0.5 s linear in and 2 s exponential out.
 - **"100%" peak level:** 0 dBFS by default. MP3 encoding can overshoot by a fraction of a dB, so −0.3 to −1 dBFS is safer if you want to avoid any clipping.
 - **Crossfade at cuts:** 10 ms by default.
-- **New segments use:** the default peak target and bitrate for new files.
+- **File list:** show each file's start and end time for typing exact times (hidden by default; the edges can always be dragged on the timeline).
+- **Fade boundary line:** dotted, dashed or dash-dotted marker where a fade reaches full volume.
+- **Folder rules:** for a folder and its subfolders, the start of filenames (`{nn}`, `{n}`, `{date}`, `{type}`), the `{type}` options, and default volume and bitrate. The deepest matching rule wins; a setting a rule leaves unset comes from a parent folder's rule.
+- **Files use:** the peak target and bitrate for files that no folder rule covers.
 
 Settings are stored in `%APPDATA%\Studio Audio Editor` on Windows and `~/.config/Studio Audio Editor` on Linux.
 
