@@ -45,6 +45,9 @@ html, body {
   background: var(--bg-2);
   border-bottom: 1px solid var(--line);
   min-height: 46px;
+  /* A narrow window (and the recording controls) gets a second row instead of losing buttons. */
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 
 .tb-group { display: flex; align-items: center; gap: 2px; }
@@ -87,6 +90,41 @@ button svg { width: 16px; height: 16px; flex: none; }
   text-align: center;
   color: var(--accent);
 }
+
+/* ---------- Recording ---------- */
+
+.rec-button svg { color: var(--danger); }
+.rec-button.recording { background: #5a2626; }
+.rec-button.recording svg { color: var(--text); }
+.rec-live { gap: 8px; }
+.rec-live.hidden { display: none; }
+.rec-time {
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-size: 15px;
+  color: var(--danger);
+}
+
+.meter { display: flex; align-items: center; gap: 6px; }
+.meter-bars { display: flex; flex-direction: column; gap: 2px; width: 100px; }
+/* Green up to −12 dBFS, yellow to −3, red above (the scale runs from −60 to 0). */
+.meter-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: linear-gradient(to right, var(--ok) 0 80%, var(--warn) 80% 95%, var(--danger) 95%);
+}
+.meter-cover { position: absolute; top: 0; right: 0; bottom: 0; background: var(--bg); }
+button.meter-clip {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  color: var(--text-faint);
+  background: var(--bg);
+}
+button.meter-clip.on { color: #fff; background: var(--danger); }
+.rec-name { width: 260px; }
+.form-note.err { color: var(--danger); min-height: 1.2em; }
 
 /* ---------- Workspace ---------- */
 

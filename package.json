@@ -1,7 +1,7 @@
 {
   "name": "studio-audio-editor",
   "productName": "Studio Audio Editor",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Cut one long WAV into several faded, peak-normalized MP3 files.",
   "author": "FeaXR",
   "license": "MIT",

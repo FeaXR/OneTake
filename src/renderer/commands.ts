@@ -84,6 +84,8 @@ export const DEFAULT_SHORTCUTS: Record<string, string[]> = {
   'zoom.out': ['-'],
   'zoom.fit': ['F'],
   'zoom.selection': ['Z'],
+  'rec.start': ['Ctrl+R'],
+  'view.followLive': ['L'],
   'app.settings': ['Ctrl+,'],
   'app.devtools': ['F12'],
 };

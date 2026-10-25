@@ -2,7 +2,7 @@ import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCode
 import { highestNumber, usesToken, type FolderRule } from '../shared/naming.ts';
 import { formatTime } from '../shared/time.ts';
 import { FADE_CURVES, FADE_MARKER_STYLES, type Bitrate, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type PeakTarget, type Project, type Segment, type Settings, segmentFolder } from '../shared/types.ts';
-import { outputFilename, validateSegments } from '../shared/validate.ts';
+import { onlyStillRecording, outputFilename } from '../shared/validate.ts';
 import { CommandRegistry, Keymap, overridesFrom } from './commands.ts';
 import { ShortcutEditor } from './shortcut-editor.ts';
 import { choose, closeContextMenu, modalOpen, openModal, showContextMenu, showLoading, toast } from './dialogs.ts';
@@ -13,6 +13,7 @@ import { Overview } from './overview.ts';
 import { OutputPanel } from './panel.ts';
 import { PeakPyramid } from './peaks.ts';
 import { Player } from './player.ts';
+import { RecordingController } from './recording.ts';
 import { Timeline } from './timeline.ts';
 
 const NUDGE_SEC = 0.01;
@@ -45,6 +46,12 @@ export class App {
   private readonly panel: OutputPanel;
   private readonly toolbarButtons: { el: HTMLButtonElement; command: string; active?: () => boolean }[] = [];
   private readonly clock = h('div', { id: 'clock' }, '0:00.000');
+  private readonly recording: RecordingController;
+  private readonly rec = {
+    button: h('button', { class: 'rec-button', onclick: () => this.commands.run(this.recording.active ? 'rec.stop' : 'rec.start') }),
+    time: h('div', { class: 'rec-time', title: t('tb.recTime.tip') }),
+    box: h('div', { class: 'tb-group rec-live hidden' }),
+  };
   private readonly status = {
     file: h('span'),
     selection: h('span'),
@@ -61,8 +68,23 @@ export class App {
     document.documentElement.lang = getLanguage();
     document.getElementById('empty-title')!.textContent = t('empty.title');
     document.getElementById('empty-sub')!.textContent = t('empty.sub');
+    document.getElementById('empty-record')!.textContent = t('empty.record');
 
     this.player = new Player(ed);
+    this.recording = new RecordingController(ed, {
+      begin: (info, peaks) => {
+        this.player.pause();
+        ed.startLive(info, peaks);
+        ed.project.outputDirs = [dirname(info.path)];
+        this.player.load();
+      },
+      confirmDiscard: () => this.confirmDiscard(),
+      canStart: () => {
+        if (this.exporting) toast(t('toast.waitForExport'), 'error');
+        return !this.exporting;
+      },
+      refresh: () => this.refreshChrome(),
+    });
     new Overview(document.getElementById('overview') as HTMLCanvasElement, ed);
     new Timeline(document.getElementById('timeline') as HTMLCanvasElement, ed, this.player, {
       showContextMenu,
@@ -209,6 +231,17 @@ export class App {
         run: () => {
           const r = ed.selectedRegion();
           if (r) ed.zoomToRange(r.start, r.end);
+        },
+      },
+      { id: 'rec.start', label: t('cmd.rec.start'), run: () => this.recording.openDialog(), enabled: () => !this.recording.active },
+      { id: 'rec.stop', label: t('cmd.rec.stop'), run: () => this.recording.stop(), enabled: () => this.recording.active },
+      {
+        id: 'view.followLive', label: t('cmd.view.followLive'), enabled: () => ed.recording,
+        run: () => {
+          ed.followLive = !ed.followLive;
+          if (ed.followLive) this.centerOn(ed.duration);
+          ed.notify('ui');
+          toast(ed.followLive ? t('toast.followLiveOn') : t('toast.followLiveOff'));
         },
       },
       { id: 'app.settings', label: t('cmd.app.settings'), run: () => this.openSettings() },
@@ -397,6 +430,10 @@ export class App {
       toast(t('toast.waitForExport'), 'error');
       return false;
     }
+    if (this.recording.active) {
+      toast(t('toast.stopRecordingFirst'), 'error');
+      return false;
+    }
     if (confirm && !(await this.confirmDiscard())) return false;
     this.player.pause();
     const loading = showLoading(t('dlg.loading', { name: basename(path) }));
@@ -513,6 +550,8 @@ export class App {
    */
   private reloadForLanguage(): void {
     const ed = this.editor;
+    // Reloading would end the recording; the new language is used from the next start instead.
+    if (this.recording.active) return toast(t('toast.languageAfterRecording'));
     if (ed.wavPath) {
       const state: ReloadState = {
         wavPath: ed.wavPath,
@@ -566,13 +605,17 @@ export class App {
   private async exportAll(): Promise<void> {
     const ed = this.editor;
     if (!ed.wavPath || this.exporting) return;
-    const segments = ed.sortedSegments();
-    if (!segments.length) return toast(t('toast.nothingToExport'), 'error');
+    const all = ed.sortedSegments();
+    if (!all.length) return toast(t('toast.nothingToExport'), 'error');
 
     if (!ed.project.outputDirs.length && !(await this.changeFolder(0))) return;
     await this.ensureNumbering();
 
-    const issues = validateSegments(segments, ed.project.cuts, ed.settings, (s) => segmentFolder(ed.project, s), (s) => ed.fileName(s));
+    const issues = ed.validate(all);
+    // While recording, files whose end is not recorded yet wait for a later export.
+    const waiting = all.filter((s) => onlyStillRecording(issues.get(s.id)));
+    const segments = all.filter((s) => !waiting.includes(s));
+    if (!segments.length) return toast(t('toast.allStillRecording'), 'error');
     const firstBad = segments.find((s) => issues.get(s.id)!.errors.length);
     if (firstBad) {
       const count = segments.filter((s) => issues.get(s.id)!.errors.length).length;
@@ -622,6 +665,10 @@ export class App {
       h('div', { class: 'form-note' }, multipleFolders ? t('export.toMany', { count: new Set(folders).size }) : t('export.to', { dir: folders[0] })),
       ...items.map((i) => i.el),
     );
+    if (waiting.length) {
+      const list = waiting.map((s) => `#${ed.segmentNumber(s.id)} ${outputFilename(ed.fileName(s).name)}`).join(', ');
+      modal.body.append(h('div', { class: 'form-note' }, t('export.skippedRecording', { list })));
+    }
     const cancelBtn = h('button', { onclick: () => void window.studio.cancelExport() }, t('btn.cancel'));
     modal.foot.append(cancelBtn);
 
@@ -881,6 +928,12 @@ export class App {
     const group = (...els: HTMLElement[]) => h('div', { class: 'tb-group' }, ...els);
     const sep = () => h('div', { class: 'tb-sep' });
 
+    this.rec.box.append(
+      this.rec.time,
+      this.recording.meter.el,
+      btn('view.followLive', icons.follow, null, t('tb.follow.tip'), () => this.editor.followLive),
+    );
+
     const playBtn = btn('play.toggle', icons.play, null, t('tb.play.tip'));
     this.toolbarButtons.at(-1)!.active = () => this.editor.playing;
 
@@ -907,6 +960,9 @@ export class App {
         btn('zoom.selection', icons.zoomSel, null, t('tb.zoomSelection.tip')),
         btn('zoom.fit', icons.fit, null, t('tb.zoomFit.tip')),
       ),
+      sep(),
+      this.rec.button,
+      this.rec.box,
       h('div', { class: 'tb-spacer' }),
       this.clock,
       btn('app.settings', icons.settings, null, t('tb.settings.tip')),
@@ -930,6 +986,17 @@ export class App {
     if (play) play.el.innerHTML = ed.playing ? icons.pause : icons.play;
 
     this.clock.textContent = formatTime(ed.playhead);
+    const recording = this.recording.active;
+    const rb = this.rec.button;
+    rb.innerHTML = recording ? icons.stop : icons.record;
+    rb.append(recording ? t('tb.stop') : t('tb.record'));
+    rb.classList.toggle('recording', recording);
+    rb.disabled = !this.commands.isEnabled(recording ? 'rec.stop' : 'rec.start');
+    const recKey = this.keymap.label(recording ? 'rec.stop' : 'rec.start');
+    const recTip = recording ? t('tb.stop.tip') : t('tb.record.tip');
+    rb.title = recKey ? `${recTip} (${recKey})` : recTip;
+    this.rec.box.classList.toggle('hidden', !recording);
+    this.rec.time.textContent = `● ${this.recording.elapsedText}`;
     document.getElementById('empty-state')!.classList.toggle('hidden', !!ed.info);
 
     const info = ed.info;
@@ -937,7 +1004,7 @@ export class App {
       const channels = info.channels === 1 ? t('status.mono') : info.channels === 2 ? t('status.stereo') : t('status.channels', { n: info.channels });
       const bits = `${info.bitsPerSample}-bit${info.sampleFormat === 'float' ? ` ${t('status.float')}` : ''}`;
       this.status.file.textContent =
-        `${basename(info.path)} · ${formatNumber(info.sampleRate / 1000, info.sampleRate % 1000 ? 1 : 0)} kHz · ${bits} · ${channels} · ${formatTime(info.duration, 1)}`;
+        `${basename(info.path)} · ${formatNumber(info.sampleRate / 1000, info.sampleRate % 1000 ? 1 : 0)} kHz · ${bits} · ${channels} · ${formatTime(info.duration, 1)}${ed.recording ? ` · ${t('status.recording')}` : ''}`;
     } else {
       this.status.file.textContent = t('status.noFile');
     }

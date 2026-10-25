@@ -1,7 +1,7 @@
 import { expandTemplate, folderDefault, formatDate, recordingDate, ruleFor, usesToken, type FolderRule } from '../shared/naming.ts';
 import type { AudioInfo, Bitrate, Cut, PeakTarget, Project, Segment, Settings } from '../shared/types.ts';
 import { DEFAULT_SETTINGS, segmentFolder } from '../shared/types.ts';
-import type { ResolvedName } from '../shared/validate.ts';
+import { validateSegments, type ResolvedName, type SegmentIssues } from '../shared/validate.ts';
 import { joinedDuration, keptPieces } from '../shared/plan.ts';
 import { fadeGain } from './draw.ts';
 import { PeakPyramid } from './peaks.ts';
@@ -13,12 +13,16 @@ export interface Selection {
   id: string;
 }
 
-/** What changed, so views can skip work they do not need. */
-export type Change = 'project' | 'selection' | 'view' | 'playhead' | 'ui' | 'audio' | 'settings';
+/** What changed, so views can skip work they do not need. 'length': a recording grew. */
+export type Change = 'project' | 'selection' | 'view' | 'playhead' | 'ui' | 'audio' | 'settings' | 'length';
 
 export const MIN_REGION_SEC = 0.05;
 /** Deepest zoom: frames per CSS pixel. */
 const MIN_FRAMES_PER_PX = 8;
+/** While recording, the view can always zoom out this far, so the live point has room to move into. */
+const LIVE_VIEW_SEC = 60;
+/** When following the live point, it is kept this far from the right edge (share of the view). */
+const LIVE_FOLLOW_MARGIN = 0.1;
 
 export const emptyProject = (): Project => ({ version: 1, segments: [], cuts: [], outputDirs: [], numberStarts: {} });
 
@@ -42,6 +46,10 @@ export class Editor {
   cutMark: number | null = null;
   skipCuts = true;
   dirty = false;
+  /** The file is being recorded: it grows, and its end (duration) is the live point. */
+  recording = false;
+  /** Scroll along with the live point while it is on screen. */
+  followLive = true;
 
   /** Visible window of the timeline. */
   view = { start: 0, secPerPx: 0.01, widthPx: 1000 };
@@ -92,6 +100,38 @@ export class Editor {
     this.setDirty(false);
     this.zoomToFit();
     this.notify('audio', 'project', 'selection', 'view', 'playhead', 'ui');
+  }
+
+  /** Starts editing a recording that has just begun: an empty, growing file. */
+  startLive(info: AudioInfo, peaks: PeakPyramid): void {
+    this.recording = true;
+    this.loadAudio(info.path, info, peaks, null);
+  }
+
+  /** The recording reached `frames` on disk. */
+  growTo(frames: number): void {
+    const info = this.info;
+    if (!this.recording || !info || frames <= info.frames) return;
+    const wasVisible = this.duration >= this.view.start && this.duration <= this.viewEnd;
+    info.frames = frames;
+    info.duration = frames / info.sampleRate;
+    // Keep the live point on screen if it was: it moves into the empty space on the right.
+    const span = this.view.widthPx * this.view.secPerPx;
+    if (this.followLive && wasVisible && this.duration > this.view.start + span * (1 - LIVE_FOLLOW_MARGIN)) {
+      this.view.start = this.duration - span * (1 - LIVE_FOLLOW_MARGIN);
+      this.clampView();
+      this.notify('view');
+    }
+    this.notify('length');
+  }
+
+  /** The recording stopped; `info` describes the finished file. */
+  endLive(info: AudioInfo): void {
+    if (!this.recording) return;
+    this.recording = false;
+    if (this.info) Object.assign(this.info, { frames: info.frames, duration: info.duration });
+    this.clampView();
+    this.notify('length', 'view', 'ui');
   }
 
   get duration(): number {
@@ -256,6 +296,12 @@ export class Editor {
     };
   }
 
+  /** Problems of every segment (see validateSegments); while recording, ones past the live point. */
+  validate(segments: readonly Segment[] = this.sortedSegments()): Map<string, SegmentIssues> {
+    return validateSegments(segments, this.project.cuts, this.settings, (s) => segmentFolder(this.project, s),
+      (s) => this.fileName(s), this.recording ? this.duration : null);
+  }
+
   sortedSegments(): Segment[] {
     return [...this.project.segments].sort((a, b) => a.start - b.start || a.end - b.end);
   }
@@ -327,7 +373,8 @@ export class Editor {
   }
 
   get maxSecPerPx(): number {
-    return Math.max(this.minSecPerPx, (this.duration || 1) / Math.max(1, this.view.widthPx));
+    const span = this.recording ? Math.max(this.duration, LIVE_VIEW_SEC) : this.duration || 1;
+    return Math.max(this.minSecPerPx, span / Math.max(1, this.view.widthPx));
   }
 
   get viewEnd(): number {
@@ -352,7 +399,9 @@ export class Editor {
   private clampView(): void {
     this.view.secPerPx = clamp(this.view.secPerPx, this.minSecPerPx, this.maxSecPerPx);
     const span = this.view.widthPx * this.view.secPerPx;
-    this.view.start = clamp(this.view.start, 0, Math.max(0, this.duration - span));
+    // While recording, the view may run a little past the live point, so there is room to follow it.
+    const end = this.recording ? this.duration + span * LIVE_FOLLOW_MARGIN : this.duration;
+    this.view.start = clamp(this.view.start, 0, Math.max(0, end - span));
   }
 
   scrollTo(start: number): void {

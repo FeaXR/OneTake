@@ -3,7 +3,7 @@ import { formatTime, parseTime } from '../shared/time.ts';
 import { ruleFor, usesToken } from '../shared/naming.ts';
 import { segmentFolder, type Bitrate, type PeakTarget, type Segment } from '../shared/types.ts';
 import { outputDurationOf } from '../shared/plan.ts';
-import { validateSegments, type SegmentIssues } from '../shared/validate.ts';
+import { onlyStillRecording, type SegmentIssues } from '../shared/validate.ts';
 import { h } from './dom.ts';
 import { clamp, MIN_REGION_SEC, type Change, type Editor } from './editor.ts';
 import { showContextMenu, toast } from './dialogs.ts';
@@ -98,7 +98,7 @@ export class OutputPanel {
   private update(scrollToSelection = false): void {
     const ed = this.editor;
     const segments = ed.sortedSegments();
-    const issues = validateSegments(segments, ed.project.cuts, ed.settings, (s) => segmentFolder(ed.project, s), (s) => ed.fileName(s));
+    const issues = ed.validate(segments);
 
     this.countEl.textContent = segments.length ? `(${segments.length})` : '';
     this.emptyEl.style.display = segments.length ? 'none' : '';
@@ -126,7 +126,8 @@ export class OutputPanel {
 
     this.updateFolders();
 
-    const errorCount = [...issues.values()].filter((v) => v.errors.length).length;
+    // Segments still being recorded are not something to fix; export just leaves them out.
+    const errorCount = [...issues.values()].filter((v) => v.errors.length && !onlyStillRecording(v)).length;
     this.exportBtn.disabled = !ed.info || segments.length === 0;
     this.exportNote.textContent = errorCount ? t('panel.toFix', { n: errorCount }) : '';
     this.exportNote.style.color = errorCount ? 'var(--danger)' : '';

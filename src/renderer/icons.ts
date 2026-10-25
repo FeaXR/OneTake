@@ -25,5 +25,8 @@ export const icons = {
   target: svg('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/>'),
   folder: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
   export: svg('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>'),
+  record: svg('<circle cx="12" cy="12" r="6" fill="currentColor" stroke="none"/>'),
+  stop: svg('<rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" stroke="none"/>'),
+  follow: svg('<path d="M4 12h12M12 7l5 5-5 5"/><path d="M20 4v16"/>'),
   keyboard: svg('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>'),
 };

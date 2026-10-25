@@ -11,6 +11,7 @@ const GROUPS: [MessageKey, string[]][] = [
   ['sc.group.selection', ['select']],
   ['sc.group.tools', ['tool']],
   ['sc.group.view', ['view', 'zoom']],
+  ['sc.group.record', ['rec']],
   ['sc.group.app', ['app']],
 ];
 

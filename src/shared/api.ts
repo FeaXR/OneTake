@@ -1,4 +1,4 @@
-import type { ExportProgress, ExportRequest, ExportResult, LoadedAudio, Project, Settings } from './types.ts';
+import type { AudioInfo, ExportProgress, ExportRequest, ExportResult, LoadedAudio, Project, Settings } from './types.ts';
 
 /** The bridge the preload script exposes to the renderer as `window.studio`. */
 export interface StudioApi {
@@ -8,6 +8,15 @@ export interface StudioApi {
   onLoadProgress(cb: (fraction: number) => void): () => void;
   /** Samples of the open WAV for playback: one array per channel, from frame `start`. */
   readAudio(start: number, count: number): Promise<Float32Array[]>;
+  /**
+   * Creates `name` in `dir` (never overwriting) and opens it as a 24-bit WAV that grows as
+   * samples are appended. Playback and export read it like any open WAV meanwhile.
+   */
+  startRecording(dir: string, name: string, sampleRate: number, channels: number): Promise<AudioInfo>;
+  /** Appends one array per channel; resolves to the frames on disk, the live end of the file. */
+  appendRecording(planes: Float32Array[]): Promise<number>;
+  /** Finishes the file (final header, peaks cached); null when nothing was recording. */
+  stopRecording(): Promise<AudioInfo | null>;
   /** WAV the app was launched with (file dropped on the .exe), or null. Returns it only once. */
   takeStartupFile(): Promise<string | null>;
   /** A WAV dropped on the icon while the app is already running. */

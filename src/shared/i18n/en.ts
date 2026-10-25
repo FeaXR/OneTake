@@ -54,6 +54,9 @@ export const en = {
   'cmd.zoom.selection': 'Zoom to selection',
   'cmd.app.settings': 'Settings',
   'cmd.app.devtools': 'Developer tools',
+  'cmd.rec.start': 'Record…',
+  'cmd.rec.stop': 'Stop recording',
+  'cmd.view.followLive': 'Follow the live point while recording',
 
   // Toolbar
   'tb.open': 'Open',
@@ -77,10 +80,19 @@ export const en = {
   'tb.zoomSelection.tip': 'Zoom to selection',
   'tb.zoomFit.tip': 'Zoom to whole file',
   'tb.settings.tip': 'Settings: language, fades, peak level, shortcuts',
+  'tb.record': 'Record',
+  'tb.record.tip': 'Record from an audio interface. You can mark, edit and export while it records.',
+  'tb.stop': 'Stop',
+  'tb.stop.tip': 'Stop recording',
+  'tb.follow.tip': 'Follow the live point: the view scrolls along while the live point is on screen',
+  'tb.meter.tip': 'Input level, left and right. CLIP: the input reached full scale; click to clear.',
+  'tb.recTime.tip': 'Recorded so far',
+  'meter.clip': 'CLIP',
 
   // Empty state
   'empty.title': 'Open a WAV file to start',
   'empty.sub': 'Click here, press Ctrl+O, or drop a .wav file anywhere on this window.',
+  'empty.record': 'Or press Record in the toolbar to record from an audio interface.',
 
   // Status bar
   'status.noFile': 'No file',
@@ -91,6 +103,7 @@ export const en = {
   'status.segment': 'Segment #{n}',
   'status.cut': 'Cut',
   'status.zoom': '1 px = {ms} ms',
+  'status.recording': 'recording',
   'hint.markIn': 'IN marked at {time}. Press {key} at the end of the segment, or Esc to cancel.',
   'hint.cutMark': 'Cut start marked at {time}. Press {key} again at the end of the cut, or Esc to cancel.',
   'hint.segment': 'Drag on the waveform to mark an output file. Drag edges to adjust. Hold Alt to turn off snapping.',
@@ -118,6 +131,15 @@ export const en = {
   'toast.onlyWav': 'Only .wav files can be opened.',
   'toast.notATime': '"{text}" is not a time. Use h:mm:ss.mmm, m:ss or seconds.',
   'toast.languageReloaded': 'Language changed.',
+  'toast.languageAfterRecording': 'The new language is used from the next start of the app (reloading now would stop the recording).',
+  'toast.recStarted': 'Recording to {name}',
+  'toast.recStopped': 'Recording stopped. {name} is saved ({time}).',
+  'toast.recInputLost': 'The input stopped (was the interface unplugged?). The recording was stopped; everything up to that point is saved.',
+  'toast.recWriteFailed': 'Writing the recording failed: {error}. Recording was stopped; what was written is kept.',
+  'toast.stopRecordingFirst': 'Stop the recording first.',
+  'toast.followLiveOn': 'The view follows the live point',
+  'toast.followLiveOff': 'The view no longer follows the live point',
+  'toast.allStillRecording': 'The files are still being recorded. They can be exported once their end is recorded.',
 
   // Dialogs
   'dlg.unsaved.title': 'Unsaved changes',
@@ -137,6 +159,26 @@ export const en = {
   'dlg.openWav.title': 'Open WAV file',
   'dlg.openWav.filter': 'WAV audio',
   'dlg.folder.title': 'Choose output folder',
+  'dlg.rec.title': 'New recording',
+  'dlg.rec.input': 'Input',
+  'dlg.rec.format': (p) =>
+    `${p.rate} kHz; the input delivers ${p.channels} channel${s(p.channels)}. Inputs 1 and 2 are recorded as 24-bit stereo.`,
+  'dlg.rec.level': 'Level',
+  'dlg.rec.folder': 'Folder',
+  'dlg.rec.chooseFolder': 'Choose…',
+  'dlg.rec.noFolder': 'Choose a folder',
+  'dlg.rec.name': 'File name',
+  'dlg.rec.nameNote': 'Starting with the date (MMDD_) lets folder rules use {date}.',
+  'dlg.rec.exists': 'A file named {name} is already in this folder.',
+  'dlg.rec.openFailed': 'Could not open the input: {error}',
+  'dlg.rec.noInputs': 'No audio input was found.',
+  'btn.startRecording': 'Start recording',
+  'dlg.recStop.title': 'Stop recording?',
+  'dlg.recStop.message': 'Everything recorded so far stays in {name}. A stopped recording cannot be continued.',
+  'btn.stopRecording': 'Stop recording',
+  'dlg.recClose.title': 'Recording in progress',
+  'dlg.recClose.message': 'Closing stops the recording. Everything recorded so far is kept in the WAV file.',
+  'btn.stopAndClose': 'Stop recording and close',
 
   // Export progress
   'export.title': (p) => `Exporting ${p.count} file${s(p.count)}`,
@@ -151,6 +193,7 @@ export const en = {
   'export.allDone': (p) => `All ${p.count} file${s(p.count)} exported.`,
   'export.cancelledSummary': (p) => `Cancelled. ${p.count} file${s(p.count)} ${Number(p.count) === 1 ? 'was' : 'were'} written.`,
   'export.errorSummary': (p) => `Export stopped with an error. ${p.count} file${s(p.count)} ${Number(p.count) === 1 ? 'was' : 'were'} written.`,
+  'export.skippedRecording': 'Still recording, to export later: {list}',
 
   // Output panel
   'panel.title': 'Output files',
@@ -207,12 +250,14 @@ export const en = {
   'issue.tooShort': 'Shorter than the fade-in and fade-out together',
   'issue.overlap': 'Overlaps #{n} by more than 5 seconds',
   'issue.duplicate': 'Same filename as {others}',
+  'issue.stillRecording': 'Still recording: it can be exported once its end is recorded',
 
   // Timeline
   'tl.unnamed': '(unnamed)',
   'tl.cutLabel': 'cut {sec}s',
   'tl.markIn': 'IN',
   'tl.markCut': 'CUT',
+  'tl.live': 'REC',
   'ctx.playSegment': 'Play segment',
   'ctx.playAroundCut': 'Play around cut',
   'ctx.zoomTo': 'Zoom to this',
@@ -293,6 +338,7 @@ export const en = {
   'sc.group.tools': 'Tools',
   'sc.group.view': 'View',
   'sc.group.app': 'App',
+  'sc.group.record': 'Recording',
 
   // Errors raised in the main process (sent as codes, shown in the UI language)
   'err.notWav': 'Not a WAV file',
@@ -302,4 +348,6 @@ export const en = {
   'err.inconsistent': 'The WAV header is inconsistent',
   'err.noAudioLeft': 'No audio left to export',
   'err.peakScan': 'Reading the waveform stopped (code {code})',
+  'err.recExists': '{name} already exists; choose another name',
+  'err.alreadyRecording': 'A recording is already running',
 } satisfies Record<string, Message>;

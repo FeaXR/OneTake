@@ -1,6 +1,7 @@
 // Worker thread: scans the WAV data once and builds the min/max envelope used for drawing.
 import { parentPort, workerData } from 'node:worker_threads';
 import { openSync, readSync, closeSync } from 'node:fs';
+import { toPeak } from '../shared/peaks.ts';
 import { sampleReader, type WavLayout } from './wav.ts';
 
 export interface PeaksWorkerInput {
@@ -57,8 +58,8 @@ try {
           if (v < lo) lo = v;
           if (v > hi) hi = v;
         }
-        mins[bucket] = Math.round(Math.max(-1, lo) * 32767);
-        maxs[bucket] = Math.round(Math.min(1, hi) * 32767);
+        mins[bucket] = toPeak(lo);
+        maxs[bucket] = toPeak(hi);
         bucket++;
       }
 

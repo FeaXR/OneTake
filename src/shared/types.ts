@@ -70,6 +70,10 @@ export interface Settings {
   folderRules: FolderRule[];
   /** Show each file's start and end time in the file list (they can be set on the timeline too). */
   showSegmentTimes: boolean;
+  /** Last recording's folder, name after its MMDD_ date, and input (by its name, as ids can change). */
+  recordFolder: string;
+  recordName: string;
+  recordInput: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -85,6 +89,9 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultPeakTarget: 1,
   folderRules: [],
   showSegmentTimes: false,
+  recordFolder: '',
+  recordName: '',
+  recordInput: '',
 };
 
 export interface AudioInfo {

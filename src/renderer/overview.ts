@@ -45,12 +45,18 @@ export class Overview {
     return e.clientX - this.canvas.getBoundingClientRect().left;
   }
 
+  /** Time across the strip: the file, or while recording also the empty view ahead of the live point. */
+  private span(): number {
+    const ed = this.editor;
+    return ed.recording ? Math.max(ed.duration, ed.viewEnd) : ed.duration;
+  }
+
   private xToTime(x: number): number {
-    return (x / this.w) * this.editor.duration;
+    return (x / this.w) * this.span();
   }
 
   private timeToX(t: number): number {
-    return (t / (this.editor.duration || 1)) * this.w;
+    return (t / (this.span() || 1)) * this.w;
   }
 
   private resize(): void {
@@ -63,7 +69,7 @@ export class Overview {
   }
 
   private onChange(changes: Set<Change>): void {
-    if (changes.has('audio')) this.waveCache = null;
+    if (changes.has('audio') || changes.has('length') || (this.editor.recording && changes.has('view'))) this.waveCache = null;
     this.draw();
   }
 
@@ -77,10 +83,11 @@ export class Overview {
     if (!ed.info || !ed.peaks) return c;
     const mid = c.height / 2;
     const half = c.height / 2 - 2;
-    const framesPerPx = ed.info.frames / c.width;
+    const framesPerPx = (this.span() * ed.info.sampleRate) / c.width;
     const env = { min: 0, max: 0 };
     ctx.fillStyle = '#5f6f86';
     for (let x = 0; x < c.width; x++) {
+      if (x * framesPerPx >= ed.info.frames) break;
       if (!ed.peaks.range(x * framesPerPx, (x + 1) * framesPerPx, env)) continue;
       const top = mid - env.max * half;
       ctx.fillRect(x, top, 1, Math.max(1, mid - env.min * half - top));

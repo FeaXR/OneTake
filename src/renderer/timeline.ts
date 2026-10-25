@@ -31,6 +31,8 @@ const COLORS = {
   playhead: '#ffd166',
   markIn: '#4cc38a',
   border: '#353a43',
+  live: '#ff4d4d',
+  notRecorded: 'rgba(0, 0, 0, 0.28)',
 };
 
 type Area = 'ruler' | 'segLane' | 'wave' | 'cutLane';
@@ -784,6 +786,21 @@ export class Timeline {
       ctx.font = 'bold 10px "Segoe UI", sans-serif';
       ctx.fillText(label, x + 3, top + 8);
     };
+    // While recording: the live point, with the not yet recorded time after it dimmed.
+    if (ed.recording) {
+      const lx = Math.round(ed.timeToX(ed.duration));
+      if (lx < this.w) {
+        ctx.fillStyle = COLORS.notRecorded;
+        ctx.fillRect(Math.max(0, lx), RULER_H, this.w - Math.max(0, lx), this.h - RULER_H);
+      }
+      if (lx >= 0 && lx <= this.w) {
+        ctx.fillStyle = COLORS.live;
+        ctx.fillRect(lx, RULER_H, 2, bottom - RULER_H);
+        ctx.font = 'bold 10px "Segoe UI", sans-serif';
+        const label = tr('tl.live');
+        ctx.fillText(label, lx - ctx.measureText(label).width - 4, top + 8);
+      }
+    }
     if (ed.markIn !== null) dashed(ed.markIn, COLORS.markIn, tr('tl.markIn'));
     if (ed.cutMark !== null) dashed(ed.cutMark, COLORS.cut, tr('tl.markCut'));
 

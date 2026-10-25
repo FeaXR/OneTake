@@ -3,12 +3,11 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { codedError } from '../shared/i18n/index.ts';
+import { FRAMES_PER_BUCKET } from '../shared/peaks.ts';
 import type { PeakData } from '../shared/types.ts';
 import type { WavLayout } from './wav.ts';
 import type { PeaksWorkerInput, PeaksWorkerMessage } from './peaks-worker.ts';
 
-/** 32 frames per bucket: about 0.7 ms at 48 kHz, fine enough for cutting out a cough. */
-export const FRAMES_PER_BUCKET = 32;
 const CACHE_VERSION = 1;
 
 async function cachePath(cacheDir: string, wavPath: string): Promise<string> {
@@ -82,4 +81,15 @@ export async function loadPeaks(
     // A missing cache only costs time on the next load.
   }
   return peaks;
+}
+
+/** Stores an envelope built elsewhere (while recording), so opening the finished WAV is instant. */
+export async function savePeaks(wavPath: string, cacheDir: string, peaks: PeakData): Promise<void> {
+  try {
+    const file = await cachePath(cacheDir, wavPath);
+    await mkdir(cacheDir, { recursive: true });
+    await writeCache(file, peaks);
+  } catch {
+    // A missing cache only costs time on the next load.
+  }
 }

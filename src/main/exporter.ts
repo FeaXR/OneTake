@@ -6,9 +6,29 @@ import { outputFilename } from '../shared/validate.ts';
 import type { ExportProgress, ExportRequest, ExportResult, Segment } from '../shared/types.ts';
 import { buildFilterGraph } from './filtergraph.ts';
 import { ffmpegPath } from './ffmpeg.ts';
-import { readWavLayout } from './wav.ts';
+import { readWavLayout, type WavLayout } from './wav.ts';
 
 class Cancelled extends Error {}
+
+/** ffmpeg's raw sample format for the WAV's samples. */
+function rawFormat(layout: WavLayout): string {
+  if (layout.sampleFormat === 'float') return layout.bitsPerSample === 64 ? 'f64le' : 'f32le';
+  return layout.bitsPerSample === 8 ? 'u8' : `s${layout.bitsPerSample}le`;
+}
+
+/**
+ * ffmpeg input options that read the WAV's samples as raw PCM, starting at its data chunk.
+ * The header is not used, so a file that is still being recorded (whose header sizes lag
+ * behind) exports the same as a finished one.
+ */
+export function rawInput(layout: WavLayout, start: number, length: number): string[] {
+  return [
+    '-f', rawFormat(layout), '-ar', String(layout.sampleRate), '-ac', String(layout.channels),
+    '-skip_initial_bytes', String(layout.dataOffset),
+    '-ss', start.toFixed(6), '-t', length.toFixed(6),
+    '-i', layout.path,
+  ];
+}
 
 /** Runs ffmpeg; `onStdout` sees every output chunk. Rejects with ffmpeg's stderr on failure. */
 function runFfmpeg(args: string[], signal: AbortSignal, onStdout: (chunk: Buffer) => void): Promise<void> {
@@ -72,11 +92,7 @@ export async function runExport(
           fadeOutCurve: settings.fadeOutCurve,
           gain,
         });
-      const input = [
-        '-hide_banner', '-nostdin', '-v', 'error',
-        '-ss', seg.start.toFixed(6), '-t', (seg.end - seg.start).toFixed(6),
-        '-i', req.wavPath,
-      ];
+      const input = ['-hide_banner', '-nostdin', '-v', 'error', ...rawInput(layout, seg.start, seg.end - seg.start)];
 
       // Pass 1: stream the finished float audio back and find its peak.
       report('measure', 0);

@@ -17,6 +17,7 @@ Most audio editors work the other way round: many tracks in, one file out. Studi
 - **Per-file peak normalization** to 100% or 60%, and **per-file bitrate** of 320 or 192 kbps (MP3, constant bitrate). Folders can have their own defaults, and any file can still differ.
 - **Several output folders.** Files go to the session's default folder, or to any other folder you add for them.
 - **Folder rules for names.** A rule can fill in the repetitive start of each filename: the next free number in the folder, the order within the recording, the date from the WAV's name, or a per-file type such as SH / HSZ. You type only the rest.
+- **Record and edit at the same time.** Record from an audio interface (such as a Focusrite Scarlett) into a new 24-bit WAV, and mark, play and export finished pieces while the recording goes on.
 - **Built for long files.** A 90-minute 24-bit recording opens in about 3 seconds and stays smooth while zooming and scrolling. The waveform overview is cached, so reopening is instant.
 - **Mouse or keyboard.** Every action works with the mouse, and every action can also have a shortcut. Mark files with I/O and cuts with X while listening, and rebind any key in Settings.
 - **Hear the result.** Playback skips the cuts by default, joining them with the same crossfade as the export, and inside the selected segment it plays that file's fade-in and fade-out too. Two buttons on each file play just its start or its end, to check the fades quickly.
@@ -70,6 +71,17 @@ Builds of every commit are also available from the [Actions page](https://github
 
 Your segments and cuts are saved in `Documents/Studio Audio Editor/Sessions`, one file per WAV (Ctrl+S). The session is tied to the WAV's location, so moving or renaming the WAV starts a new one. Sessions saved next to the WAV by older versions (`<file>.wav.sae.json`) still open. They're also saved after every successful export, and they load again when you reopen the WAV.
 
+### Recording
+
+Press **Record** in the toolbar (Ctrl+R) to record a new WAV instead of opening one.
+
+- The dialog opens the input straight away, so you can check the level before starting. A Scarlett is chosen by default (afterwards, the input you used last). Inputs 1 and 2 are recorded as 24-bit stereo at the interface's sample rate; nothing is played back on the speakers while recording.
+- Choose the folder and the file name. The name starts with today's date (`1025_…`), so folder rules can fill in `{date}`.
+- While it records, the timeline grows to the red **live point**. Mark, cut and play as with any file: playback stops when it reaches the live point. The view follows the live point while it is on screen (toggle with **L** or the arrow button next to the meter).
+- **Export all** writes the files whose end is already recorded; files that reach past the live point are marked *Still recording* and left for a later export.
+- The meter shows both inputs; **CLIP** lights up when an input reaches full scale and stays lit until you click it.
+- **Stop** asks first, then finishes the WAV. The computer is kept from going to sleep while recording, and the WAV's header is updated every second, so a crash or power cut loses at most the last second.
+
 ### Mouse
 
 | Action | How |
@@ -109,6 +121,8 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 | Delete | Delete the selection |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Ctrl+S / Ctrl+E / Ctrl+O | Save / export / open |
+| Ctrl+R | Record a new WAV |
+| L | While recording: follow the live point or not |
 
 ## Settings
 
@@ -125,7 +139,7 @@ Settings are stored in `%APPDATA%\Studio Audio Editor` on Windows and `~/.config
 
 ## How export works
 
-Each output file is rendered from the untouched WAV in two ffmpeg passes:
+Each output file is rendered from the untouched WAV in two ffmpeg passes (ffmpeg reads the samples directly, without trusting the WAV header's length, so a file that is still being recorded exports the same way):
 
 1. Trim the segment, remove the cuts, join the pieces with short crossfades and apply the fades. Then **measure the peak** of that finished audio.
 2. Run the same chain again with the gain that brings the peak to its target, and encode to MP3.
@@ -161,7 +175,7 @@ git push origin v0.2.0
 
 ### Project layout
 
-- `src/main/`: Electron main process (WAV parsing, waveform scan and cache, ffmpeg export, reading samples for playback)
+- `src/main/`: Electron main process (WAV parsing, waveform scan and cache, ffmpeg export, reading samples for playback, writing recordings)
 - `src/preload/`: the bridge between the UI and the main process (`window.studio`)
 - `src/renderer/`: the UI (canvas timeline and overview, output list, commands and shortcuts)
 - `src/shared/`: types, time formatting, cut/segment planning and filename validation

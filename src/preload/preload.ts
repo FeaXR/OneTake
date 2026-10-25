@@ -13,6 +13,9 @@ const api: StudioApi = {
   loadAudio: (path) => ipcRenderer.invoke('audio:load', path),
   onLoadProgress: (cb) => subscribe('audio:loadProgress', cb),
   readAudio: (start, count) => ipcRenderer.invoke('audio:read', start, count),
+  startRecording: (dir, name, sampleRate, channels) => ipcRenderer.invoke('rec:start', dir, name, sampleRate, channels),
+  appendRecording: (planes) => ipcRenderer.invoke('rec:append', planes),
+  stopRecording: () => ipcRenderer.invoke('rec:stop'),
   takeStartupFile: () => ipcRenderer.invoke('app:takeStartupFile'),
   onOpenFile: (cb) => subscribe('app:openFile', cb),
 

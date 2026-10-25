@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { joinedDuration, keptPieces, normalizeGain } from './plan.ts';
-import { filenameProblem, outputFilename, validateSegments } from './validate.ts';
+import { filenameProblem, onlyStillRecording, outputFilename, validateSegments } from './validate.ts';
 import { formatTime, parseTime } from './time.ts';
 import { DEFAULT_SETTINGS, segmentFolder, type Segment } from './types.ts';
 
@@ -89,4 +89,18 @@ test('time formatting and parsing round-trip', () => {
   assert.equal(parseTime('1:5'), 65);
   assert.equal(parseTime('abc'), null);
   assert.equal(parseTime('1::2'), null);
+});
+
+test('validateSegments: while recording, segments past the live point are still being recorded', () => {
+  const settings = { ...DEFAULT_SETTINGS, fadeInSec: 0, fadeOutSec: 0 };
+  const segments = [
+    { id: 'done', filename: 'Done', start: 0, end: 60 },
+    { id: 'open', filename: 'Open', start: 70, end: 130 },
+  ];
+  const live = validateSegments(segments, [], settings, undefined, undefined, 100);
+  assert.deepEqual(live.get('done')!.errors, []);
+  assert.deepEqual(live.get('open')!.errors.map((e) => e.key), ['issue.stillRecording']);
+  assert.ok(onlyStillRecording(live.get('open')));
+  assert.ok(!onlyStillRecording(live.get('done')));
+  assert.deepEqual(validateSegments(segments, [], settings).get('open')!.errors, []);
 });

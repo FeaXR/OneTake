@@ -1,10 +1,11 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, powerSaveBlocker, shell } from 'electron';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { resolveLanguage, setLanguage, t } from '../shared/i18n/index.ts';
-import type { ExportRequest, LoadedAudio, Project, Settings } from '../shared/types.ts';
+import { codedError, resolveLanguage, setLanguage, t } from '../shared/i18n/index.ts';
+import type { AudioInfo, ExportRequest, LoadedAudio, Project, Settings } from '../shared/types.ts';
 import { runExport } from './exporter.ts';
-import { loadPeaks } from './peaks.ts';
+import { loadPeaks, savePeaks } from './peaks.ts';
+import { WavRecorder } from './recorder.ts';
 import {
   loadProject, loadSettings, loadShortcutOverrides, peaksCacheDir, saveProject, saveSettings, saveShortcutOverrides,
 } from './store.ts';
@@ -16,6 +17,8 @@ let openedWav: WavLayout | null = null;
 let dirty = false;
 let forceClose = false;
 let exportAbort: AbortController | null = null;
+/** The recording in progress, if any, and the sleep blocker held while it runs. */
+let recording: { rec: WavRecorder; blocker: number; started: number } | null = null;
 
 /**
  * First existing .wav among command-line arguments. Dropping a file onto the .exe or a shortcut,
@@ -33,6 +36,28 @@ function wavFromArgs(argv: string[], cwd = process.cwd()): string | null {
 /** Dialogs shown by the main process (file pickers, close prompt) follow the app language. */
 function applyLanguage(settings: Settings): void {
   setLanguage(resolveLanguage(settings.language, app.getLocale()));
+}
+
+function audioInfo(layout: WavLayout, modified: number): AudioInfo {
+  const { path, sampleRate, channels, bitsPerSample, sampleFormat, frames, duration } = layout;
+  return { path, sampleRate, channels, bitsPerSample, sampleFormat, frames, duration, modified };
+}
+
+/**
+ * Finishes the recording: final header, file closed, peaks cached so reopening the WAV is
+ * instant, sleep allowed again. Also runs when the window closes or the page goes away, so
+ * the file is always left complete.
+ */
+async function stopRecording(): Promise<AudioInfo | null> {
+  const r = recording;
+  if (!r) return null;
+  recording = null;
+  powerSaveBlocker.stop(r.blocker);
+  win?.webContents.setBackgroundThrottling(true);
+  const layout = await r.rec.finish();
+  if (openedWav?.path === layout.path) openedWav = layout;
+  await savePeaks(layout.path, peaksCacheDir(), r.rec.peakData());
+  return audioInfo(layout, r.started);
 }
 
 /** File to open once the UI is ready; handed over (once) when the renderer asks. */
@@ -69,7 +94,24 @@ function createWindow(): void {
     if (url !== win?.webContents.getURL()) e.preventDefault();
   });
 
+  // A reload or a crashed page sends no more samples; the file is finished with what it has.
+  win.webContents.on('did-start-loading', () => void stopRecording());
+  win.webContents.on('render-process-gone', () => void stopRecording());
+
   win.on('close', (e) => {
+    if (recording) {
+      e.preventDefault();
+      const choice = dialog.showMessageBoxSync(win!, {
+        type: 'warning',
+        buttons: [t('btn.stopAndClose'), t('btn.cancel')],
+        defaultId: 1,
+        cancelId: 1,
+        title: t('dlg.recClose.title'),
+        message: t('dlg.recClose.message'),
+      });
+      if (choice === 0) void stopRecording().finally(() => win?.close());
+      return;
+    }
     if (forceClose || !dirty) return;
     e.preventDefault();
     const choice = dialog.showMessageBoxSync(win!, {
@@ -108,11 +150,33 @@ function registerIpc(): void {
       e.sender.send('audio:loadProgress', fraction),
     );
     openedWav = { ...layout, path: resolve(path) };
-    const { sampleRate, channels, bitsPerSample, sampleFormat, frames, duration } = layout;
-    const modified = statSync(path).mtimeMs;
-    const info = { path: openedWav.path, sampleRate, channels, bitsPerSample, sampleFormat, frames, duration, modified };
-    return { info, peaks, project: await loadProject(path) };
+    return { info: audioInfo(openedWav, statSync(path).mtimeMs), peaks, project: await loadProject(path) };
   });
+
+  ipcMain.handle('rec:start', async (_e, dir: string, name: string, sampleRate: number, channels: number): Promise<AudioInfo> => {
+    if (recording) throw codedError('err.alreadyRecording');
+    const path = resolve(dir, name);
+    let rec: WavRecorder;
+    try {
+      rec = await WavRecorder.create(path, sampleRate, channels);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'EEXIST') throw codedError('err.recExists', { name });
+      throw err;
+    }
+    recording = { rec, blocker: powerSaveBlocker.start('prevent-app-suspension'), started: Date.now() };
+    // A minimized window must keep passing samples on at full speed.
+    win?.webContents.setBackgroundThrottling(false);
+    openedWav = rec.layout();
+    return audioInfo(openedWav, recording.started);
+  });
+  ipcMain.handle('rec:append', async (_e, planes: Float32Array[]): Promise<number> => {
+    const r = recording;
+    if (!r) return openedWav?.frames ?? 0;
+    const frames = await r.rec.append(planes);
+    if (recording === r && openedWav?.path === r.rec.path) openedWav = r.rec.layout();
+    return frames;
+  });
+  ipcMain.handle('rec:stop', () => stopRecording());
 
   ipcMain.handle('audio:read', (_e, start: number, count: number): Float32Array[] =>
     openedWav ? readFrames(openedWav, start, count) : [],
@@ -194,4 +258,4 @@ if (!app.requestSingleInstanceLock()) {
   });
 }
 
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => void stopRecording().finally(() => app.quit()));

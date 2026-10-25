@@ -41,7 +41,8 @@ export interface SegmentIssues {
 /**
  * Checks every segment; errors block export, warnings are informational. Filenames only
  * clash with segments written to the same folder (`folderOf`); `nameOf` gives the full name
- * when a naming rule adds to the typed part.
+ * when a naming rule adds to the typed part. While recording, `liveEnd` is how much of the
+ * file is on disk: segments that reach past it cannot be exported yet.
  */
 export function validateSegments(
   segments: readonly Segment[],
@@ -49,6 +50,7 @@ export function validateSegments(
   settings: Settings,
   folderOf: (seg: Segment) => string | null = () => null,
   nameOf: (seg: Segment) => ResolvedName = (seg) => ({ name: seg.filename }),
+  liveEnd: number | null = null,
 ): Map<string, SegmentIssues> {
   const result = new Map<string, SegmentIssues>();
   const byName = new Map<string, number[]>();
@@ -66,6 +68,8 @@ export function validateSegments(
       const key = `${folderOf(seg) ?? ''}\0${outputFilename(resolved.name)}`.toLowerCase();
       byName.set(key, [...(byName.get(key) ?? []), i]);
     }
+
+    if (liveEnd !== null && seg.end > liveEnd + 1e-6) issues.errors.push({ key: 'issue.stillRecording' });
 
     if (seg.end <= seg.start) {
       issues.errors.push({ key: 'issue.endBeforeStart' });
@@ -89,4 +93,9 @@ export function validateSegments(
     }
   }
   return result;
+}
+
+/** True when the only thing keeping a segment from export is that it is still being recorded. */
+export function onlyStillRecording(issues: SegmentIssues | undefined): boolean {
+  return !!issues?.errors.length && issues.errors.every((e) => e.key === 'issue.stillRecording');
 }

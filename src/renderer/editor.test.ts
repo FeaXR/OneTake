@@ -72,3 +72,32 @@ test('older sessions keep only the volume and bitrate that differ from the Setti
   assert.deepEqual(ed.project.outputDirs, ['/out']);
   assert.deepEqual(ed.project.segments.map((s) => [s.peakTarget, s.bitrate]), [[undefined, 192], [0.6, undefined]]);
 });
+
+test('a recording grows, the view follows the live point while it is on screen, and stops at the end', () => {
+  globalThis.requestAnimationFrame ??= () => 0;
+  (globalThis as { window?: unknown }).window ??= { studio: { setDirty: () => {} } };
+  const ed = new Editor();
+  ed.view.widthPx = 1000;
+  const info = { path: '/1025_live.wav', sampleRate: 48000, channels: 2, bitsPerSample: 24, sampleFormat: 'int' as const, frames: 0, duration: 0 };
+  ed.startLive(info, null as never);
+  assert.equal(ed.recording, true);
+  // Empty so far, but the view already spans a minute for the recording to move into.
+  near(ed.viewEnd - ed.view.start, 60);
+
+  ed.growTo(48000 * 30);
+  near(ed.duration, 30);
+  near(ed.view.start, 0);
+  ed.growTo(48000 * 90);
+  // Followed: the live point stays 10% from the right edge.
+  near(ed.viewEnd - ed.duration, 6);
+
+  ed.scrollTo(0);
+  ed.growTo(48000 * 120);
+  near(ed.view.start, 0); // scrolled back to earlier audio: the view stays there
+
+  ed.endLive({ ...info, frames: 48000 * 121, duration: 121 });
+  assert.equal(ed.recording, false);
+  near(ed.duration, 121);
+  ed.growTo(48000 * 200);
+  near(ed.duration, 121);
+});

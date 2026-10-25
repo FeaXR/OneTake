@@ -84,7 +84,8 @@ export class Player {
   async play(from = this.editor.playhead, until: number | null = null): Promise<void> {
     const ed = this.editor;
     if (!ed.info) return;
-    if (from >= ed.duration - 0.01) from = 0;
+    // At the end of a file, play starts over; at the live point of a recording there is nothing yet.
+    if (from >= ed.duration - 0.01 && !ed.recording) from = 0;
     this.halt();
     const ctx = this.context(ed.info.sampleRate);
     const generation = this.generation;
@@ -140,14 +141,18 @@ export class Player {
     return Math.round((this.editor.settings.cutCrossfadeMs / 1000) * this.editor.info!.sampleRate);
   }
 
-  /** The stretches to play: the whole file, or the parts between cuts. */
+  /**
+   * The stretches to play: the whole file, or the parts between cuts. While recording, the
+   * last one is open-ended; playback stops where the reads run out of recorded audio.
+   */
   private pieces(): Piece[] {
     const ed = this.editor;
     const { sampleRate, frames } = ed.info!;
-    const whole = { start: 0, end: ed.duration };
+    const end = ed.recording ? Infinity : frames;
+    const whole = { start: 0, end: end / sampleRate };
     const spans = ed.skipCuts ? keptPieces(whole, ed.project.cuts, ed.settings.cutCrossfadeMs / 1000) : [whole];
     return spans
-      .map((p) => ({ start: Math.round(p.start * sampleRate), end: Math.min(frames, Math.round(p.end * sampleRate)) }))
+      .map((p) => ({ start: Math.round(p.start * sampleRate), end: Math.min(end, Math.round(p.end * sampleRate)) }))
       .filter((p) => p.end > p.start);
   }
 
@@ -163,7 +168,7 @@ export class Player {
     const frame = Math.max(fromFrame, pieces[index].start);
     const joined = time !== null && frame > fromFrame && index > 0;
     if (joined) time! -= this.crossfadeFrames() / ed.info!.sampleRate;
-    const stopFrame = this.stopAt !== null ? Math.round(this.stopAt * ed.info!.sampleRate) : ed.info!.frames;
+    const stopFrame = this.stopAt !== null ? Math.round(this.stopAt * ed.info!.sampleRate) : ed.recording ? Infinity : ed.info!.frames;
     return { pieces, index, frame, time, joined, stopFrame, gain: ed.previewGainCurve() };
   }
 
@@ -279,8 +284,13 @@ export class Player {
       // Keep recently used chunks at the end, so the oldest is evicted first.
       this.cache.delete(index);
     } else {
-      data = window.studio.readAudio(index * CHUNK_FRAMES, CHUNK_FRAMES);
-      data.catch(() => this.cache.delete(index));
+      const read = window.studio.readAudio(index * CHUNK_FRAMES, CHUNK_FRAMES);
+      // A short chunk is the end of the file, or of what is recorded so far: read it again next time.
+      read.then(
+        (d) => (d[0]?.length ?? 0) < CHUNK_FRAMES && this.cache.get(index) === read && this.cache.delete(index),
+        () => this.cache.delete(index),
+      );
+      data = read;
     }
     this.cache.set(index, data);
     if (this.cache.size > CACHE_CHUNKS) this.cache.delete(this.cache.keys().next().value!);
