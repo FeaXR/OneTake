@@ -5,13 +5,13 @@
   "description": "Record or open one long WAV and cut it into faded, peak-normalized MP3 files.",
   "author": "FeaXR",
   "license": "MIT",
-  "homepage": "https://github.com/FeaXR/One-Take",
+  "homepage": "https://github.com/FeaXR/OneTake",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/FeaXR/One-Take.git"
+    "url": "git+https://github.com/FeaXR/OneTake.git"
   },
   "bugs": {
-    "url": "https://github.com/FeaXR/One-Take/issues"
+    "url": "https://github.com/FeaXR/OneTake/issues"
   },
   "private": true,
   "type": "module",

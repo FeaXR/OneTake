@@ -1,6 +1,6 @@
 <h1><img src="build/icon.png" alt="" width="40" align="top"> One Take</h1>
 
-[![Build](https://github.com/FeaXR/One-Take/actions/workflows/build.yml/badge.svg)](https://github.com/FeaXR/One-Take/actions/workflows/build.yml)
+[![Build](https://github.com/FeaXR/OneTake/actions/workflows/build.yml/badge.svg)](https://github.com/FeaXR/OneTake/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A focused desktop editor for cutting **one long WAV recording into several MP3 files**, for Windows, macOS and Linux. It can also record that WAV itself, and you can start marking and exporting while the recording goes on.
@@ -42,7 +42,7 @@ Most audio editors work the other way round: many tracks in, one file out. One T
 
 ## Download
 
-Get the latest version from the [Releases page](https://github.com/FeaXR/One-Take/releases).
+Get the latest version from the [Releases page](https://github.com/FeaXR/OneTake/releases).
 
 | System | File | Notes |
 | --- | --- | --- |
@@ -60,7 +60,7 @@ xattr -dr com.apple.quarantine "/Applications/One Take.app"
 
 On a Mac, use **Cmd** wherever this page says Ctrl, and **Option** for Alt. Shortcuts are shown with the Mac symbols in the app.
 
-Builds of every commit are also available from the [Actions page](https://github.com/FeaXR/One-Take/actions/workflows/build.yml). Open a run and download the artifact at the bottom (requires a GitHub account).
+Builds of every commit are also available from the [Actions page](https://github.com/FeaXR/OneTake/actions/workflows/build.yml). Open a run and download the artifact at the bottom (requires a GitHub account).
 
 ## Using it
 
