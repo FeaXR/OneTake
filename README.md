@@ -1,13 +1,13 @@
-<h1><img src="build/icon.png" alt="" width="40" align="top"> Studio Audio Editor</h1>
+<h1><img src="build/icon.png" alt="" width="40" align="top"> One Take</h1>
 
-[![Build](https://github.com/FeaXR/Studio-Audio-Editor/actions/workflows/build.yml/badge.svg)](https://github.com/FeaXR/Studio-Audio-Editor/actions/workflows/build.yml)
+[![Build](https://github.com/FeaXR/One-Take/actions/workflows/build.yml/badge.svg)](https://github.com/FeaXR/One-Take/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A focused desktop editor for cutting **one long WAV recording into several MP3 files**, for Windows and Linux.
+A focused desktop editor for cutting **one long WAV recording into several MP3 files**, for Windows, macOS and Linux. It can also record that WAV itself, and you can start marking and exporting while the recording goes on.
 
-Most audio editors work the other way round: many tracks in, one file out. Studio Audio Editor is for the opposite job: a long recording of a concert, a radio show or a lecture that has to become a set of separate, finished files. You mark where each file starts and ends, cut out coughs and noises, and export them all in one go. Each file gets consistent fades and its own loudness and bitrate.
+Most audio editors work the other way round: many tracks in, one file out. One Take is for the opposite job: a long recording of a concert, a radio show or a lecture that has to become a set of separate, finished files. You mark where each file starts and ends, cut out coughs and noises, and export them all in one go. Each file gets consistent fades and its own loudness and bitrate.
 
-![Studio Audio Editor with a 25-minute recording split into five output files](docs/screenshots/main.png)
+![One Take with a 25-minute recording split into five output files](docs/screenshots/main.png)
 
 ## Features
 
@@ -22,7 +22,7 @@ Most audio editors work the other way round: many tracks in, one file out. Studi
 - **Mouse or keyboard.** Every action works with the mouse, and every action can also have a shortcut. Mark files with I/O and cuts with X while listening, and rebind any key in Settings.
 - **Hear the result.** Playback skips the cuts by default, joining them with the same crossfade as the export, and inside the selected segment it plays that file's fade-in and fade-out too. Two buttons on each file play just its start or its end, to check the fades quickly.
 - **Safe export.** Filenames are checked before anything is written, you're asked before files are overwritten, and a cancelled export never leaves half-written files.
-- **Sessions are saved** in one place (Documents → Studio Audio Editor), so you can come back later and re-export.
+- **Sessions are saved** in one place (Documents → One Take), so you can come back later and re-export.
 - **English and Hungarian** interface.
 
 | Fades at a track boundary | A cut, ready to be removed |
@@ -42,26 +42,33 @@ Most audio editors work the other way round: many tracks in, one file out. Studi
 
 ## Download
 
-Get the latest version from the [Releases page](https://github.com/FeaXR/Studio-Audio-Editor/releases).
+Get the latest version from the [Releases page](https://github.com/FeaXR/One-Take/releases).
 
 | System | File | Notes |
 | --- | --- | --- |
-| Windows | `Studio-Audio-Editor-Setup-<version>.exe` | Installer with Start menu entry and uninstaller |
-| Windows | `Studio-Audio-Editor-<version>-portable.exe` | Single file, no installation. Starts a little slower because it unpacks itself each time. |
-| Linux | `Studio-Audio-Editor-<version>-x86_64.AppImage` | Runs on most distributions. Make it executable first: `chmod +x Studio-Audio-Editor-*.AppImage` |
-| Linux | `studio-audio-editor_<version>_amd64.deb` | For Debian, Ubuntu and derivatives |
+| Windows | `One-Take-Setup-<version>.exe` | Installer with Start menu entry and uninstaller |
+| Windows | `One-Take-<version>-portable.exe` | Single file, no installation. Starts a little slower because it unpacks itself each time. |
+| macOS | `One-Take-<version>-mac-arm64.dmg` | For Macs with Apple silicon (M1 and later). Open it and drag One Take into Applications. |
+| Linux | `One-Take-<version>-x86_64.AppImage` | Runs on most distributions. Make it executable first: `chmod +x One-Take-*.AppImage` |
+| Linux | `one-take_<version>_amd64.deb` | For Debian, Ubuntu and derivatives |
 
-The builds are not code-signed. On Windows, SmartScreen may show "Windows protected your PC" the first time; choose **More info → Run anyway**.
+The builds are not code-signed. On Windows, SmartScreen may show "Windows protected your PC" the first time; choose **More info → Run anyway**. On a Mac, the first start is refused with "One Take is damaged" or "cannot be verified". After dragging it into Applications, run this once in Terminal:
 
-Builds of every commit are also available from the [Actions page](https://github.com/FeaXR/Studio-Audio-Editor/actions/workflows/build.yml). Open a run and download the artifact at the bottom (requires a GitHub account).
+```bash
+xattr -dr com.apple.quarantine "/Applications/One Take.app"
+```
+
+On a Mac, use **Cmd** wherever this page says Ctrl, and **Option** for Alt. Shortcuts are shown with the Mac symbols in the app.
+
+Builds of every commit are also available from the [Actions page](https://github.com/FeaXR/One-Take/actions/workflows/build.yml). Open a run and download the artifact at the bottom (requires a GitHub account).
 
 ## Using it
 
-1. **Open a WAV file.** Use the Open button or Ctrl+O, or drag the file onto the window. You can also drop it onto the program's icon or shortcut to start the app with that file.
+1. **Open a WAV file** (or [record one](#recording)). Use the Open button or Ctrl+O, or drag the file onto the window. You can also drop it onto the program's icon or shortcut (on a Mac, the Dock icon) to start the app with that file.
 2. **Mark the output files (segments).**
    - Mouse: drag in the **top lane** above the waveform, or drag on the waveform with the **Segment** tool (active at startup).
    - Keyboard, while listening: press **I** at the start and **O** at the end.
-3. **Name each file** in the list on the right, and choose **100% / 60%** and **320 / 192** for each one.
+3. **Name each file** in the list on the right, and choose **100% / 60%** and **320 / 192** for each one. Names have no spaces: while you type one, **Space** still plays and pauses, so you can name a file right after marking it and keep listening.
    - **Settings → Folder rules** can set the volume and bitrate for everything written to a folder (and its subfolders). Each file follows its folder unless you pick something else for it; overridden choices are outlined, and picking the folder's value again makes the file follow the folder.
    - With a naming rule for the output folder, the start of each name is filled in for you: `{nn}` is the next free number in the folder, `{n}` the order within the recording, `{date}` comes from the WAV name (`1018_….wav` → `261018`), and `{type}` is a per-file choice such as SH / HSZ. Rules also apply to subfolders. Click the generated part to change the type, for one file, it and the ones after it, or the whole folder.
 4. **Mark cuts.**
@@ -69,11 +76,13 @@ Builds of every commit are also available from the [Actions page](https://github
    - Keyboard: press **X** where the noise starts and **X** again where it ends.
 5. **Export all** with Ctrl+E. Files go to the folder shown at the top of the list, which defaults to the WAV's folder. To send some files elsewhere, use **+ Add folder**: each file then gets a folder picker, and the first folder stays the default.
 
-Your segments and cuts are saved in `Documents/Studio Audio Editor/Sessions`, one file per WAV (Ctrl+S). The session is tied to the WAV's location, so moving or renaming the WAV starts a new one. Sessions saved next to the WAV by older versions (`<file>.wav.sae.json`) still open. They're also saved after every successful export, and they load again when you reopen the WAV.
+Your segments and cuts are saved in `Documents/One Take/Sessions`, one file per WAV (Ctrl+S). The session is tied to the WAV's location, so moving or renaming the WAV starts a new one. Sessions saved next to the WAV by older versions (`<file>.wav.sae.json`) still open. They're also saved after every successful export, and they load again when you reopen the WAV.
 
 ### Recording
 
 Press **Record** in the toolbar (Ctrl+R) to record a new WAV instead of opening one.
+
+![Recording in progress: two pieces already marked and named, the red live point at 1:30, the input meter and the Stop button in the toolbar](docs/screenshots/recording.png)
 
 - The dialog opens the input straight away, so you can check the level before starting. A Scarlett is chosen by default (afterwards, the input you used last). Inputs 1 and 2 are recorded as 24-bit stereo at the interface's sample rate; nothing is played back on the speakers while recording.
 - Choose the folder and the file name. The name starts with today's date (`1025_…`), so folder rules can fill in `{date}`.
@@ -135,7 +144,7 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 - **Folder rules:** for a folder and its subfolders, the start of filenames (`{nn}`, `{n}`, `{date}`, `{type}`), the `{type}` options, and default volume and bitrate. The deepest matching rule wins; a setting a rule leaves unset comes from a parent folder's rule.
 - **Files use:** the peak target and bitrate for files that no folder rule covers.
 
-Settings are stored in `%APPDATA%\Studio Audio Editor` on Windows and `~/.config/Studio Audio Editor` on Linux.
+Settings are stored in `%APPDATA%\One Take` on Windows, `~/Library/Application Support/One Take` on macOS and `~/.config/One Take` on Linux. Versions from before the rename called the app Studio Audio Editor; its settings and sessions folders are moved to the new names on the first start.
 
 ## How export works
 
@@ -159,18 +168,18 @@ npm run dist       # installers for the current OS, in release/
 npm run icon       # re-render build/icon.png and build/icon.ico from build/icon.svg
 ```
 
-`npm run dist` builds for the system it runs on: the installer and portable .exe on Windows, the AppImage and .deb on Linux.
+`npm run dist` builds for the system it runs on: the installer and portable .exe on Windows, the .dmg on macOS, the AppImage and .deb on Linux.
 
 ### Automatic builds and releases
 
-[GitHub Actions](.github/workflows/build.yml) builds and tests the app on Windows and Linux for every push and pull request. To publish a release, bump `version` in `package.json`, commit, then push a matching tag. The workflow attaches all four files to a new GitHub release:
+[GitHub Actions](.github/workflows/build.yml) builds and tests the app on Windows, macOS and Linux for every push and pull request. To publish a release, bump `version` in `package.json`, commit, then push a matching tag. The workflow attaches all five files to a new GitHub release:
 
 ```bash
-git tag v0.2.0
+git tag v1.0.0
 ```
 
 ```bash
-git push origin v0.2.0
+git push origin v1.0.0
 ```
 
 ### Project layout
@@ -189,4 +198,4 @@ Issues and pull requests are welcome. Please run `npm run typecheck` and `npm te
 
 [MIT](LICENSE) © FeaXR
 
-The app bundles a static build of [FFmpeg](https://ffmpeg.org/) through [ffmpeg-static](https://github.com/eugeneware/ffmpeg-static). FFmpeg is licensed under the GPL v3, and its license and source reference ship with the app (`resources/app.asar.unpacked/node_modules/ffmpeg-static/`). It runs as a separate program, and the MIT license above covers only Studio Audio Editor's own code.
+The app bundles a static build of [FFmpeg](https://ffmpeg.org/) through [ffmpeg-static](https://github.com/eugeneware/ffmpeg-static). FFmpeg is licensed under the GPL v3, and its license and source reference ship with the app (`resources/app.asar.unpacked/node_modules/ffmpeg-static/`). It runs as a separate program, and the MIT license above covers only One Take's own code.

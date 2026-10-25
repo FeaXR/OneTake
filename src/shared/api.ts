@@ -8,6 +8,8 @@ export interface StudioApi {
   onLoadProgress(cb: (fraction: number) => void): () => void;
   /** Samples of the open WAV for playback: one array per channel, from frame `start`. */
   readAudio(start: number, count: number): Promise<Float32Array[]>;
+  /** Asks for access to audio inputs where the system requires it (macOS); false when refused. */
+  allowMicrophone(): Promise<boolean>;
   /**
    * Creates `name` in `dir` (never overwriting) and opens it as a 24-bit WAV that grows as
    * samples are appended. Playback and export read it like any open WAV meanwhile.

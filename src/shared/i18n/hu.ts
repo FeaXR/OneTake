@@ -3,7 +3,7 @@ import type { Message } from './types.ts';
 
 /** Hungarian texts. The type forces every English key to be present. */
 export const hu: Record<keyof typeof en, Message> = {
-  'app.name': 'Studio Audio Editor',
+  'app.name': 'One Take',
 
   'cmd.file.open': 'WAV megnyitása…',
   'cmd.file.save': 'Projekt mentése',
@@ -59,7 +59,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'tb.open': 'Megnyitás',
   'tb.open.tip': 'WAV fájl megnyitása',
   'tb.save': 'Mentés',
-  'tb.save.tip': 'A WAV szakaszainak és kivágásainak mentése (Dokumentumok → Studio Audio Editor)',
+  'tb.save.tip': 'A WAV szakaszainak és kivágásainak mentése (Dokumentumok → One Take)',
   'tb.undo.tip': 'Visszavonás',
   'tb.redo.tip': 'Mégis',
   'tb.select': 'Kijelölés',
@@ -87,7 +87,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'meter.clip': 'CLIP',
 
   'empty.title': 'Nyiss meg egy WAV fájlt a kezdéshez',
-  'empty.sub': 'Kattints ide, nyomd meg a Ctrl+O-t, vagy húzz egy .wav fájlt bárhová az ablakra.',
+  'empty.sub': 'Kattints ide, nyomd meg ezt: {key}, vagy húzz egy .wav fájlt bárhová az ablakra.',
   'empty.record': 'Vagy nyomd meg a Felvétel gombot, hogy hangkártyáról vegyél fel.',
 
   'status.noFile': 'Nincs fájl',
@@ -162,6 +162,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'dlg.rec.exists': 'Ebben a mappában már van {name} nevű fájl.',
   'dlg.rec.openFailed': 'A bemenet nem nyitható meg: {error}',
   'dlg.rec.noInputs': 'Nem található hangbemenet.',
+  'dlg.rec.micDenied': 'Az alkalmazás nem használhatja a hangbemeneteket. Engedélyezd a Rendszerbeállítások → Adatvédelem és biztonság → Mikrofon alatt, majd próbáld újra.',
   'btn.startRecording': 'Felvétel indítása',
   'dlg.recStop.title': 'Leállítod a felvételt?',
   'dlg.recStop.message': 'Az eddig felvett anyag megmarad itt: {name}. A leállított felvétel nem folytatható.',
@@ -192,6 +193,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'panel.defaultFolder': '{name} (alapértelmezett)',
   'panel.extraFolder.tip': 'Másik mappa választása ehelyett; az ide küldött fájlok vele mennek',
   'panel.removeFolder.tip': 'Mappa eltávolítása; a fájljai az alapértelmezett mappába kerülnek',
+  'panel.removeDefaultFolder.tip': 'Mappa eltávolítása; a következő mappa lesz az alapértelmezett, és ennek a fájljai oda kerülnek',
   'panel.addFolder': '+ Mappa hozzáadása',
   'panel.addFolder.tip': 'Újabb kimeneti mappa, ahová fájlokat lehet küldeni',
   'panel.rowFolder.tip': 'A fájl célmappája',

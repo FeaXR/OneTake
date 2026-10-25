@@ -4,7 +4,7 @@ const s = (n: string | number) => (Number(n) === 1 ? '' : 's');
 
 /** English texts. The keys of this table are the master list; every language must have them all. */
 export const en = {
-  'app.name': 'Studio Audio Editor',
+  'app.name': 'One Take',
 
   // Commands (also used as labels in Settings → Keyboard shortcuts)
   'cmd.file.open': 'Open WAV…',
@@ -62,7 +62,7 @@ export const en = {
   'tb.open': 'Open',
   'tb.open.tip': 'Open a WAV file',
   'tb.save': 'Save',
-  'tb.save.tip': 'Save the segments and cuts of this WAV (in Documents → Studio Audio Editor)',
+  'tb.save.tip': 'Save the segments and cuts of this WAV (in Documents → One Take)',
   'tb.undo.tip': 'Undo',
   'tb.redo.tip': 'Redo',
   'tb.select': 'Select',
@@ -91,7 +91,7 @@ export const en = {
 
   // Empty state
   'empty.title': 'Open a WAV file to start',
-  'empty.sub': 'Click here, press Ctrl+O, or drop a .wav file anywhere on this window.',
+  'empty.sub': 'Click here, press {key}, or drop a .wav file anywhere on this window.',
   'empty.record': 'Or press Record in the toolbar to record from an audio interface.',
 
   // Status bar
@@ -172,6 +172,7 @@ export const en = {
   'dlg.rec.exists': 'A file named {name} is already in this folder.',
   'dlg.rec.openFailed': 'Could not open the input: {error}',
   'dlg.rec.noInputs': 'No audio input was found.',
+  'dlg.rec.micDenied': 'The app may not use audio inputs. Allow it in System Settings → Privacy & Security → Microphone, then try again.',
   'btn.startRecording': 'Start recording',
   'dlg.recStop.title': 'Stop recording?',
   'dlg.recStop.message': 'Everything recorded so far stays in {name}. A stopped recording cannot be continued.',
@@ -204,6 +205,7 @@ export const en = {
   'panel.defaultFolder': '{name} (default)',
   'panel.extraFolder.tip': 'Choose a different folder here; files that use it move along',
   'panel.removeFolder.tip': 'Remove this folder; its files go back to the default folder',
+  'panel.removeDefaultFolder.tip': 'Remove this folder; the next folder becomes the default and this folder\'s files go there',
   'panel.addFolder': '+ Add folder',
   'panel.addFolder.tip': 'Add another output folder that files can be sent to',
   'panel.rowFolder.tip': 'Folder this file is written to',

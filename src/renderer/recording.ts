@@ -4,7 +4,7 @@ import type { AudioInfo } from '../shared/types.ts';
 import { filenameProblem } from '../shared/validate.ts';
 import type { CaptureBlock } from './capture-worklet.ts';
 import { choose, openModal, toast } from './dialogs.ts';
-import { h } from './dom.ts';
+import { h, pathText } from './dom.ts';
 import type { Editor } from './editor.ts';
 import { Meter } from './meter.ts';
 import { PeakPyramid } from './peaks.ts';
@@ -93,7 +93,7 @@ export class RecordingController {
     const error = h('div', { class: 'form-note err' });
     const folderPath = h('div', { class: 'folder-path' });
     const showFolder = () => {
-      folderPath.textContent = folder || t('dlg.rec.noFolder');
+      folderPath.textContent = folder ? pathText(folder) : t('dlg.rec.noFolder');
       folderPath.title = folder;
       folderPath.classList.toggle('missing', !folder);
     };

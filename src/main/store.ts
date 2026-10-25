@@ -39,7 +39,7 @@ export async function saveShortcutOverrides(overrides: Record<string, string[]>)
   await writeJson(shortcutsFile(), overrides);
 }
 
-/** Sessions live in one place, Documents/Studio Audio Editor/Sessions, on every system. */
+/** Sessions live in one place, Documents/One Take/Sessions, on every system. */
 export const sessionsDir = () => join(app.getPath('documents'), APP_FOLDER, 'Sessions');
 
 const isProject = (p: Project | null): p is Project => !!p && p.version === 1 && Array.isArray(p.segments);

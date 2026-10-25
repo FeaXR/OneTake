@@ -4,7 +4,7 @@ import { ruleFor, usesToken } from '../shared/naming.ts';
 import { segmentFolder, type Bitrate, type PeakTarget, type Segment } from '../shared/types.ts';
 import { outputDurationOf } from '../shared/plan.ts';
 import { onlyStillRecording, type SegmentIssues } from '../shared/validate.ts';
-import { h } from './dom.ts';
+import { h, pathText } from './dom.ts';
 import { clamp, MIN_REGION_SEC, type Change, type Editor } from './editor.ts';
 import { showContextMenu, toast } from './dialogs.ts';
 import { icons } from './icons.ts';
@@ -22,6 +22,7 @@ export interface PanelActions {
   playSegmentEdge(id: string, edge: 'start' | 'end'): void;
   zoomTo(kind: 'segment' | 'cut', id: string): void;
   deleteRegion(kind: 'segment' | 'cut', id: string): void;
+  togglePlay(): void;
   shortcut(commandId: string): string;
 }
 
@@ -159,6 +160,12 @@ export class OutputPanel {
       onblur: () => ed.endGesture(),
       onkeydown: (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === 'Escape') name.blur();
+        // Names have no spaces, so Space keeps its usual job even while typing a name right
+        // after marking a segment: play / pause, to listen on.
+        if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          this.actions.togglePlay();
+        }
       },
     });
 
@@ -403,14 +410,20 @@ export class OutputPanel {
     this.foldersKey = key;
     const line = (i: number) => {
       const dir = dirs[i] ?? null;
-      const path = h('div', { class: `folder-path${dir ? '' : ' missing'}`, title: dir ?? '' }, dir ?? t('panel.noFolder'));
+      const path = h('div', { class: `folder-path${dir ? '' : ' missing'}`, title: dir ?? '' }, dir ? pathText(dir) : t('panel.noFolder'));
       return h('div', { class: 'folder-row' },
         dirs.length > 1 ? h('span', { class: 'folder-tag' }, i === 0 ? t('panel.default') : `${i + 1}`) : null,
         path,
         dir ? this.numberStartInput(dir) : null,
         h('button', { class: dirs.length > 1 ? 'icon' : '', html: icons.folder, title: i === 0 ? t('panel.folder.tip') : t('panel.extraFolder.tip'), onclick: () => this.actions.changeFolder(i) },
           dirs.length > 1 ? null : t('panel.folder')),
-        i > 0 ? h('button', { class: 'icon danger', html: icons.trash, title: t('panel.removeFolder.tip'), onclick: () => this.actions.removeFolder(i) }) : null,
+        dirs.length > 1
+          ? h('button', {
+            class: 'icon danger', html: icons.trash,
+            title: i === 0 ? t('panel.removeDefaultFolder.tip') : t('panel.removeFolder.tip'),
+            onclick: () => this.actions.removeFolder(i),
+          })
+          : null,
       );
     };
     this.foldersEl.replaceChildren(...(dirs.length ? dirs.map((_, i) => line(i)) : [line(0)]));

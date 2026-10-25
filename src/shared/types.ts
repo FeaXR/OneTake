@@ -28,7 +28,7 @@ export interface Cut {
   end: number;
 }
 
-/** Editable session state, saved in Documents/Studio Audio Editor/Sessions (one file per WAV). */
+/** Editable session state, saved in Documents/One Take/Sessions (one file per WAV). */
 export interface Project {
   version: 1;
   segments: Segment[];

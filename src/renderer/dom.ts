@@ -20,6 +20,13 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = 
   return el;
 }
 
+/**
+ * A path for a .folder-path box. The box is right-to-left so a long path is cut at its start
+ * and its end stays visible; the marks keep the slashes in place (otherwise "/home/x" shows
+ * as "home/x/").
+ */
+export const pathText = (path: string): string => `\u200e${path}\u200e`;
+
 export function append(el: Element, children: Child[]): void {
   for (const c of children) {
     if (c === null || c === undefined || c === false) continue;

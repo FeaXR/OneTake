@@ -6,7 +6,7 @@ import { onlyStillRecording, outputFilename } from '../shared/validate.ts';
 import { CommandRegistry, Keymap, overridesFrom } from './commands.ts';
 import { ShortcutEditor } from './shortcut-editor.ts';
 import { choose, closeContextMenu, modalOpen, openModal, showContextMenu, showLoading, toast } from './dialogs.ts';
-import { h } from './dom.ts';
+import { h, pathText } from './dom.ts';
 import { clamp, Editor, MIN_REGION_SEC, type RegionKind, type Selection, type Tool } from './editor.ts';
 import { icons } from './icons.ts';
 import { Overview } from './overview.ts';
@@ -67,7 +67,6 @@ export class App {
     ed.settings = settings;
     document.documentElement.lang = getLanguage();
     document.getElementById('empty-title')!.textContent = t('empty.title');
-    document.getElementById('empty-sub')!.textContent = t('empty.sub');
     document.getElementById('empty-record')!.textContent = t('empty.record');
 
     this.player = new Player(ed);
@@ -105,6 +104,7 @@ export class App {
         ed.select({ kind, id });
       },
       deleteRegion: (kind, id) => this.deleteRegion(kind, id),
+      togglePlay: () => this.player.toggle(),
       shortcut: (id) => this.keymap.label(id),
     });
 
@@ -533,12 +533,16 @@ export class App {
     if (dir) this.editor.commit((p) => p.outputDirs.push(dir));
   }
 
-  /** Removes an extra folder; its segments go back to the default folder. */
+  /**
+   * Removes a folder; its segments go to the default folder. Removing the default makes the
+   * next folder the default, so its segments (and the removed default's) follow the new one.
+   */
   private removeFolder(index: number): void {
-    if (index <= 0) return;
+    if (index < 0 || this.editor.project.outputDirs.length < 2) return;
     this.editor.commit((p) => {
       const [removed] = p.outputDirs.splice(index, 1);
-      for (const s of p.segments) if (s.outputDir === removed) delete s.outputDir;
+      const fallback = index === 0 ? p.outputDirs[0] : null;
+      for (const s of p.segments) if (s.outputDir === removed || s.outputDir === fallback) delete s.outputDir;
     });
   }
 
@@ -874,7 +878,7 @@ export class App {
             }),
           );
           return h('div', { class: 'naming-rule-wrap' }, h('div', { class: 'naming-rule' },
-            h('div', { class: 'folder-path', title: rule.folder }, rule.folder),
+            h('div', { class: 'folder-path', title: rule.folder }, pathText(rule.folder)),
             h('button', {
               class: 'icon', html: icons.folder, title: t('settings.naming.folder.tip'),
               onclick: async () => {
@@ -998,6 +1002,7 @@ export class App {
     this.rec.box.classList.toggle('hidden', !recording);
     this.rec.time.textContent = `● ${this.recording.elapsedText}`;
     document.getElementById('empty-state')!.classList.toggle('hidden', !!ed.info);
+    document.getElementById('empty-sub')!.textContent = t('empty.sub', { key: this.keymap.label('file.open') || 'Ctrl+O' });
 
     const info = ed.info;
     if (info) {

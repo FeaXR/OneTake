@@ -1,3 +1,4 @@
+import { t } from '../shared/i18n/index.ts';
 import type { CaptureBlock, CaptureMessage } from './capture-worklet.ts';
 import workletUrl from './capture-worklet.ts?worker&url';
 
@@ -14,6 +15,7 @@ export interface InputDevice {
  * default. Names are only shown once the app may use an input, so access is asked for first.
  */
 export async function listInputs(lastLabel: string): Promise<InputDevice[]> {
+  if (!(await window.studio.allowMicrophone())) throw new Error(t('dlg.rec.micDenied'));
   const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
   probe.getTracks().forEach((t) => t.stop());
   const inputs = (await navigator.mediaDevices.enumerateDevices())

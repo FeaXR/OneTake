@@ -1,5 +1,5 @@
-# Builds the app for Windows and Linux on every push and pull request.
-# Pushing a tag like v0.2.0 also publishes all the files as a GitHub release.
+# Builds the app for Windows, macOS and Linux on every push and pull request.
+# Pushing a tag like v1.0.0 also publishes all the files as a GitHub release.
 name: Build
 
 on:
@@ -27,11 +27,15 @@ jobs:
         include:
           - name: Windows
             os: windows-latest
-            artifact: studio-audio-editor-windows
+            artifact: one-take-windows
             files: release/*.exe
+          - name: macOS
+            os: macos-latest
+            artifact: one-take-mac
+            files: release/*.dmg
           - name: Linux
             os: ubuntu-latest
-            artifact: studio-audio-editor-linux
+            artifact: one-take-linux
             files: |
               release/*.AppImage
               release/*.deb
@@ -54,6 +58,9 @@ jobs:
 
       - name: Build packages
         run: npm run dist -- --publish never
+        env:
+          # No Apple certificate: the Mac app gets an ad-hoc signature (scripts/after-pack.cjs).
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Upload build
         uses: actions/upload-artifact@v7

@@ -92,14 +92,19 @@ export const DEFAULT_SHORTCUTS: Record<string, string[]> = {
 
 const MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta', 'AltGraph']);
 
+/** On a Mac, Cmd stands in for Ctrl and shortcuts are shown with the Mac symbols. */
+export const IS_MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform || navigator.userAgent);
+
 /**
  * Turns a key event into a combo string like "Ctrl+Shift+Z". Uses the typed character, so
  * bindings follow the keyboard layout (Ctrl+Z is the key labelled Z on QWERTZ too).
  * Shift is left out for punctuation, because it is already part of the character.
  */
-export function comboFromEvent(e: KeyboardEvent): string | null {
+export function comboFromEvent(e: KeyboardEvent, mac = IS_MAC): string | null {
   if (MODIFIER_KEYS.has(e.key)) return null;
   let key = e.key;
+  // Option+letter types a special character on a Mac (Option+P is π); the binding is Alt+P.
+  if (mac && e.altKey && /^(Key[A-Z]|Digit\d)$/.test(e.code)) key = e.code.slice(-1);
   const isChar = key.length === 1;
   if (key === ' ') key = 'Space';
   else if (isChar) key = key.toUpperCase();
@@ -185,12 +190,19 @@ const KEY_NAMES: Record<string, string> = {
   Escape: 'Esc',
 };
 
-/** Human-friendly combo text: "Ctrl+ArrowLeft" → "Ctrl+←". */
-export function formatCombo(combo: string): string {
+const MAC_MODIFIERS: Record<string, string> = { Ctrl: '⌘', Alt: '⌥', Shift: '⇧' };
+
+/** Human-friendly combo text: "Ctrl+ArrowLeft" → "Ctrl+←", on a Mac "⌘←". */
+export function formatCombo(combo: string, mac = IS_MAC): string {
   const parts = combo.split('+');
   // A "+" key splits into two empty strings ("+" → ["", ""], "Ctrl++" → ["Ctrl", "", ""]).
   const plusKey = combo === '+' || combo.endsWith('++');
   const key = plusKey ? '+' : parts.pop()!;
   const mods = plusKey ? parts.slice(0, -2) : parts;
+  if (mac) {
+    // Mac order is ⌥⇧⌘ before the key, with nothing in between.
+    const order = ['Alt', 'Shift', 'Ctrl'];
+    return [...order.filter((m) => mods.includes(m)).map((m) => MAC_MODIFIERS[m]), KEY_NAMES[key] ?? key].join('');
+  }
   return [...mods, KEY_NAMES[key] ?? key].join('+');
 }

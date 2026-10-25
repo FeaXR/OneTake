@@ -1,17 +1,17 @@
 {
-  "name": "studio-audio-editor",
-  "productName": "Studio Audio Editor",
-  "version": "0.3.0",
-  "description": "Cut one long WAV into several faded, peak-normalized MP3 files.",
+  "name": "one-take",
+  "productName": "One Take",
+  "version": "1.0.0",
+  "description": "Record or open one long WAV and cut it into faded, peak-normalized MP3 files.",
   "author": "FeaXR",
   "license": "MIT",
-  "homepage": "https://github.com/FeaXR/Studio-Audio-Editor",
+  "homepage": "https://github.com/FeaXR/One-Take",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/FeaXR/Studio-Audio-Editor.git"
+    "url": "git+https://github.com/FeaXR/One-Take.git"
   },
   "bugs": {
-    "url": "https://github.com/FeaXR/Studio-Audio-Editor/issues"
+    "url": "https://github.com/FeaXR/One-Take/issues"
   },
   "private": true,
   "type": "module",
@@ -26,8 +26,8 @@
     "dist": "npm run build && electron-builder"
   },
   "build": {
-    "appId": "com.studioaudioeditor.app",
-    "productName": "Studio Audio Editor",
+    "appId": "com.onetake.app",
+    "productName": "One Take",
     "directories": {
       "output": "release"
     },
@@ -46,14 +46,43 @@
       ]
     },
     "nsis": {
-      "artifactName": "Studio-Audio-Editor-Setup-${version}.${ext}",
+      "artifactName": "One-Take-Setup-${version}.${ext}",
       "oneClick": false,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "allowToChangeInstallationDirectory": true
     },
     "portable": {
-      "artifactName": "Studio-Audio-Editor-${version}-portable.${ext}"
+      "artifactName": "One-Take-${version}-portable.${ext}"
+    },
+    "mac": {
+      "icon": "build/icon.png",
+      "category": "public.app-category.music",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "One Take records from your audio interface.",
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "WAV audio",
+            "CFBundleTypeExtensions": [
+              "wav"
+            ],
+            "CFBundleTypeRole": "Editor",
+            "LSHandlerRank": "Alternate"
+          }
+        ]
+      }
+    },
+    "dmg": {
+      "artifactName": "One-Take-${version}-mac-${arch}.${ext}"
     },
     "linux": {
       "icon": "build/icon.png",
@@ -70,11 +99,12 @@
       ]
     },
     "appImage": {
-      "artifactName": "Studio-Audio-Editor-${version}-${arch}.${ext}"
+      "artifactName": "One-Take-${version}-${arch}.${ext}"
     },
     "deb": {
-      "artifactName": "studio-audio-editor_${version}_${arch}.${ext}"
-    }
+      "artifactName": "one-take_${version}_${arch}.${ext}"
+    },
+    "afterPack": "scripts/after-pack.cjs"
   },
   "dependencies": {
     "ffmpeg-static": "^5.3.0"

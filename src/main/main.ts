@@ -1,11 +1,13 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, powerSaveBlocker, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, powerSaveBlocker, shell, systemPreferences } from 'electron';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { codedError, resolveLanguage, setLanguage, t } from '../shared/i18n/index.ts';
 import type { AudioInfo, ExportRequest, LoadedAudio, Project, Settings } from '../shared/types.ts';
 import { runExport } from './exporter.ts';
 import { loadPeaks, savePeaks } from './peaks.ts';
+import { LEGACY_FOLDER, moveLegacyFolder } from './legacy-folders.ts';
 import { WavRecorder } from './recorder.ts';
+import { APP_FOLDER } from './session-path.ts';
 import {
   loadProject, loadSettings, loadShortcutOverrides, peaksCacheDir, saveProject, saveSettings, saveShortcutOverrides,
 } from './store.ts';
@@ -153,6 +155,11 @@ function registerIpc(): void {
     return { info: audioInfo(openedWav, statSync(path).mtimeMs), peaks, project: await loadProject(path) };
   });
 
+  // macOS asks the user once before any app may record; other systems need no permission.
+  ipcMain.handle('media:allowMicrophone', () =>
+    process.platform === 'darwin' ? systemPreferences.askForMediaAccess('microphone') : true,
+  );
+
   ipcMain.handle('rec:start', async (_e, dir: string, name: string, sampleRate: number, channels: number): Promise<AudioInfo> => {
     if (recording) throw codedError('err.alreadyRecording');
     const path = resolve(dir, name);
@@ -237,6 +244,35 @@ function registerIpc(): void {
   });
 }
 
+// The app used to be called Studio Audio Editor. Its settings (with the peaks cache) and its
+// Documents folder (sessions) move to the new names before anything reads them.
+moveLegacyFolder(join(app.getPath('appData'), LEGACY_FOLDER), app.getPath('userData'));
+moveLegacyFolder(join(app.getPath('documents'), LEGACY_FOLDER), join(app.getPath('documents'), APP_FOLDER));
+
+/**
+ * No menu bar on Windows and Linux: everything is in the toolbar. A Mac always has a menu bar,
+ * and without one Cmd+Q and copy and paste in text fields do not work. Undo and redo are left
+ * out, so Cmd+Z reaches the app's own undo.
+ */
+function appMenu(): Menu | null {
+  if (process.platform !== 'darwin') return null;
+  return Menu.buildFromTemplate([
+    { role: 'appMenu' },
+    {
+      role: 'editMenu',
+      submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }],
+    },
+  ]);
+}
+
+// On a Mac, a WAV dropped on the Dock icon or opened with "Open With" arrives here, not in argv.
+app.on('open-file', (e, path) => {
+  e.preventDefault();
+  if (!/\.wav$/i.test(path)) return;
+  if (win) win.webContents.send('app:openFile', path);
+  else startupFile = path;
+});
+
 // One window only: launching again with a file (e.g. dropping another WAV on the icon)
 // hands the file to the running app instead of opening a second copy.
 if (!app.requestSingleInstanceLock()) {
@@ -252,7 +288,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(async () => {
     applyLanguage(await loadSettings());
-    Menu.setApplicationMenu(null);
+    Menu.setApplicationMenu(appMenu());
     registerIpc();
     createWindow();
   });

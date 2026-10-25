@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { basename, join, resolve } from 'node:path';
 
 /** Folder inside Documents that holds the app's files. */
-export const APP_FOLDER = 'Studio Audio Editor';
+export const APP_FOLDER = 'One Take';
 
 /**
  * Session file for a WAV inside `sessionsDir`: the WAV's name plus a hash of its full path, so
