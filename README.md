@@ -66,6 +66,19 @@ The app looks for a new version on GitHub when it starts (switch this off in **S
 
 Builds of every commit are also available from the [Actions page](https://github.com/FeaXR/OneTake/actions/workflows/build.yml). Open a run and download the artifact at the bottom (requires a GitHub account).
 
+### Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+Only the Windows files built from this repository by its [GitHub Actions workflow](.github/workflows/build.yml) are signed: the installer and the portable .exe. Every release is approved by hand before it is signed. Bundled third-party programs (FFmpeg) are not signed by this project.
+
+- Committers and reviewers: [repository owner](https://github.com/FeaXR)
+- Approvers: [repository owner](https://github.com/FeaXR)
+
+### Privacy
+
+One Take does not collect or send any information about you or your recordings. The only time it goes online is to ask GitHub whether a newer version exists (and to download it, for the versions that update themselves). This happens when the app starts and every few hours while it is open, and can be switched off in **Settings → Updates**. Nothing but the request itself is sent.
+
 ## Using it
 
 1. **Open a WAV file** (or [record one](#recording)). Use the Open button or Ctrl+O, or drag the file onto the window. You can also drop it onto the program's icon or shortcut (on a Mac, the Dock icon) to start the app with that file.
