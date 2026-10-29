@@ -38,6 +38,7 @@ test('joinedDuration subtracts one crossfade per join', () => {
 
 test('normalizeGain hits the target and ceiling', () => {
   assert.equal(normalizeGain(0.5, 1, 0), 2);
+  assert.equal(normalizeGain(0.5, 0, -1), 1);
   assert.ok(Math.abs(normalizeGain(0.5, 0.6, 0) - 1.2) < 1e-12);
   assert.ok(Math.abs(normalizeGain(1, 1, -6.0206) - 0.5) < 1e-4);
 });

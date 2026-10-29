@@ -1,8 +1,12 @@
 import type { LanguageSetting } from './i18n/index.ts';
 import type { FolderRule } from './naming.ts';
 
-export type PeakTarget = 1 | 0.6;
-export type Bitrate = 320 | 192;
+import { DEFAULT_BITRATE_PRESETS, DEFAULT_PEAK_PRESETS } from './presets.ts';
+
+/** Loudest peak as a share of full scale (1 = 100%). */
+export type PeakTarget = number;
+/** MP3 bitrate in kbps, one of MP3_BITRATES. */
+export type Bitrate = number;
 
 /** One output MP3: a span of the source file plus its export options. Times are in seconds. */
 export interface Segment {
@@ -67,6 +71,9 @@ export interface Settings {
   cutCrossfadeMs: number;
   defaultBitrate: Bitrate;
   defaultPeakTarget: PeakTarget;
+  /** The volume and bitrate buttons offered for each file, highest first. */
+  peakPresets: PeakTarget[];
+  bitratePresets: Bitrate[];
   folderRules: FolderRule[];
   /** Show each file's start and end time in the file list (they can be set on the timeline too). */
   showSegmentTimes: boolean;
@@ -89,6 +96,8 @@ export const DEFAULT_SETTINGS: Settings = {
   cutCrossfadeMs: 10,
   defaultBitrate: 320,
   defaultPeakTarget: 1,
+  peakPresets: [...DEFAULT_PEAK_PRESETS],
+  bitratePresets: [...DEFAULT_BITRATE_PRESETS],
   folderRules: [],
   showSegmentTimes: false,
   recordFolder: '',

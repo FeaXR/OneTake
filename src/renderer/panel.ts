@@ -1,6 +1,7 @@
 import { formatNumber, t } from '../shared/i18n/index.ts';
 import { formatTime, parseTime } from '../shared/time.ts';
 import { ruleFor, usesToken } from '../shared/naming.ts';
+import { formatPeak, presetChoices } from '../shared/presets.ts';
 import { segmentFolder, type Bitrate, type PeakTarget, type Segment } from '../shared/types.ts';
 import { outputDurationOf } from '../shared/plan.ts';
 import { onlyStillRecording, type SegmentIssues } from '../shared/validate.ts';
@@ -40,6 +41,8 @@ interface Row {
   bitrate: Map<Bitrate, HTMLButtonElement>;
   peakGroup: HTMLElement;
   bitrateGroup: HTMLElement;
+  /** Fills the volume and bitrate buttons from the presets (and the values in use). */
+  setChoices(peaks: PeakTarget[], bitrates: Bitrate[]): void;
   folderLine: HTMLElement;
   folder: HTMLSelectElement;
   folderKey: string;
@@ -207,32 +210,40 @@ export class OutputPanel {
     // Choosing the folder's default clears the file's own choice, so it follows the folder again.
     const peak = new Map<PeakTarget, HTMLButtonElement>();
     const peakGroup = h('div', { class: 'segmented' });
-    for (const [value, label] of [[1, '100%'], [0.6, '60%']] as const) {
-      const b = h('button', {
-        onclick: () => ed.commit(() => {
-          const s = seg();
-          if (!s) return;
-          if (value === ed.outputOptions(s).peakDefault) delete s.peakTarget;
-          else s.peakTarget = value;
-        }),
-      }, label);
-      peak.set(value, b);
-      peakGroup.append(b);
-    }
     const bitrate = new Map<Bitrate, HTMLButtonElement>();
     const bitrateGroup = h('div', { class: 'segmented' });
-    for (const value of [320, 192] as const) {
-      const b = h('button', {
-        onclick: () => ed.commit(() => {
-          const s = seg();
-          if (!s) return;
-          if (value === ed.outputOptions(s).bitrateDefault) delete s.bitrate;
-          else s.bitrate = value;
-        }),
-      }, String(value));
-      bitrate.set(value, b);
-      bitrateGroup.append(b);
-    }
+    let choicesKey = '';
+    const setChoices = (peaks: PeakTarget[], bitrates: Bitrate[]) => {
+      const key = `${peaks.join()}|${bitrates.join()}`;
+      if (key === choicesKey) return;
+      choicesKey = key;
+      peak.clear();
+      peakGroup.replaceChildren(...peaks.map((value) => {
+        const b = h('button', {
+          onclick: () => ed.commit(() => {
+            const s = seg();
+            if (!s) return;
+            if (value === ed.outputOptions(s).peakDefault) delete s.peakTarget;
+            else s.peakTarget = value;
+          }),
+        }, formatPeak(value));
+        peak.set(value, b);
+        return b;
+      }));
+      bitrate.clear();
+      bitrateGroup.replaceChildren(...bitrates.map((value) => {
+        const b = h('button', {
+          onclick: () => ed.commit(() => {
+            const s = seg();
+            if (!s) return;
+            if (value === ed.outputOptions(s).bitrateDefault) delete s.bitrate;
+            else s.bitrate = value;
+          }),
+        }, String(value));
+        bitrate.set(value, b);
+        return b;
+      }));
+    };
 
     const folder = h('select', {
       title: t('panel.rowFolder.tip'),
@@ -288,19 +299,21 @@ export class OutputPanel {
     },
       titleLine,
       timesLine,
-      h('div', { class: 'row-line' },
+      // With many presets the buttons on the right move to a line of their own.
+      h('div', { class: 'row-line row-options' },
         peakGroup, bitrateGroup,
-        h('span', { style: { flex: '1' } }),
-        iconBtn(icons.playStart, t('panel.playStart.tip'), () => this.actions.playSegmentEdge(id, 'start')),
-        iconBtn(icons.playSelection, t('panel.play.tip'), () => this.actions.playRegion('segment', id)),
-        iconBtn(icons.playEnd, t('panel.playEnd.tip'), () => this.actions.playSegmentEdge(id, 'end')),
-        iconBtn(icons.target, t('panel.zoom.tip'), () => this.actions.zoomTo('segment', id)),
-        iconBtn(icons.trash, t('panel.delete.tip'), () => this.actions.deleteRegion('segment', id), 'danger'),
+        h('div', { class: 'row-actions' },
+          iconBtn(icons.playStart, t('panel.playStart.tip'), () => this.actions.playSegmentEdge(id, 'start')),
+          iconBtn(icons.playSelection, t('panel.play.tip'), () => this.actions.playRegion('segment', id)),
+          iconBtn(icons.playEnd, t('panel.playEnd.tip'), () => this.actions.playSegmentEdge(id, 'end')),
+          iconBtn(icons.target, t('panel.zoom.tip'), () => this.actions.zoomTo('segment', id)),
+          iconBtn(icons.trash, t('panel.delete.tip'), () => this.actions.deleteRegion('segment', id), 'danger'),
+        ),
       ),
       folderLine,
       issues,
     );
-    return { el, index, prefix, name, start, end, dur, titleLine, timesLine, peak, bitrate, peakGroup, bitrateGroup, folderLine, folder, folderKey: '', issues };
+    return { el, index, prefix, name, start, end, dur, titleLine, timesLine, peak, bitrate, peakGroup, bitrateGroup, setChoices, folderLine, folder, folderKey: '', issues };
   }
 
   private fillRow(row: Row, seg: Segment, i: number, issues: SegmentIssues): void {
@@ -324,12 +337,16 @@ export class OutputPanel {
     const durLine = showTimes ? row.timesLine : row.titleLine;
     if (row.dur.parentElement !== durLine) durLine.append(row.dur);
     const options = ed.outputOptions(seg);
+    row.setChoices(
+      presetChoices(ed.settings.peakPresets, options.peakTarget, options.peakDefault),
+      presetChoices(ed.settings.bitratePresets, options.bitrate, options.bitrateDefault),
+    );
     for (const [v, b] of row.peak) b.classList.toggle('active', options.peakTarget === v);
     for (const [v, b] of row.bitrate) b.classList.toggle('active', options.bitrate === v);
     // Marked when the file differs from its folder, so overrides stand out.
     const source = (own: boolean, folderValue: string) => (own ? t('panel.option.own', { value: folderValue }) : t('panel.option.folder'));
     row.peakGroup.classList.toggle('override', seg.peakTarget !== undefined);
-    row.peakGroup.title = `${t('panel.peak.tip')}. ${source(seg.peakTarget !== undefined, options.peakDefault === 1 ? '100%' : '60%')}`;
+    row.peakGroup.title = `${t('panel.peak.tip')}. ${source(seg.peakTarget !== undefined, formatPeak(options.peakDefault))}`;
     row.bitrateGroup.classList.toggle('override', seg.bitrate !== undefined);
     row.bitrateGroup.title = `${t('panel.bitrate.tip')}. ${source(seg.bitrate !== undefined, `${options.bitrateDefault} kbps`)}`;
     this.fillFolder(row, seg);

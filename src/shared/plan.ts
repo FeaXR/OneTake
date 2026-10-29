@@ -39,8 +39,11 @@ export function outputDurationOf(segment: Segment, cuts: readonly Cut[], setting
   return joinedDuration(keptPieces(segment, cuts, xf), xf);
 }
 
-/** Linear gain that brings `measuredPeak` to the segment's target, honouring the ceiling setting. */
+/**
+ * Linear gain that brings `measuredPeak` to the segment's target, honouring the ceiling setting.
+ * A target of 0 (NO_NORMALIZE) keeps the level as recorded.
+ */
 export function normalizeGain(measuredPeak: number, target: number, ceilingDb: number): number {
-  if (measuredPeak <= 0) return 1;
+  if (measuredPeak <= 0 || target <= 0) return 1;
   return (target * 10 ** (ceilingDb / 20)) / measuredPeak;
 }

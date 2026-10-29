@@ -1,5 +1,6 @@
 import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting } from '../shared/i18n/index.ts';
 import { highestNumber, usesToken, type FolderRule } from '../shared/naming.ts';
+import { formatPeak, MIN_PEAK_PERCENT, MP3_BITRATES, NO_NORMALIZE, peakFromPercent, presetChoices } from '../shared/presets.ts';
 import { formatTime } from '../shared/time.ts';
 import { FADE_CURVES, FADE_MARKER_STYLES, type Bitrate, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type PeakTarget, type Project, type Segment, type Settings, type UpdateState, segmentFolder } from '../shared/types.ts';
 import { onlyStillRecording, outputFilename } from '../shared/validate.ts';
@@ -666,7 +667,7 @@ export class App {
       const fill = h('div');
       const bar = h('div', { class: 'bar' }, fill);
       const detail = h('div', { class: 'detail' },
-        t('export.itemDetail', { bitrate: options[i].bitrate, peak: options[i].peakTarget === 1 ? '100%' : '60%' }));
+        t('export.itemDetail', { bitrate: options[i].bitrate, peak: formatPeak(options[i].peakTarget) }));
       const name = h('div', { class: 'name' }, `#${i + 1}  ${names[i]}`);
       if (multipleFolders) name.append(h('span', { class: 'form-note', title: folders[i] }, `  → ${basename(folders[i])}`));
       const el = h('div', { class: 'export-item' }, name, bar, detail);
@@ -746,7 +747,12 @@ export class App {
 
   private openSettings(): void {
     const ed = this.editor;
-    const s: Settings = { ...ed.settings, folderRules: ed.settings.folderRules.map((r) => ({ ...r, types: [...r.types] })) };
+    const s: Settings = {
+      ...ed.settings,
+      folderRules: ed.settings.folderRules.map((r) => ({ ...r, types: [...r.types] })),
+      peakPresets: [...ed.settings.peakPresets],
+      bitratePresets: [...ed.settings.bitratePresets],
+    };
     const num = (value: number, min: number, max: number, step: number, set: (v: number) => void) =>
       h('input', {
         type: 'number', value: String(value), min: String(min), max: String(max), step: String(step),
@@ -786,6 +792,19 @@ export class App {
       return group;
     };
 
+    // The defaults and the folder rules offer the presets, so they are redrawn when those change.
+    const rulesEditor = this.folderRulesEditor(s);
+    const defaults = h('div', { class: 'inline' });
+    const renderDefaults = () => defaults.replaceChildren(
+      choice<number>(presetChoices(s.peakPresets, s.defaultPeakTarget).map((v) => [v, formatPeak(v)]), s.defaultPeakTarget, (v) => (s.defaultPeakTarget = v)),
+      choice<number>(presetChoices(s.bitratePresets, s.defaultBitrate).map((v) => [v, `${v} kbps`]), s.defaultBitrate, (v) => (s.defaultBitrate = v)),
+    );
+    renderDefaults();
+    const presetsChanged = () => {
+      renderDefaults();
+      rulesEditor.render();
+    };
+
     const shortcuts = new ShortcutEditor(this.commands.all(), this.keymap.toRecord());
     const m = openModal(t('settings.title'), { wide: true, onClose: () => shortcuts.dispose() });
     m.body.append(
@@ -814,7 +833,7 @@ export class App {
       ),
       h('div', { class: 'form-section' }, t('settings.naming')),
       h('div', { class: 'form-note', html: t('settings.naming.note') }),
-      this.folderRulesEditor(s.folderRules),
+      rulesEditor.el,
       h('div', { class: 'form-section' }, t('settings.export')),
       h('div', { class: 'form-grid' },
         h('label', {}, t('settings.ceiling')),
@@ -822,11 +841,12 @@ export class App {
           h('span', { class: 'form-note' }, t('settings.ceilingNote'))),
         h('label', {}, t('settings.crossfade')),
         h('div', { class: 'inline' }, num(s.cutCrossfadeMs, 1, 200, 1, (v) => (s.cutCrossfadeMs = v)), 'ms'),
+        h('label', {}, t('settings.peakPresets')),
+        this.peakPresetsEditor(s, presetsChanged),
+        h('label', {}, t('settings.bitratePresets')),
+        this.bitratePresetsEditor(s, presetsChanged),
         h('label', {}, t('settings.defaults')),
-        h('div', { class: 'inline' },
-          choice<number>([[1, '100%'], [0.6, '60%']], s.defaultPeakTarget, (v) => (s.defaultPeakTarget = v as Settings['defaultPeakTarget'])),
-          choice<number>([[320, '320 kbps'], [192, '192 kbps']], s.defaultBitrate, (v) => (s.defaultBitrate = v as Settings['defaultBitrate'])),
-        ),
+        defaults,
       ),
       h('div', { class: 'form-section' }, t('settings.updates')),
       h('div', { class: 'form-grid' },
@@ -859,8 +879,74 @@ export class App {
     );
   }
 
-  /** Editable list of naming rules (folder, start of the name, {type} options); edits `rules` in place. */
-  private folderRulesEditor(rules: FolderRule[]): HTMLElement {
+  /** Volume presets: one chip each, and a percent to add. Edits `s` in place. */
+  private peakPresetsEditor(s: Settings, changed: () => void): HTMLElement {
+    const input = h('input', { type: 'number', min: String(MIN_PEAK_PERCENT), max: '100', step: '1', placeholder: '%', class: 'preset-input' });
+    const add = () => {
+      const v = peakFromPercent(Number(input.value));
+      if (input.value === '' || v === null) return;
+      input.value = '';
+      if (!s.peakPresets.includes(v)) s.peakPresets = presetChoices(s.peakPresets, v);
+      render();
+    };
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') add();
+    };
+    const el = h('div', { class: 'presets' });
+    const render = () => {
+      el.replaceChildren(...this.presetChips(s.peakPresets, formatPeak, (v) => {
+        s.peakPresets = s.peakPresets.filter((x) => x !== v);
+        if (s.defaultPeakTarget === v) s.defaultPeakTarget = s.peakPresets[0];
+        render();
+      }), input, '%', h('button', { onclick: add }, t('settings.presetAdd')),
+      ...(s.peakPresets.includes(NO_NORMALIZE) ? [] : [h('button', {
+        onclick: () => {
+          s.peakPresets = presetChoices(s.peakPresets, NO_NORMALIZE);
+          render();
+        },
+      }, t('settings.presetAddOff'))]));
+      changed();
+    };
+    render();
+    return el;
+  }
+
+  /** Bitrate presets: one chip each, and a list of the bitrates an MP3 can have to add from. */
+  private bitratePresetsEditor(s: Settings, changed: () => void): HTMLElement {
+    const select = h('select', { class: 'preset-input' });
+    const el = h('div', { class: 'presets' });
+    const render = () => {
+      select.replaceChildren(...MP3_BITRATES.filter((v) => !s.bitratePresets.includes(v)).map((v) => h('option', { value: String(v) }, `${v} kbps`)));
+      el.replaceChildren(...this.presetChips(s.bitratePresets, (v) => `${v} kbps`, (v) => {
+        s.bitratePresets = s.bitratePresets.filter((x) => x !== v);
+        if (s.defaultBitrate === v) s.defaultBitrate = s.bitratePresets[0];
+        render();
+      }), select, h('button', {
+        disabled: !select.options.length,
+        onclick: () => {
+          if (!select.value) return;
+          s.bitratePresets = presetChoices(s.bitratePresets, Number(select.value));
+          render();
+        },
+      }, t('settings.presetAdd')));
+      changed();
+    };
+    render();
+    return el;
+  }
+
+  /** A chip per preset with a remove button; the last one cannot be removed. */
+  private presetChips(values: number[], label: (v: number) => string, remove: (v: number) => void): HTMLElement[] {
+    return values.map((v) => h('span', { class: 'preset-chip' }, label(v),
+      values.length > 1 ? h('button', { class: 'icon', html: icons.trash, title: t('settings.presetRemove.tip'), onclick: () => remove(v) }) : null));
+  }
+
+  /**
+   * Editable list of naming rules (folder, start of the name, {type} options, volume and bitrate);
+   * edits `s.folderRules` in place. `render` redraws it after the presets changed.
+   */
+  private folderRulesEditor(s: Settings): { el: HTMLElement; render: () => void } {
+    const rules = s.folderRules;
     const list = h('div', { class: 'naming-rules' });
     const render = () => {
       list.replaceChildren(
@@ -886,12 +972,12 @@ export class App {
           };
           const options = h('div', { class: 'naming-rule-options' },
             t('settings.rule.peak'),
-            option<PeakTarget>([[1, '100%'], [0.6, '60%']], rule.peakTarget, (v) => {
+            option<PeakTarget>(presetChoices(s.peakPresets, rule.peakTarget).map((v) => [v, formatPeak(v)]), rule.peakTarget, (v) => {
               if (v === undefined) delete rule.peakTarget;
               else rule.peakTarget = v;
             }),
             t('settings.rule.bitrate'),
-            option<Bitrate>([[320, '320 kbps'], [192, '192 kbps']], rule.bitrate, (v) => {
+            option<Bitrate>(presetChoices(s.bitratePresets, rule.bitrate).map((v) => [v, `${v} kbps`]), rule.bitrate, (v) => {
               if (v === undefined) delete rule.bitrate;
               else rule.bitrate = v;
             }),
@@ -932,7 +1018,7 @@ export class App {
       }, t('settings.naming.add')));
     };
     render();
-    return list;
+    return { el: list, render };
   }
 
   // ---------- Chrome: toolbar, status bar, title ----------

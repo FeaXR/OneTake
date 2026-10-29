@@ -2,7 +2,7 @@
   "name": "one-take",
   "productName": "One Take",
   "desktopName": "one-take.desktop",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "Record or open one long WAV and cut it into faded, peak-normalized MP3 files.",
   "author": "FeaXR",
   "license": "MIT",

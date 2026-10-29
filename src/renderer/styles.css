@@ -246,6 +246,8 @@ button.meter-clip.on { color: #fff; background: var(--danger); }
 .row.selected { border-color: var(--accent); border-left-color: var(--seg-color, var(--accent)); background: #2b3340; }
 .row.has-error { border-color: #6b2c2c; border-left-color: var(--seg-color); }
 .row-line { display: flex; align-items: center; gap: 6px; }
+.row-options { flex-wrap: wrap; row-gap: 4px; }
+.row-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .row-index { color: var(--text-dim); font-variant-numeric: tabular-nums; width: 24px; flex: none; }
 .row-ext { color: var(--text-faint); }
 .row-dur { color: var(--text-dim); font-variant-numeric: tabular-nums; margin-left: auto; }
@@ -383,3 +385,8 @@ kbd {
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
+.presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.preset-chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 2px 2px 8px; background: var(--bg-3); border-radius: var(--radius); }
+.preset-chip button.icon { padding: 2px; }
+.preset-input { width: 72px; }
+select.preset-input { width: auto; }
