@@ -2,7 +2,7 @@ import { formatNumber, t as tr } from '../shared/i18n/index.ts';
 import { formatTime } from '../shared/time.ts';
 import type { Cut, FadeMarkerStyle, Segment } from '../shared/types.ts';
 import { clamp, MIN_REGION_SEC, type Editor, type RegionKind, type Selection } from './editor.ts';
-import { decimalsFor, fadeGain, fitCanvas, tickStep, withAlpha } from './draw.ts';
+import { decimalsFor, fitCanvas, tickStep, withAlpha } from './draw.ts';
 import type { Player } from './player.ts';
 
 const RULER_H = 26;
@@ -677,7 +677,7 @@ export class Timeline {
   private drawFades(mid: number, half: number): void {
     const { ctx, w } = this;
     const ed = this.editor;
-    const { fadeInSec, fadeOutSec, fadeInCurve, fadeOutCurve, fadeMarkerStyle } = ed.settings;
+    const { fadeInSec, fadeOutSec, fadeMarkerStyle } = ed.settings;
     const dash = FADE_MARKER_DASHES[fadeMarkerStyle] ?? FADE_MARKER_DASHES.dashed;
     const previewId = ed.previewSegment?.id;
 
@@ -685,7 +685,7 @@ export class Timeline {
       // The selected segment's fades are the ones playback applies, so they stand out.
       const previewed = s.id === previewId;
       const color = withAlpha(ed.segmentColor(s.id), previewed ? 1 : 0.9);
-      const curve = (from: number, to: number, gain: (x: number) => number, markAt: number) => {
+      const curve = (from: number, to: number, gain: (t: number) => number, markAt: number) => {
         const x0 = ed.timeToX(from);
         const x1 = ed.timeToX(to);
         if (x1 < 0 || x0 > w || x1 - x0 < 2) return;
@@ -703,10 +703,11 @@ export class Timeline {
         ctx.lineWidth = previewed ? 2.25 : 1.25;
         for (const sign of [-1, 1]) {
           ctx.beginPath();
-          const steps = Math.min(64, Math.ceil(x1 - x0));
+          // Enough points that a cut's edges stay sharp where the curve pauses.
+          const steps = Math.min(512, Math.ceil(x1 - x0));
           for (let i = 0; i <= steps; i++) {
             const x = x0 + ((x1 - x0) * i) / steps;
-            const y = mid + sign * gain(i / steps) * half;
+            const y = mid + sign * gain(from + ((to - from) * i) / steps) * half;
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
           }
@@ -714,11 +715,11 @@ export class Timeline {
           ctx.stroke();
         }
       };
-      const len = s.end - s.start;
-      const fadeInEnd = s.start + Math.min(fadeInSec, len);
-      const fadeOutStart = s.end - Math.min(fadeOutSec, len);
-      curve(s.start, fadeInEnd, (x) => fadeGain(fadeInCurve, x), fadeInEnd);
-      curve(fadeOutStart, s.end, (x) => fadeGain(fadeOutCurve, 1 - x), fadeOutStart);
+      // Drawn where the export puts them: a cut inside a fade stretches it in source time.
+      const fades = ed.segmentFades(s);
+      if (!fades) continue;
+      if (fadeInSec > 0) curve(fades.start, fades.fadeInEnd, fades.fadeIn, fades.fadeInEnd);
+      if (fadeOutSec > 0) curve(fades.fadeOutStart, fades.end, fades.fadeOut, fades.fadeOutStart);
     }
   }
 

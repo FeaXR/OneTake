@@ -22,7 +22,8 @@ export function fadeGain(curve: FadeCurve, x: number): number {
     case 'log': return t === 0 ? 0 : Math.max(0, Math.min(1, 1 + 0.2 * Math.log10(t)));
     case 'qsin': return Math.sin((t * Math.PI) / 2);
     case 'hsin': return (1 - Math.cos(t * Math.PI)) / 2;
-    case 'esin': return 1 - Math.cos((Math.PI / 4) * (Math.exp(2 * t) - 1));
+    // As ffmpeg's afade computes it (reaches exactly 1, so a fade ends without a step).
+    case 'esin': return 1 - Math.cos((Math.PI / 4) * ((2 * t - 1) ** 3 + 1));
     case 'cub': return t * t * t;
     case 'squ': return Math.sqrt(t);
   }

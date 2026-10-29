@@ -101,3 +101,35 @@ test('a recording grows, the view follows the live point while it is on screen, 
   ed.growTo(48000 * 200);
   near(ed.duration, 121);
 });
+
+test('a cut inside a fade pauses the fade instead of cutting it short', () => {
+  const ed = new Editor();
+  ed.settings = { ...DEFAULT_SETTINGS, fadeInSec: 2, fadeInCurve: 'tri', fadeOutSec: 1, fadeOutCurve: 'tri', cutCrossfadeMs: 0 };
+  const seg: Segment = { id: 'a', filename: 'A', start: 0, end: 10 };
+  ed.project = { version: 1, outputDirs: [], numberStarts: {}, segments: [seg], cuts: [{ id: 'c', start: 0.8, end: 1.6 }] };
+  const fades = ed.segmentFades(seg)!;
+  // 2 s of exported audio: 0.8 s before the cut and 1.2 s after it, so full volume at 2.8 s.
+  near(fades.fadeInEnd, 2.8);
+  near(fades.fadeIn(0.8), 0.4);
+  near(fades.fadeIn(1.2), 0.4); // inside the cut: paused
+  near(fades.fadeIn(1.6), 0.4); // and it goes on from there, without a step
+  near(fades.fadeIn(2.2), 0.7);
+  near(fades.fadeIn(3), 1);
+  near(fades.fadeOutStart, 9);
+
+  // A cut over the start of the segment: the file (and its fade) begins where the cut ends.
+  ed.project.cuts = [{ id: 'c', start: 0, end: 1 }];
+  const late = ed.segmentFades(seg)!;
+  near(late.start, 1);
+  near(late.fadeInEnd, 3);
+  near(late.fadeIn(2), 0.5);
+});
+
+test('every fade curve reaches full volume exactly at the end of the fade', async () => {
+  const { fadeGain } = await import('./draw.ts');
+  const { FADE_CURVES } = await import('../shared/types.ts');
+  for (const curve of FADE_CURVES) {
+    near(fadeGain(curve, 1), 1);
+    near(fadeGain(curve, 0), 0);
+  }
+});

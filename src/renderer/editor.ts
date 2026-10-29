@@ -276,23 +276,58 @@ export class Editor {
   /** previewGain() with the segment's pieces worked out once; null when nothing is previewed. */
   previewGainCurve(): ((t: number) => number) | null {
     const seg = this.previewSegment;
-    if (!seg) return null;
+    const fades = seg && this.segmentFades(seg);
+    if (!seg || !fades) return null;
+    return (t) => (t < seg.start || t > seg.end ? 1 : fades.fadeIn(t) * fades.fadeOut(t));
+  }
+
+  /**
+   * A segment's fades in source time, as the export applies them. The export fades the joined
+   * audio (cuts removed), so a cut inside a fade does not shorten it: the fade pauses across
+   * the cut and goes on after it. Null when nothing of the segment is left.
+   */
+  segmentFades(seg: Segment): SegmentFades | null {
     const { fadeInSec, fadeOutSec, fadeInCurve, fadeOutCurve, cutCrossfadeMs } = this.settings;
     const xf = cutCrossfadeMs / 1000;
     const pieces = keptPieces(seg, this.project.cuts, xf);
+    if (!pieces.length) return null;
     const total = joinedDuration(pieces, xf);
-    return (t) => {
-      if (t < seg.start || t > seg.end) return 1;
+    // Each piece after the first overlaps the one before by a crossfade.
+    const lengths = pieces.map((p, i) => p.end - p.start - (i > 0 ? xf : 0));
+
+    /** Position in the joined audio of source time t (inside a cut: where the cut starts). */
+    const positionAt = (t: number) => {
       let pos = 0;
       for (const [i, p] of pieces.entries()) {
         if (t <= p.start) break;
         pos += Math.min(t, p.end) - p.start - (i > 0 ? xf : 0);
       }
-      pos = clamp(pos, 0, total);
-      let gain = 1;
-      if (fadeInSec > 0 && pos < fadeInSec) gain *= fadeGain(fadeInCurve, pos / fadeInSec);
-      if (fadeOutSec > 0 && total - pos < fadeOutSec) gain *= fadeGain(fadeOutCurve, (total - pos) / fadeOutSec);
-      return gain;
+      return clamp(pos, 0, total);
+    };
+    /** Source time at position `pos` of the joined audio. */
+    const timeAt = (pos: number) => {
+      let acc = 0;
+      for (const [i, p] of pieces.entries()) {
+        if (pos <= acc + lengths[i] || i === pieces.length - 1) return Math.min(p.end, p.start + (pos - acc) + (i > 0 ? xf : 0));
+        acc += lengths[i];
+      }
+      return pieces[0].start;
+    };
+    const fadeIn = Math.min(fadeInSec, total);
+    const fadeOut = Math.min(fadeOutSec, total);
+    return {
+      start: pieces[0].start,
+      end: pieces[pieces.length - 1].end,
+      fadeInEnd: timeAt(fadeIn),
+      fadeOutStart: timeAt(total - fadeOut),
+      fadeIn: (t) => {
+        const pos = positionAt(t);
+        return fadeInSec > 0 && pos < fadeInSec ? fadeGain(fadeInCurve, pos / fadeInSec) : 1;
+      },
+      fadeOut: (t) => {
+        const left = total - positionAt(t);
+        return fadeOutSec > 0 && left < fadeOutSec ? fadeGain(fadeOutCurve, left / fadeOutSec) : 1;
+      },
     };
   }
 
@@ -449,6 +484,19 @@ export class Editor {
       this.scrollTo(t - span * 0.05);
     }
   }
+}
+
+/** Where a segment's fades are in source time (see Editor.segmentFades). */
+export interface SegmentFades {
+  /** Where the exported audio starts and ends (later or earlier than the segment when a cut covers its edge). */
+  start: number;
+  end: number;
+  /** Source time where the fade-in reaches full volume, and where the fade-out begins. */
+  fadeInEnd: number;
+  fadeOutStart: number;
+  /** Gain of each fade at source time t (1 outside it). */
+  fadeIn(t: number): number;
+  fadeOut(t: number): number;
 }
 
 export function clamp(v: number, lo: number, hi: number): number {
