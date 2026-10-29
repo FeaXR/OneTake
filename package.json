@@ -1,7 +1,8 @@
 {
   "name": "one-take",
   "productName": "One Take",
-  "version": "1.0.0",
+  "desktopName": "one-take.desktop",
+  "version": "1.0.1",
   "description": "Record or open one long WAV and cut it into faded, peak-normalized MP3 files.",
   "author": "FeaXR",
   "license": "MIT",
@@ -85,7 +86,7 @@
       "artifactName": "One-Take-${version}-mac-${arch}.${ext}"
     },
     "linux": {
-      "icon": "build/icon.png",
+      "icon": "build/icons",
       "category": "AudioVideo",
       "maintainer": "FeaXR",
       "synopsis": "Cut one long WAV into several faded, peak-normalized MP3 files",
@@ -96,7 +97,8 @@
       "target": [
         "AppImage",
         "deb"
-      ]
+      ],
+      "syncDesktopName": true
     },
     "appImage": {
       "artifactName": "One-Take-${version}-${arch}.${ext}"

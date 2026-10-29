@@ -1,10 +1,13 @@
-// Renders build/icon.svg to build/icon.png (512 px) and build/icon.ico (16–256 px).
+// Renders build/icon.svg to build/icon.png (512 px), build/icon.ico (16–256 px) and the
+// Linux icon set build/icons/<size>x<size>.png, one file per size of the hicolor theme.
 // Run with: npm run icon   (uses Electron's Chromium to rasterize the SVG)
 const { app, BrowserWindow } = require('electron');
-const { readFileSync, writeFileSync } = require('node:fs');
+const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { join } = require('node:path');
 
 const ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256];
+/** Desktop launchers install the icon by size; a missing size gets scaled from a wrong one. */
+const LINUX_SIZES = [16, 24, 32, 48, 64, 128, 256, 512];
 const buildDir = join(__dirname, '..', 'build');
 
 /** ICO container holding PNG images (supported since Windows Vista). */
@@ -36,7 +39,7 @@ app.whenReady().then(async () => {
 
   // Draw the SVG straight into a canvas at each size, so small sizes are rasterized
   // natively instead of being scaled down from a big bitmap.
-  const sizes = [512, ...ICO_SIZES];
+  const sizes = [...new Set([512, ...ICO_SIZES, ...LINUX_SIZES])];
   const dataUrls = await win.webContents.executeJavaScript(`
     (async () => {
       const img = new Image();
@@ -55,7 +58,11 @@ app.whenReady().then(async () => {
   const pngs = sizes.map((size, i) => ({ size, data: Buffer.from(dataUrls[i].split(',')[1], 'base64') }));
 
   writeFileSync(join(buildDir, 'icon.png'), pngs[0].data);
-  writeFileSync(join(buildDir, 'icon.ico'), makeIco(pngs.slice(1)));
-  console.log(`Wrote build/icon.png and build/icon.ico (${ICO_SIZES.join(', ')} px)`);
+  writeFileSync(join(buildDir, 'icon.ico'), makeIco(pngs.filter((p) => ICO_SIZES.includes(p.size))));
+  mkdirSync(join(buildDir, 'icons'), { recursive: true });
+  for (const p of pngs.filter((p) => LINUX_SIZES.includes(p.size))) {
+    writeFileSync(join(buildDir, 'icons', `${p.size}x${p.size}.png`), p.data);
+  }
+  console.log(`Wrote build/icon.png, build/icon.ico (${ICO_SIZES.join(', ')} px) and build/icons (${LINUX_SIZES.join(', ')} px)`);
   app.quit();
 });
