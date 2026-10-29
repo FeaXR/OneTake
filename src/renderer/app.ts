@@ -24,6 +24,8 @@ const RELOAD_STATE_KEY = 'sae.reloadState';
 
 /** Context played after a fade-in or before a fade-out by the segment start/end preview. */
 const EDGE_PREVIEW_SEC = 3;
+/** How long the "new version" message stays up. */
+const UPDATE_TOAST_MS = 10000;
 const basename = (p: string) => p.replace(/^.*[\\/]/, '');
 const dirname = (p: string) => p.replace(/[\\/][^\\/]*$/, '');
 
@@ -998,7 +1000,12 @@ export class App {
   // ---------- Updates ----------
 
   private showUpdate(state: UpdateState): void {
+    const before = this.update.status;
     this.update = state;
+    // The status bar note is easy to miss, so a new version is also announced once.
+    if (state.status !== before && (state.status === 'ready' || state.status === 'available')) {
+      toast(t(state.status === 'ready' ? 'update.readyToast' : 'update.availableToast', { version: state.version }), 'info', UPDATE_TOAST_MS);
+    }
     const el = this.updateNotice;
     const shown = state.status === 'downloading' || state.status === 'ready' || state.status === 'available';
     el.classList.toggle('hidden', !shown);
@@ -1042,9 +1049,8 @@ export class App {
     if (state.status === 'none') toast(t('update.upToDate', { version: this.version }));
     else if (state.status === 'unsupported') toast(t('update.devBuild'));
     else if (state.status === 'error') toast(t('update.failed', { error: state.message }), 'error');
-    else if (state.status === 'downloading' || state.status === 'ready' || state.status === 'available') {
-      toast(t('update.found', { version: state.version }));
-    }
+    // 'ready' and 'available' are announced by showUpdate().
+    else if (state.status === 'downloading') toast(t('update.found', { version: state.version }));
   }
 
   private refreshChrome(): void {

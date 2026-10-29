@@ -66,12 +66,13 @@ export function choose<T extends string>(
 }
 
 let toastTimer = 0;
-export function toast(message: string, kind: 'info' | 'error' = 'info'): void {
+/** Shows a short message; `ms` keeps it up longer than usual. */
+export function toast(message: string, kind: 'info' | 'error' = 'info', ms?: number): void {
   root().querySelector('.toast')?.remove();
   const el = h('div', { class: `toast${kind === 'error' ? ' error' : ''}` }, message);
   root().append(el);
   clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => el.remove(), kind === 'error' ? 6000 : 2500);
+  toastTimer = window.setTimeout(() => el.remove(), ms ?? (kind === 'error' ? 6000 : 2500));
 }
 
 export function showContextMenu(x: number, y: number, items: ContextItem[]): void {

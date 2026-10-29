@@ -131,6 +131,8 @@ export const hu: Record<keyof typeof en, Message> = {
   'update.available': 'Elérhető a One Take {version}: letöltés',
   'update.available.tip': 'Megnyitja a letöltési oldalt',
   'update.found': 'Elérhető a One Take {version}.',
+  'update.readyToast': 'A One Take {version} letöltődött. Indítsd újra az állapotsorról a frissítéshez; különben az alkalmazás bezárásakor települ.',
+  'update.availableToast': 'Elérhető a One Take {version}. Az állapotsor hivatkozása megnyitja a letöltési oldalt.',
   'update.upToDate': 'A One Take {version} a legfrissebb verzió.',
   'update.failed': 'A frissítések keresése nem sikerült: {error}',
   'update.installFailed': 'A frissítés nem telepíthető: {error}. Töltsd le inkább a Kiadások (Releases) oldalról.',

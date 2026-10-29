@@ -138,6 +138,8 @@ export const en = {
   'update.available': 'One Take {version} is available: download',
   'update.available.tip': 'Opens the download page',
   'update.found': 'One Take {version} is available.',
+  'update.readyToast': 'One Take {version} has been downloaded. Restart from the status bar to update; otherwise it is installed when you close the app.',
+  'update.availableToast': 'One Take {version} is available. The link in the status bar opens the download page.',
   'update.upToDate': 'One Take {version} is the latest version.',
   'update.failed': 'Checking for updates failed: {error}',
   'update.installFailed': 'The update could not be installed: {error}. Download it from the Releases page instead.',

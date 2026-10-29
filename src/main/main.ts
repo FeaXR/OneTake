@@ -23,8 +23,10 @@ let exportAbort: AbortController | null = null;
 /** The recording in progress, if any, and the sleep blocker held while it runs. */
 let recording: { rec: WavRecorder; blocker: number; started: number } | null = null;
 let updater: Updater | null = null;
-/** The startup check waits a little, so it does not compete with opening a file. */
-const UPDATE_CHECK_DELAY_MS = 8000;
+/** The startup check waits a moment, so it does not compete with opening a file. */
+const UPDATE_CHECK_DELAY_MS = 3000;
+/** The app can stay open for days (a recording, a long edit), so it looks again now and then. */
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 /**
  * First existing .wav among command-line arguments. Dropping a file onto the .exe or a shortcut,
@@ -315,11 +317,12 @@ if (!app.requestSingleInstanceLock()) {
     updater = new Updater((state) => win?.webContents.send('update:state', state));
     registerIpc();
     createWindow();
-    setTimeout(() => {
+    const checkForUpdates = () =>
       void loadSettings().then((s) => {
         if (s.checkUpdates) void updater!.check();
       });
-    }, UPDATE_CHECK_DELAY_MS);
+    setTimeout(checkForUpdates, UPDATE_CHECK_DELAY_MS);
+    setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);
   });
 }
 
