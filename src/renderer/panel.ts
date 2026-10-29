@@ -244,7 +244,17 @@ export class OutputPanel {
         else delete s.outputDir;
       }),
     });
-    const folderLine = h('div', { class: 'row-line row-folder' }, h('span', { class: 'row-ext', html: icons.folder }), folder);
+    const folderMenu = h('button', {
+      class: 'folder-menu', title: t('panel.folderMenu.tip'),
+      onclick: () => {
+        const s = seg();
+        if (!s) return;
+        ed.select({ kind: 'segment', id });
+        const r = folderMenu.getBoundingClientRect();
+        this.showFolderMenu(s, r.left, r.bottom + 2);
+      },
+    }, '▾');
+    const folderLine = h('div', { class: 'row-line row-folder' }, h('span', { class: 'row-ext', html: icons.folder }), folder, folderMenu);
 
     const prefix = h('button', {
       class: 'name-prefix',
@@ -371,6 +381,21 @@ export class OutputPanel {
       },
     });
     showContextMenu(x, y, items);
+  }
+
+  /** Moves this file and the ones after it (in time order) to one folder. */
+  private showFolderMenu(seg: Segment, x: number, y: number): void {
+    const ed = this.editor;
+    const dirs = ed.project.outputDirs;
+    const sorted = ed.sortedSegments();
+    const after = sorted.slice(sorted.findIndex((s) => s.id === seg.id));
+    const setFolder = (dir: string) => ed.commit(() => {
+      for (const s of after) {
+        if (dir === dirs[0]) delete s.outputDir;
+        else s.outputDir = dir;
+      }
+    });
+    showContextMenu(x, y, dirs.map((dir) => ({ label: t('panel.folder.following', { folder: folderName(dir) }), run: () => setFolder(dir) })));
   }
 
   /** Switches the naming rule back on, dropping the generated part if it was kept in the name. */

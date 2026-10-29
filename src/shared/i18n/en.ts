@@ -223,6 +223,8 @@ export const en = {
   'panel.addFolder': '+ Add folder',
   'panel.addFolder.tip': 'Add another output folder that files can be sent to',
   'panel.rowFolder.tip': 'Folder this file is written to',
+  'panel.folderMenu.tip': 'Change the folder of this and the following files',
+  'panel.folder.following': 'This and the following files: {folder}',
   'panel.exportAll': 'Export all',
   'panel.toFix': '{n} to fix',
   'panel.emptyNoFile': 'Open a WAV file to begin.',

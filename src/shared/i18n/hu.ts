@@ -211,6 +211,8 @@ export const hu: Record<keyof typeof en, Message> = {
   'panel.addFolder': '+ Mappa hozzáadása',
   'panel.addFolder.tip': 'Újabb kimeneti mappa, ahová fájlokat lehet küldeni',
   'panel.rowFolder.tip': 'A fájl célmappája',
+  'panel.folderMenu.tip': 'Ennek és a következő fájloknak a mappája',
+  'panel.folder.following': 'Ez és a következő fájlok: {folder}',
   'panel.exportAll': 'Összes exportálása',
   'panel.toFix': '{n} javítandó',
   'panel.emptyNoFile': 'Nyiss meg egy WAV fájlt a kezdéshez.',
