@@ -28,7 +28,11 @@ jobs:
           - name: Windows
             os: windows-latest
             artifact: one-take-windows
-            files: release/*.exe
+            # latest*.yml and .blockmap files tell installed copies about the update.
+            files: |
+              release/*.exe
+              release/*.exe.blockmap
+              release/latest.yml
           - name: macOS
             os: macos-latest
             artifact: one-take-mac
@@ -39,6 +43,7 @@ jobs:
             files: |
               release/*.AppImage
               release/*.deb
+              release/latest-linux.yml
     steps:
       - uses: actions/checkout@v7
 

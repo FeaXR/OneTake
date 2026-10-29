@@ -12,6 +12,7 @@ export const mainBuildOptions = {
   format: 'cjs',
   target: 'node22',
   sourcemap: true,
-  external: ['electron', 'ffmpeg-static'],
+  // Loaded from node_modules at run time (electron-builder packs the dependencies).
+  external: ['electron', 'ffmpeg-static', 'electron-updater'],
   logLevel: 'info',
 };

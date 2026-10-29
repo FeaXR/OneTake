@@ -7,6 +7,7 @@ import { runExport } from './exporter.ts';
 import { loadPeaks, savePeaks } from './peaks.ts';
 import { LEGACY_FOLDER, moveLegacyFolder } from './legacy-folders.ts';
 import { WavRecorder } from './recorder.ts';
+import { Updater } from './updates.ts';
 import { APP_FOLDER } from './session-path.ts';
 import {
   loadProject, loadSettings, loadShortcutOverrides, peaksCacheDir, saveProject, saveSettings, saveShortcutOverrides,
@@ -21,6 +22,9 @@ let forceClose = false;
 let exportAbort: AbortController | null = null;
 /** The recording in progress, if any, and the sleep blocker held while it runs. */
 let recording: { rec: WavRecorder; blocker: number; started: number } | null = null;
+let updater: Updater | null = null;
+/** The startup check waits a little, so it does not compete with opening a file. */
+const UPDATE_CHECK_DELAY_MS = 8000;
 
 /**
  * First existing .wav among command-line arguments. Dropping a file onto the .exe or a shortcut,
@@ -228,6 +232,15 @@ function registerIpc(): void {
   });
   ipcMain.handle('export:cancel', () => exportAbort?.abort());
 
+  ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.handle('update:state', () => updater?.state ?? { status: 'idle' });
+  ipcMain.handle('update:check', () => updater!.check());
+  ipcMain.handle('update:install', () => {
+    updater!.install();
+    return updater!.state;
+  });
+  ipcMain.handle('update:openDownloadPage', () => updater!.openDownloadPage());
+
   ipcMain.on('app:setDirty', (_e, value: boolean) => {
     dirty = value;
   });
@@ -289,8 +302,14 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(async () => {
     applyLanguage(await loadSettings());
     Menu.setApplicationMenu(appMenu());
+    updater = new Updater((state) => win?.webContents.send('update:state', state));
     registerIpc();
     createWindow();
+    setTimeout(() => {
+      void loadSettings().then((s) => {
+        if (s.checkUpdates) void updater!.check();
+      });
+    }, UPDATE_CHECK_DELAY_MS);
   });
 }
 

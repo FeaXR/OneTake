@@ -60,6 +60,10 @@ xattr -dr com.apple.quarantine "/Applications/One Take.app"
 
 On a Mac, use **Cmd** wherever this page says Ctrl, and **Option** for Alt. Shortcuts are shown with the Mac symbols in the app.
 
+### Updates
+
+The app looks for a new version on GitHub when it starts (switch this off in **Settings → Updates**, where **Check now** also is). The Windows installer version and the AppImage download it in the background; the status bar then offers **restart to update**, and otherwise it is installed when you close the app. It never restarts during a recording or an export, and asks about unsaved changes first. The AppImage keeps its file name, so launchers made by AppImage managers keep working. The portable .exe, the .deb and the Mac version show a link to the download page instead.
+
 Builds of every commit are also available from the [Actions page](https://github.com/FeaXR/OneTake/actions/workflows/build.yml). Open a run and download the artifact at the bottom (requires a GitHub account).
 
 ## Using it
@@ -143,6 +147,7 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 - **Fade boundary line:** dotted, dashed or dash-dotted marker where a fade reaches full volume.
 - **Folder rules:** for a folder and its subfolders, the start of filenames (`{nn}`, `{n}`, `{date}`, `{type}`), the `{type}` options, and default volume and bitrate. The deepest matching rule wins; a setting a rule leaves unset comes from a parent folder's rule.
 - **Files use:** the peak target and bitrate for files that no folder rule covers.
+- **Updates:** look for a new version when the app starts, or check now (see [Updates](#updates)).
 
 Settings are stored in `%APPDATA%\One Take` on Windows, `~/Library/Application Support/One Take` on macOS and `~/.config/One Take` on Linux. Versions from before the rename called the app Studio Audio Editor; its settings and sessions folders are moved to the new names on the first start.
 
@@ -172,7 +177,7 @@ npm run icon       # re-render build/icon.png and build/icon.ico from build/icon
 
 ### Automatic builds and releases
 
-[GitHub Actions](.github/workflows/build.yml) builds and tests the app on Windows, macOS and Linux for every push and pull request. To publish a release, bump `version` in `package.json`, commit, then push a matching tag. The workflow attaches all five files to a new GitHub release:
+[GitHub Actions](.github/workflows/build.yml) builds and tests the app on Windows, macOS and Linux for every push and pull request. To publish a release, bump `version` in `package.json`, commit, then push a matching tag. The workflow attaches the five downloads to a new GitHub release, together with the `latest*.yml` and `.blockmap` files that installed copies use to update themselves:
 
 ```bash
 git tag v1.0.0

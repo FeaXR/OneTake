@@ -74,6 +74,8 @@ export interface Settings {
   recordFolder: string;
   recordName: string;
   recordInput: string;
+  /** Look for a new version on GitHub when the app starts. */
+  checkUpdates: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -92,6 +94,7 @@ export const DEFAULT_SETTINGS: Settings = {
   recordFolder: '',
   recordName: '',
   recordInput: '',
+  checkUpdates: true,
 };
 
 export interface AudioInfo {
@@ -146,3 +149,13 @@ export interface ExportResult {
   written: string[];
   error?: string;
 }
+
+/**
+ * Where an update stands. 'ready': downloaded, installed on restart. 'available': this copy
+ * cannot update itself (portable, .deb, Mac), so the download page is offered instead.
+ */
+export type UpdateState =
+  | { status: 'idle' | 'checking' | 'none' | 'unsupported' }
+  | { status: 'downloading'; version: string; percent: number }
+  | { status: 'ready' | 'available'; version: string }
+  | { status: 'error'; message: string };

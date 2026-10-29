@@ -35,6 +35,13 @@ const api: StudioApi = {
   cancelExport: () => ipcRenderer.invoke('export:cancel'),
   onExportProgress: (cb) => subscribe('export:progress', cb),
 
+  appVersion: () => ipcRenderer.invoke('app:version'),
+  getUpdateState: () => ipcRenderer.invoke('update:state'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  onUpdateState: (cb) => subscribe('update:state', cb),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  openDownloadPage: () => ipcRenderer.invoke('update:openDownloadPage'),
+
   setDirty: (dirty) => ipcRenderer.send('app:setDirty', dirty),
   setTitle: (title) => ipcRenderer.send('app:setTitle', title),
   onSaveAndClose: (cb) => subscribe('app:saveAndClose', cb),

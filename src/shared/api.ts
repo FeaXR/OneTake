@@ -1,4 +1,4 @@
-import type { AudioInfo, ExportProgress, ExportRequest, ExportResult, LoadedAudio, Project, Settings } from './types.ts';
+import type { AudioInfo, ExportProgress, ExportRequest, ExportResult, LoadedAudio, Project, Settings, UpdateState } from './types.ts';
 
 /** The bridge the preload script exposes to the renderer as `window.studio`. */
 export interface StudioApi {
@@ -40,6 +40,15 @@ export interface StudioApi {
   startExport(req: ExportRequest): Promise<ExportResult>;
   cancelExport(): Promise<void>;
   onExportProgress(cb: (p: ExportProgress) => void): () => void;
+
+  appVersion(): Promise<string>;
+  getUpdateState(): Promise<UpdateState>;
+  /** Looks for a newer version on GitHub now (also done at startup when enabled). */
+  checkForUpdates(): Promise<UpdateState>;
+  onUpdateState(cb: (state: UpdateState) => void): () => void;
+  /** Restarts into a downloaded update; the state says why when it could not. */
+  installUpdate(): Promise<UpdateState>;
+  openDownloadPage(): Promise<void>;
 
   setDirty(dirty: boolean): void;
   setTitle(title: string): void;

@@ -294,6 +294,15 @@ input.invalid { border-color: var(--danger); }
   overflow: hidden;
 }
 #statusbar .hint { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+#statusbar .update-notice {
+  font-size: inherit;
+  padding: 0 10px;
+  margin: -2px 0;
+  color: #fff;
+  background: var(--accent-dim);
+}
+#statusbar .update-notice:disabled { opacity: 1; color: var(--text-dim); background: var(--bg-3); }
+#statusbar .update-notice.hidden { display: none; }
 
 /* ---------- Overlays ---------- */
 

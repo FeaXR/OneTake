@@ -1,7 +1,7 @@
 import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting } from '../shared/i18n/index.ts';
 import { highestNumber, usesToken, type FolderRule } from '../shared/naming.ts';
 import { formatTime } from '../shared/time.ts';
-import { FADE_CURVES, FADE_MARKER_STYLES, type Bitrate, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type PeakTarget, type Project, type Segment, type Settings, segmentFolder } from '../shared/types.ts';
+import { FADE_CURVES, FADE_MARKER_STYLES, type Bitrate, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type PeakTarget, type Project, type Segment, type Settings, type UpdateState, segmentFolder } from '../shared/types.ts';
 import { onlyStillRecording, outputFilename } from '../shared/validate.ts';
 import { CommandRegistry, Keymap, overridesFrom } from './commands.ts';
 import { ShortcutEditor } from './shortcut-editor.ts';
@@ -59,6 +59,10 @@ export class App {
     hint: h('span', { class: 'hint' }),
   };
   private exporting = false;
+  /** Status bar notice for a new version: downloading, ready to install, or to download. */
+  private readonly updateNotice = h('button', { class: 'update-notice hidden', onclick: () => void this.onUpdateNotice() });
+  private update: UpdateState = { status: 'idle' };
+  private version = '';
   /** Output folders being scanned for their next free {nn}. */
   private readonly numbering = new Map<string, Promise<void>>();
 
@@ -120,6 +124,9 @@ export class App {
 
   async init(): Promise<void> {
     await this.reloadKeymap();
+    this.version = await window.studio.appVersion();
+    window.studio.onUpdateState((state) => this.showUpdate(state));
+    this.showUpdate(await window.studio.getUpdateState());
     this.editor.notify('settings', 'ui');
     window.studio.onOpenFile((path) => void this.openPath(path));
     if (await this.restoreAfterReload()) return;
@@ -819,6 +826,16 @@ export class App {
           choice<number>([[320, '320 kbps'], [192, '192 kbps']], s.defaultBitrate, (v) => (s.defaultBitrate = v as Settings['defaultBitrate'])),
         ),
       ),
+      h('div', { class: 'form-section' }, t('settings.updates')),
+      h('div', { class: 'form-grid' },
+        h('label', { for: 'check-updates' }, t('settings.checkUpdates')),
+        h('div', { class: 'inline' },
+          h('input', { type: 'checkbox', id: 'check-updates', checked: s.checkUpdates, onchange: (e: Event) => (s.checkUpdates = (e.target as HTMLInputElement).checked) }),
+          h('span', { class: 'form-note' }, t('settings.checkUpdatesNote')),
+        ),
+        h('label', {}, t('settings.version')),
+        h('div', { class: 'inline' }, this.version, h('button', { onclick: () => void this.checkForUpdatesNow() }, t('settings.checkNow'))),
+      ),
       h('div', { class: 'form-section' }, t('settings.shortcuts')),
       shortcuts.el,
     );
@@ -975,7 +992,59 @@ export class App {
 
   private buildStatusbar(): void {
     const s = this.status;
-    document.getElementById('statusbar')!.append(s.file, s.selection, s.zoom, s.hint);
+    document.getElementById('statusbar')!.append(s.file, s.selection, s.zoom, s.hint, this.updateNotice);
+  }
+
+  // ---------- Updates ----------
+
+  private showUpdate(state: UpdateState): void {
+    this.update = state;
+    const el = this.updateNotice;
+    const shown = state.status === 'downloading' || state.status === 'ready' || state.status === 'available';
+    el.classList.toggle('hidden', !shown);
+    el.disabled = state.status === 'downloading';
+    if (state.status === 'downloading') {
+      el.textContent = t('update.downloading', { version: state.version, percent: state.percent });
+      el.title = '';
+    } else if (state.status === 'ready') {
+      el.textContent = t('update.ready', { version: state.version });
+      el.title = t('update.ready.tip');
+    } else if (state.status === 'available') {
+      el.textContent = t('update.available', { version: state.version });
+      el.title = t('update.available.tip');
+    }
+  }
+
+  private async onUpdateNotice(): Promise<void> {
+    const state = this.update;
+    if (state.status === 'available') return void window.studio.openDownloadPage();
+    if (state.status !== 'ready') return;
+    // Restarting must not lose anything: not during a recording or an export, and edits are
+    // saved or deliberately dropped first.
+    if (this.recording.active) return toast(t('update.afterRecording'), 'error');
+    if (this.exporting) return toast(t('toast.waitForExport'), 'error');
+    if (!(await this.confirmDiscard())) return;
+    const ed = this.editor;
+    const wasDirty = ed.dirty;
+    ed.setDirty(false);
+    const result = await window.studio.installUpdate();
+    if (result.status === 'error') {
+      ed.setDirty(wasDirty);
+      toast(t('update.installFailed', { error: result.message }), 'error');
+      this.showUpdate({ status: 'available', version: state.version });
+    }
+  }
+
+  /** "Check now" in Settings: says what was found, unlike the quiet check at startup. */
+  private async checkForUpdatesNow(): Promise<void> {
+    toast(t('update.checking'));
+    const state = await window.studio.checkForUpdates();
+    if (state.status === 'none') toast(t('update.upToDate', { version: this.version }));
+    else if (state.status === 'unsupported') toast(t('update.devBuild'));
+    else if (state.status === 'error') toast(t('update.failed', { error: state.message }), 'error');
+    else if (state.status === 'downloading' || state.status === 'ready' || state.status === 'available') {
+      toast(t('update.found', { version: state.version }));
+    }
   }
 
   private refreshChrome(): void {
