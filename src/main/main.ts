@@ -71,6 +71,17 @@ let startupFile = wavFromArgs(process.argv);
 
 const devIcon = join(__dirname, '..', '..', 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
 
+/**
+ * The window's own icon. Windows and macOS take it from the app, but on Linux the title bar
+ * only finds one through a launcher named exactly like the app, and AppImage managers rename
+ * theirs (one-take-1.1.0-x86_64.desktop). So the packaged Linux app hands its icon over itself.
+ */
+function windowIcon(): string | undefined {
+  if (existsSync(devIcon)) return devIcon;
+  const packaged = join(process.resourcesPath, 'icon.png');
+  return process.platform === 'linux' && existsSync(packaged) ? packaged : undefined;
+}
+
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1500,
@@ -78,8 +89,7 @@ function createWindow(): void {
     minWidth: 1000,
     minHeight: 600,
     backgroundColor: '#17191d',
-    // Packaged builds take the icon from the .exe; this covers running from source.
-    icon: existsSync(devIcon) ? devIcon : undefined,
+    icon: windowIcon(),
     title: t('app.name'),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
