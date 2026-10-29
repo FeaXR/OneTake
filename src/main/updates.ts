@@ -1,13 +1,28 @@
 import { app, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { spawn } from 'node:child_process';
-import { chmodSync, copyFileSync, renameSync, rmSync } from 'node:fs';
+import { chmodSync, copyFileSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
+import pkg from '../../package.json' with { type: 'json' };
 import type { UpdateState } from '../shared/types.ts';
 import { compareVersions } from '../shared/version.ts';
 
-const REPO = 'FeaXR/OneTake';
+// The same repository electron-builder publishes to, so a fork only changes it in package.json.
+const { owner, repo } = pkg.build.publish[0];
+const REPO = `${owner}/${repo}`;
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`;
+
+/**
+ * A GitHub token for a private repository's releases, from the file "update-token" in the
+ * settings folder. It never ships with the app; without it, only public releases can be seen.
+ */
+function readToken(): string | null {
+  try {
+    return readFileSync(join(app.getPath('userData'), 'update-token'), 'utf8').trim() || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * How this copy can be updated. The Windows installer and an AppImage update themselves;
@@ -32,11 +47,13 @@ export class Updater {
   /** A downloaded AppImage, put in place of the running one on restart or quit. */
   private pendingAppImage: string | null = null;
   private checking: Promise<UpdateState> | null = null;
+  private readonly token = readToken();
 
   constructor(onState: (state: UpdateState) => void) {
     this.onState = onState;
     if (this.mode !== 'self') return;
     autoUpdater.logger = null;
+    if (this.token) autoUpdater.setFeedURL({ provider: 'github', owner, repo, private: true, token: this.token });
     autoUpdater.autoDownload = true;
     // The AppImage is replaced here instead (see installAppImage), so that it keeps its name.
     autoUpdater.autoInstallOnAppQuit = process.platform === 'win32';
@@ -74,7 +91,11 @@ export class Updater {
           }
         } else {
           const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
-            headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'OneTake' },
+            headers: {
+              Accept: 'application/vnd.github+json',
+              'User-Agent': 'OneTake',
+              ...(this.token && { Authorization: `Bearer ${this.token}` }),
+            },
           });
           if (!res.ok) throw new Error(`GitHub: ${res.status} ${res.statusText}`);
           const latest = String((await res.json() as { tag_name?: string }).tag_name ?? '').replace(/^v/i, '');

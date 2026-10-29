@@ -200,6 +200,8 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
+Installed copies look for releases in the repository named under `build.publish` in `package.json`, so a fork that publishes its own releases only changes it there. If that repository is private, put a GitHub token that can read it in a file called `update-token` in the app's settings folder (`%APPDATA%\One Take` on Windows, `~/Library/Application Support/One Take` on macOS, `~/.config/One Take` on Linux) on each computer. The token is read when the app starts and is never built into the app.
+
 ### Project layout
 
 - `src/main/`: Electron main process (WAV parsing, waveform scan and cache, ffmpeg export, reading samples for playback, writing recordings)
