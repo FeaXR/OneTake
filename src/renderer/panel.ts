@@ -16,7 +16,8 @@ const folderName = (dir: string) => dir.replace(/[\\/]+$/, '').replace(/^.*[\\/]
 export interface PanelActions {
   /** Replaces folder `index` (0 = the default). */
   changeFolder(index: number): void;
-  addFolder(): void;
+  /** Adds an output folder; `anchor` is the button, for the menu of rule folders. */
+  addFolder(anchor: HTMLElement): void;
   removeFolder(index: number): void;
   exportAll(): void;
   playRegion(kind: 'segment' | 'cut', id: string): void;
@@ -470,7 +471,7 @@ export class OutputPanel {
     };
     this.foldersEl.replaceChildren(...(dirs.length ? dirs.map((_, i) => line(i)) : [line(0)]));
     if (dirs.length) {
-      this.foldersEl.append(h('button', { class: 'folder-add', title: t('panel.addFolder.tip'), onclick: () => this.actions.addFolder() }, t('panel.addFolder')));
+      this.foldersEl.append(h('button', { class: 'folder-add', title: t('panel.addFolder.tip'), onclick: (e: MouseEvent) => this.actions.addFolder(e.currentTarget as HTMLElement) }, t('panel.addFolder')));
     }
   }
 

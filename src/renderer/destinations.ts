@@ -29,7 +29,13 @@ interface Choice {
  * none. Resolves to the folders (the first is the default), or null for "No folder": the files
  * then go next to the WAV as before.
  */
-export function chooseDestinations(rules: readonly FolderRule[], start: Date, lastChosen: readonly string[]): Promise<{ dirs: string[]; chosen: string[] } | null> {
+export function chooseDestinations(
+  rules: readonly FolderRule[],
+  start: Date,
+  lastChosen: readonly string[],
+  /** Adding one rule's folder later: no checkbox or note, and the dismiss button just cancels. */
+  opts: { adding?: boolean } = {},
+): Promise<{ dirs: string[]; chosen: string[] } | null> {
   return new Promise((resolve) => {
     let answer: { dirs: string[]; chosen: string[] } | null = null;
     const m = openModal(t('dlg.dest.title'), { onClose: () => resolve(answer) });
@@ -52,11 +58,12 @@ export function chooseDestinations(rules: readonly FolderRule[], start: Date, la
     dateInput.oninput = update;
     timeInput.oninput = update;
 
-    const choices = rules.map((rule) => ruleChoice(rule, lastChosen.includes(rule.id), when, update, updaters));
+    const choices = rules.map((rule) => ruleChoice(rule, opts.adding || lastChosen.includes(rule.id), when, update, updaters));
+    if (opts.adding) choices.forEach((c) => (c.choice.check.hidden = true));
     const anyDateTime = rules.some((r) => r.subfolder && usesDateTime(r.subfolder));
 
     m.body.append(
-      h('div', { class: 'form-note' }, t('dlg.dest.note')),
+      opts.adding ? '' : h('div', { class: 'form-note' }, t('dlg.dest.note')),
       ...(anyDateTime
         ? [h('div', { class: 'form-grid dest-when' }, h('label', {}, t('dlg.dest.start')), h('div', { class: 'inline' }, dateInput, timeInput))]
         : []),
@@ -78,7 +85,7 @@ export function chooseDestinations(rules: readonly FolderRule[], start: Date, la
       m.close();
     };
     const okBtn = h('button', { class: 'primary', onclick: ok }, t('btn.ok'));
-    m.foot.append(h('button', { onclick: () => m.close() }, t('dlg.dest.noFolder')), okBtn);
+    m.foot.append(h('button', { onclick: () => m.close() }, opts.adding ? t('btn.cancel') : t('dlg.dest.noFolder')), okBtn);
     m.body.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') ok();
     });

@@ -237,6 +237,7 @@ export const en = {
   'panel.extraFolder.tip': 'Choose a different folder here; files that use it move along',
   'panel.removeFolder.tip': 'Remove this folder; its files go back to the default folder',
   'panel.removeDefaultFolder.tip': 'Remove this folder; the next folder becomes the default and this folder\'s files go there',
+  'panel.addOtherFolder': 'Other folder…',
   'panel.addFolder': '+ Add folder',
   'panel.addFolder.tip': 'Add another output folder that files can be sent to',
   'panel.rowFolder.tip': 'Folder this file is written to',

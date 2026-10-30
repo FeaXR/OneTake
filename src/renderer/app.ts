@@ -102,7 +102,7 @@ export class App {
     });
     this.panel = new OutputPanel(document.getElementById('panel')!, ed, {
       changeFolder: (index) => void this.changeFolder(index),
-      addFolder: () => void this.addFolder(),
+      addFolder: (anchor) => this.addFolderMenu(anchor),
       removeFolder: (index) => this.removeFolder(index),
       exportAll: () => this.commands.run('file.export'),
       playRegion: (kind, id) => this.playRegion(kind, id),
@@ -480,9 +480,7 @@ export class App {
     const info = ed.info;
     const rules = ed.settings.folderRules.filter((r) => r.folder);
     if (!info || !rules.length) return;
-    const modified = info.modified ?? Date.now();
-    const start = recordingStart(modified, info.duration, recordingDate(info.path, modified));
-    const answer = await chooseDestinations(rules, start, ed.settings.lastDestinations);
+    const answer = await chooseDestinations(rules, this.recordingStart(), ed.settings.lastDestinations);
     if (!answer) return;
     ed.project.outputDirs = answer.dirs;
     ed.settings.lastDestinations = answer.chosen;
@@ -561,6 +559,48 @@ export class App {
       for (const s of p.segments) if (old && s.outputDir === old) s.outputDir = dir;
     });
     return dir;
+  }
+
+  /** When the recording started, for subfolder names: from the file's time and name. */
+  private recordingStart(): Date {
+    const info = this.editor.info;
+    if (!info) return new Date();
+    const modified = info.modified ?? Date.now();
+    return recordingStart(modified, info.duration, recordingDate(info.path, modified));
+  }
+
+  /** "+ Add folder": the rule folders to choose from, or straight to the folder picker without rules. */
+  private addFolderMenu(anchor: HTMLElement): void {
+    const ed = this.editor;
+    const rules = ed.settings.folderRules.filter((r) => r.folder);
+    if (!rules.length) return void this.addFolder();
+    const r = anchor.getBoundingClientRect();
+    showContextMenu(r.left, r.bottom + 2, [
+      ...rules.map((rule) => ({
+        label: basename(rule.folder) + (rule.subfolder?.trim() ? ' / …' : ''),
+        // A rule that makes a folder per recording can be added again with another subfolder.
+        disabled: !rule.subfolder?.trim() && ed.project.outputDirs.includes(rule.folder),
+        run: () => void this.addRuleFolder(rule),
+      })),
+      { label: '', separator: true },
+      { label: t('panel.addOtherFolder'), run: () => void this.addFolder() },
+    ]);
+  }
+
+  /** Adds a rule's folder, asking for the folder inside it when the rule makes one per recording. */
+  private async addRuleFolder(rule: FolderRule): Promise<void> {
+    const ed = this.editor;
+    let dir = rule.folder;
+    if (rule.subfolder?.trim()) {
+      const answer = await chooseDestinations([rule], this.recordingStart(), [rule.id], { adding: true });
+      if (!answer) return;
+      dir = answer.dirs[0];
+    }
+    if (ed.project.outputDirs.includes(dir)) {
+      toast(t('toast.folderAlreadyAdded', { dir }), 'error');
+      return;
+    }
+    ed.commit((p) => p.outputDirs.push(dir));
   }
 
   private async addFolder(): Promise<void> {

@@ -225,6 +225,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'panel.extraFolder.tip': 'Másik mappa választása ehelyett; az ide küldött fájlok vele mennek',
   'panel.removeFolder.tip': 'Mappa eltávolítása; a fájljai az alapértelmezett mappába kerülnek',
   'panel.removeDefaultFolder.tip': 'Mappa eltávolítása; a következő mappa lesz az alapértelmezett, és ennek a fájljai oda kerülnek',
+  'panel.addOtherFolder': 'Másik mappa…',
   'panel.addFolder': '+ Mappa hozzáadása',
   'panel.addFolder.tip': 'Újabb kimeneti mappa, ahová fájlokat lehet küldeni',
   'panel.rowFolder.tip': 'A fájl célmappája',
