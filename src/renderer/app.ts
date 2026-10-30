@@ -450,13 +450,14 @@ export class App {
     this.player.pause();
     const loading = showLoading(t('dlg.loading', { name: basename(path) }));
     const off = window.studio.onLoadProgress((f) => loading.update(f));
-    let hasSession = false;
+    let askFolders = false;
     try {
       const loaded = await window.studio.loadAudio(path);
-      hasSession = !!loaded.project;
+      askFolders = !loaded.project && !quiet && this.ruleFolders().length > 0;
       const peaks = new PeakPyramid(loaded.peaks);
       this.editor.loadAudio(loaded.info.path, loaded.info, peaks, loaded.project);
-      if (!this.editor.project.outputDirs.length) this.editor.project.outputDirs = [dirname(loaded.info.path)];
+      // When the folders are about to be asked for, the WAV's folder is only the answer to "No folder".
+      if (!askFolders && !this.editor.project.outputDirs.length) this.editor.project.outputDirs = [dirname(loaded.info.path)];
       this.player.load();
       if (loaded.project && !quiet) toast(t('toast.projectLoaded', { name: basename(path) }));
     } catch (err) {
@@ -466,26 +467,29 @@ export class App {
       off();
       loading.close();
     }
-    // A WAV without a session yet: ask where its files go.
-    if (!hasSession && !quiet) await this.askDestinations();
+    if (askFolders) await this.askDestinations();
     return true;
   }
 
   /**
-   * Asks which rule folders (and folders inside them) the files go to. Kept as they are when
-   * there are no rules or the answer is "No folder": next to the WAV.
+   * Asks a WAV without a session yet which rule folders (and folders inside them) its files go
+   * to. With the answer "No folder" they go next to the WAV.
    */
   private async askDestinations(): Promise<void> {
     const ed = this.editor;
-    const info = ed.info;
-    const rules = ed.settings.folderRules.filter((r) => r.folder);
-    if (!info || !rules.length) return;
-    const answer = await chooseDestinations(rules, this.recordingStart(), ed.settings.lastDestinations);
-    if (!answer) return;
-    ed.project.outputDirs = answer.dirs;
-    ed.settings.lastDestinations = answer.chosen;
-    void window.studio.saveSettings(ed.settings);
+    const answer = await chooseDestinations(this.ruleFolders(), this.recordingStart(), ed.settings.lastDestinations);
+    if (answer) {
+      ed.project.outputDirs = answer.dirs;
+      ed.settings.lastDestinations = answer.chosen;
+      void window.studio.saveSettings(ed.settings);
+    } else if (ed.wavPath) {
+      ed.project.outputDirs = [dirname(ed.wavPath)];
+    }
     ed.notify('project');
+  }
+
+  private ruleFolders(): FolderRule[] {
+    return this.editor.settings.folderRules.filter((r) => r.folder);
   }
 
   async save(): Promise<boolean> {
@@ -572,7 +576,7 @@ export class App {
   /** "+ Add folder": the rule folders to choose from, or straight to the folder picker without rules. */
   private addFolderMenu(anchor: HTMLElement): void {
     const ed = this.editor;
-    const rules = ed.settings.folderRules.filter((r) => r.folder);
+    const rules = this.ruleFolders();
     if (!rules.length) return void this.addFolder();
     const r = anchor.getBoundingClientRect();
     showContextMenu(r.left, r.bottom + 2, [
