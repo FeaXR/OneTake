@@ -1,6 +1,6 @@
 import { getLanguage, t } from '../shared/i18n/index.ts';
 import type { FolderRule } from '../shared/naming.ts';
-import { DEFAULT_AMPM, expandSubfolder, matchSubfolder, subfolderFields, usesDateTime, type AmPmText } from '../shared/subfolders.ts';
+import { amPmAt, DEFAULT_AMPM, expandSubfolder, matchSubfolder, subfolderFields, usesAmPm, usesDateTime, type AmPmChoice, type AmPmText } from '../shared/subfolders.ts';
 import { filenameProblem } from '../shared/validate.ts';
 import { openModal } from './dialogs.ts';
 import { h, pathText } from './dom.ts';
@@ -114,8 +114,20 @@ function ruleChoice(
     inputs.set(f, input);
   }
   const which = h('select', { onchange: update });
+  // {ampm} follows the start time until it is chosen here.
+  let ampmTouched = false;
+  const ampmSelect = h('select', {
+    onchange: () => {
+      ampmTouched = true;
+      update();
+    },
+  },
+  h('option', { value: 'am' }, ampm.am),
+  h('option', { value: 'pm' }, ampm.pm),
+  h('option', { value: 'none' }, t('dlg.dest.ampmNone')));
+  const ampmRow = usesAmPm(template) ? [h('label', {}, t('dlg.dest.ampm')), h('div', {}, ampmSelect)] : [];
   const preview = h('div', { class: 'form-note dest-preview' });
-  const fieldGrid = h('div', { class: 'form-grid' }, ...fields.flatMap((f) => [h('label', {}, f), h('div', {}, inputs.get(f)!, lists.get(f)!)]));
+  const fieldGrid = h('div', { class: 'form-grid' }, ...ampmRow, ...fields.flatMap((f) => [h('label', {}, f), h('div', {}, inputs.get(f)!, lists.get(f)!)]));
   const detail = h('div', { class: 'dest-detail' },
     h('div', { class: 'form-grid' }, h('label', {}, t('dlg.dest.subfolder')), which),
     fieldGrid,
@@ -123,7 +135,7 @@ function ruleChoice(
   );
 
   const values = () => Object.fromEntries(fields.map((f) => [f, inputs.get(f)!.value]));
-  const newName = () => expandSubfolder(template, when(), values(), ampm, getLanguage());
+  const newName = () => expandSubfolder(template, when(), values(), ampm, getLanguage(), ampmSelect.value as AmPmChoice);
   let existing: string[] = [];
   const fillWhich = () => {
     const keep = which.value || NEW;
@@ -160,7 +172,8 @@ function ruleChoice(
   updaters.push(() => {
     detail.style.display = check.checked ? '' : 'none';
     const isNew = which.value === NEW;
-    fieldGrid.style.display = isNew && fields.length ? '' : 'none';
+    if (!ampmTouched) ampmSelect.value = amPmAt(when());
+    fieldGrid.style.display = isNew && (fields.length || ampmRow.length) ? '' : 'none';
     const r = check.checked ? result() : null;
     // Shown from the rule's folder on; the full path is in the tooltip.
     const shown = r && 'dir' in r ? r.dir : joinPath(rule.folder, newName() || '…');

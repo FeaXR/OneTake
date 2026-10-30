@@ -167,6 +167,8 @@ export const en = {
   'dlg.dest.new': 'New folder',
   'dlg.dest.none': 'None, straight into {folder}',
   'dlg.dest.fieldRequired': '{field} is empty',
+  'dlg.dest.ampm': 'Before/after noon',
+  'dlg.dest.ampmNone': 'Neither',
   'dlg.dest.noFolder': 'No folder',
   'settings.subfolder': 'Folder for each recording',
   'settings.subfolder.template': 'Name of a folder made inside this one for each recording, e.g. {date}_{ampm}_{field} (empty: the files go straight in)',

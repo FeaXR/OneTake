@@ -159,6 +159,8 @@ export const hu: Record<keyof typeof en, Message> = {
   'dlg.dest.new': 'Új mappa',
   'dlg.dest.none': 'Nincs, közvetlenül ide: {folder}',
   'dlg.dest.fieldRequired': 'Üres: {field}',
+  'dlg.dest.ampm': 'Napszak',
+  'dlg.dest.ampmNone': 'Egyik sem',
   'dlg.dest.noFolder': 'Nincs mappa',
   'settings.subfolder': 'Mappa minden felvételhez',
   'settings.subfolder.template': 'Az ebben a mappában minden felvételhez létrehozott mappa neve, pl. {date}_{ampm}_{field} (üres: a fájlok közvetlenül ide kerülnek)',

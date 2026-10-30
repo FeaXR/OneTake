@@ -17,6 +17,14 @@ test('typed fields and AM/PM texts fill the name', () => {
   assert.equal(expandSubfolder('{hour12}{ampm}', new Date(2026, 9, 30, 12, 0), {}, DEFAULT_AMPM, 'en'), '12PM');
 });
 
+test('{ampm} can be chosen, or left out with its separator', () => {
+  assert.equal(expandSubfolder('{date}_{ampm}_{Venue}', friday, { Venue: 'Pécs' }, DEFAULT_AMPM, 'en', 'am'), '261030_AM_Pécs');
+  assert.equal(expandSubfolder('{date}_{ampm}_{Venue}', friday, { Venue: 'Pécs' }, DEFAULT_AMPM, 'en', 'none'), '261030_Pécs');
+  assert.equal(expandSubfolder('{ampm} {Venue}', friday, { Venue: 'Pécs' }, DEFAULT_AMPM, 'en', 'none'), 'Pécs');
+  assert.equal(expandSubfolder('{Venue}-{ampm}', friday, { Venue: 'Pécs' }, DEFAULT_AMPM, 'en', 'none'), 'Pécs');
+  assert.deepEqual(matchSubfolder('{date}_{ampm}_{Venue}', '261029_Szeged', DEFAULT_AMPM), { Venue: 'Szeged' });
+});
+
 test('fields are the parts that are not built in, each once', () => {
   assert.deepEqual(subfolderFields('{date}_{Venue}_{ Band }_{Venue}'), ['Venue', 'Band']);
   assert.ok(usesDateTime('{yy}-{Venue}'));
@@ -26,7 +34,7 @@ test('fields are the parts that are not built in, each once', () => {
 test('existing folders are read back, others are not', () => {
   assert.deepEqual(matchSubfolder('{date}_{ampm}_{Venue}', '261029_PM_Szeged Arena', DEFAULT_AMPM), { Venue: 'Szeged Arena' });
   assert.equal(matchSubfolder('{date}_{ampm}_{Venue}', '2610_PM_Szeged', DEFAULT_AMPM), null);
-  assert.equal(matchSubfolder('{date}_{ampm}_{Venue}', '261029_noon_Szeged', DEFAULT_AMPM), null);
+  assert.equal(matchSubfolder('{date}_{ampm}_{Venue}', 'Szeged_261029', DEFAULT_AMPM), null);
   assert.deepEqual(matchSubfolder('{year} {weekday}', '2026 Friday', DEFAULT_AMPM), {});
 });
 

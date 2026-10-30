@@ -27,6 +27,9 @@ export interface AmPmText {
 
 export const DEFAULT_AMPM: AmPmText = { am: 'AM', pm: 'PM' };
 
+/** {ampm} as chosen for one recording; 'none' leaves it out. */
+export type AmPmChoice = 'am' | 'pm' | 'none';
+
 const TOKEN = /\{([^{}]+)\}/g;
 const isPart = (name: string): name is SubfolderPart => Object.hasOwn(SUBFOLDER_PARTS, name);
 const pad2 = (v: number) => String(v).padStart(2, '0');
@@ -41,11 +44,21 @@ export function subfolderFields(template: string): string[] {
   return fields;
 }
 
+export const usesAmPm = (template: string): boolean => /\{\s*ampm\s*\}/.test(template);
+
+/** The template without {ampm} and one separator next to it, so no doubled _ is left behind. */
+export function withoutAmPm(template: string): string {
+  return template.replace(/^\{\s*ampm\s*\}[ _.-]?/, '').replace(/[ _.-]?\{\s*ampm\s*\}/g, '');
+}
+
+/** Before or after noon at `when`. */
+export const amPmAt = (when: Date): AmPmChoice => (when.getHours() < 12 ? 'am' : 'pm');
+
 /** Whether the template uses any part read from the recording's date or time. */
 export const usesDateTime = (template: string): boolean => [...template.matchAll(TOKEN)].some((m) => isPart(m[1].trim()));
 
 /** The part's text for `when`; `locale` names the weekday. */
-function partText(part: SubfolderPart, when: Date, ampm: AmPmText, locale: string): string {
+function partText(part: SubfolderPart, when: Date, ampm: AmPmText, locale: string, choice: AmPmChoice): string {
   const h = when.getHours();
   switch (part) {
     case 'date': return `${pad2(when.getFullYear() % 100)}${pad2(when.getMonth() + 1)}${pad2(when.getDate())}`;
@@ -58,15 +71,25 @@ function partText(part: SubfolderPart, when: Date, ampm: AmPmText, locale: strin
     case 'hour': return pad2(h);
     case 'hour12': return String(h % 12 || 12);
     case 'minute': return pad2(when.getMinutes());
-    case 'ampm': return h < 12 ? ampm.am : ampm.pm;
+    case 'ampm': return choice === 'am' ? ampm.am : ampm.pm;
   }
 }
 
-/** The subfolder's name for a recording started at `when`, with the typed `values`. */
-export function expandSubfolder(template: string, when: Date, values: Record<string, string>, ampm: AmPmText, locale: string): string {
-  return template.replace(TOKEN, (_, raw: string) => {
+/**
+ * The subfolder's name for a recording started at `when`, with the typed `values`. {ampm}
+ * follows the time unless `choice` says otherwise.
+ */
+export function expandSubfolder(
+  template: string,
+  when: Date,
+  values: Record<string, string>,
+  ampm: AmPmText,
+  locale: string,
+  choice: AmPmChoice = amPmAt(when),
+): string {
+  return (choice === 'none' ? withoutAmPm(template) : template).replace(TOKEN, (_, raw: string) => {
     const name = raw.trim();
-    return isPart(name) ? partText(name, when, ampm, locale) : (values[name] ?? '').trim();
+    return isPart(name) ? partText(name, when, ampm, locale, choice) : (values[name] ?? '').trim();
   }).trim();
 }
 
@@ -75,6 +98,10 @@ export function expandSubfolder(template: string, when: Date, values: Record<str
  * follow the template. Used to offer earlier folders and the values typed before.
  */
 export function matchSubfolder(template: string, name: string, ampm: AmPmText): Record<string, string> | null {
+  return matchExactly(template, name, ampm) ?? (usesAmPm(template) ? matchExactly(withoutAmPm(template), name, ampm) : null);
+}
+
+function matchExactly(template: string, name: string, ampm: AmPmText): Record<string, string> | null {
   const fields: string[] = [];
   let pattern = '^';
   let last = 0;
