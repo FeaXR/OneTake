@@ -184,7 +184,7 @@ function ruleChoice(
     const r = check.checked ? result() : null;
     // Shown from the rule's folder on; the full path is in the tooltip.
     const shown = r && 'dir' in r ? r.dir : joinPath(rule.folder, newName() || '…');
-    preview.textContent = `→ ${[folderName(rule.folder), shown.slice(rule.folder.length + 1)].filter(Boolean).join(' / ')}`;
+    preview.textContent = `→ ${[folderName(rule.folder), shown.slice(joinPath(rule.folder, '').length)].filter(Boolean).join(' / ')}`;
     preview.title = shown;
     preview.classList.toggle('err', !!r && 'error' in r);
   });

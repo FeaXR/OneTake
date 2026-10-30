@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import { join } from 'node:path';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { trimDir } from '../shared/naming.ts';
 import { cleanPresets, DEFAULT_BITRATE_PRESETS, DEFAULT_PEAK_PRESETS, isBitrate, isPeakTarget } from '../shared/presets.ts';
 import { DEFAULT_SETTINGS, type Project, type Settings } from '../shared/types.ts';
 import { APP_FOLDER, legacySessionFileFor, sessionFileFor } from './session-path.ts';
@@ -22,6 +23,8 @@ async function writeJson(file: string, value: unknown): Promise<void> {
 
 export async function loadSettings(): Promise<Settings> {
   const s: Settings = { ...DEFAULT_SETTINGS, ...(await readJson<Partial<Settings>>(userFile('settings.json'))) };
+  // Paths typed into settings.json by hand may end in a separator; the app expects none.
+  s.folderRules = (Array.isArray(s.folderRules) ? s.folderRules : []).map((r) => ({ ...r, folder: trimDir(r.folder ?? '') }));
   s.peakPresets = cleanPresets(s.peakPresets, isPeakTarget, DEFAULT_PEAK_PRESETS);
   s.bitratePresets = cleanPresets(s.bitratePresets, isBitrate, DEFAULT_BITRATE_PRESETS);
   if (!isPeakTarget(s.defaultPeakTarget)) s.defaultPeakTarget = DEFAULT_SETTINGS.defaultPeakTarget;

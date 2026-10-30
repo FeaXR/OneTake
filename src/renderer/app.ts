@@ -1,5 +1,5 @@
 import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting } from '../shared/i18n/index.ts';
-import { highestNumber, recordingDate, usesToken, type FolderRule } from '../shared/naming.ts';
+import { highestNumber, recordingDate, trimDir, usesToken, type FolderRule } from '../shared/naming.ts';
 import { recordingStart } from '../shared/subfolders.ts';
 import { formatPeak, MIN_PEAK_PERCENT, MP3_BITRATES, NO_NORMALIZE, peakFromPercent, presetChoices } from '../shared/presets.ts';
 import { formatTime } from '../shared/time.ts';
@@ -577,7 +577,7 @@ export class App {
     const r = anchor.getBoundingClientRect();
     showContextMenu(r.left, r.bottom + 2, [
       ...rules.map((rule) => ({
-        label: basename(rule.folder) + (rule.subfolder?.trim() ? ' / …' : ''),
+        label: basename(trimDir(rule.folder)) + (rule.subfolder?.trim() ? ' / …' : ''),
         // A rule that makes a folder per recording can be added again with another subfolder.
         disabled: !rule.subfolder?.trim() && ed.project.outputDirs.includes(rule.folder),
         run: () => void this.addRuleFolder(rule),

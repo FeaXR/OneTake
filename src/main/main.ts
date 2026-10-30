@@ -13,6 +13,7 @@ import {
   loadProject, loadSettings, loadShortcutOverrides, peaksCacheDir, saveProject, saveSettings, saveShortcutOverrides,
 } from './store.ts';
 import { readFrames, readWavLayout, type WavLayout } from './wav.ts';
+import { trimDir } from '../shared/naming.ts';
 
 let win: BrowserWindow | null = null;
 /** The WAV the renderer has open; playback reads its samples. */
@@ -220,7 +221,8 @@ function registerIpc(): void {
       defaultPath: defaultPath ?? undefined,
       properties: ['openDirectory', 'createDirectory'],
     });
-    return result.canceled ? null : result.filePaths[0];
+    // Some folder dialogs (the Linux desktop portal) can return the path with a slash at the end.
+    return result.canceled ? null : trimDir(result.filePaths[0]);
   });
   ipcMain.handle('fs:list', (_e, dir: string): string[] => {
     try {

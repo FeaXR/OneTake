@@ -40,6 +40,12 @@ export interface RecordingDate {
 
 const TOKEN = /\{(nn|n|date|type)\}/g;
 
+/** A folder path without separators at the end ("/music/" → "/music"), keeping a root ("/", "C:\\") whole. */
+export function trimDir(dir: string): string {
+  const trimmed = dir.replace(/[\\/]+$/, '');
+  return trimmed === '' || /^[A-Za-z]:$/.test(trimmed) ? dir : trimmed;
+}
+
 const normalizeDir = (dir: string) => dir.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
 const pad2 = (v: number) => String(v).padStart(2, '0');
 

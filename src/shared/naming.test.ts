@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { expandTemplate, folderDefault, formatDate, highestNumber, recordingDate, ruleFor, type FolderRule } from './naming.ts';
+import { expandTemplate, folderDefault, formatDate, highestNumber, recordingDate, ruleFor, trimDir, type FolderRule } from './naming.ts';
 
 const rule = (id: string, folder: string, extra: Partial<FolderRule> = {}): FolderRule => ({ id, folder, template: '{nn}_', types: [], ...extra });
 
@@ -46,4 +46,11 @@ test('highestNumber finds the last {nn} already used in the folder', () => {
   assert.equal(highestNumber('{date}_{n}_', [], files), 0);
   // Without a list of choices, {type} still stops at the next underscore.
   assert.equal(highestNumber('{nn}_{type}_', [], ['261021_1_Enek_13.mp3', '05_X_1.mp3']), 261021);
+});
+
+test('trimDir drops separators at the end but keeps a root', () => {
+  assert.equal(trimDir('/home/x/Music/'), '/home/x/Music');
+  assert.equal(trimDir('C:\\Music\\'), 'C:\\Music');
+  assert.equal(trimDir('/'), '/');
+  assert.equal(trimDir('C:\\'), 'C:\\');
 });
