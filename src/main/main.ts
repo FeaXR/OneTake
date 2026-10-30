@@ -229,6 +229,13 @@ function registerIpc(): void {
       return [];
     }
   });
+  ipcMain.handle('fs:listFolders', (_e, dir: string): string[] => {
+    try {
+      return readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+    } catch {
+      return [];
+    }
+  });
   ipcMain.handle('fs:existing', (_e, dir: string, names: string[]) => names.filter((n) => existsSync(join(dir, n))));
   ipcMain.handle('shell:showInFolder', (_e, path: string) => shell.showItemInFolder(path));
 

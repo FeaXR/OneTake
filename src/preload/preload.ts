@@ -29,6 +29,7 @@ const api: StudioApi = {
   pickFolder: (defaultPath) => ipcRenderer.invoke('dialog:pickFolder', defaultPath),
   existingFiles: (dir, names) => ipcRenderer.invoke('fs:existing', dir, names),
   listFiles: (dir) => ipcRenderer.invoke('fs:list', dir),
+  listFolders: (dir) => ipcRenderer.invoke('fs:listFolders', dir),
   showInFolder: (path) => ipcRenderer.invoke('shell:showInFolder', path),
 
   startExport: (req) => ipcRenderer.invoke('export:start', req),

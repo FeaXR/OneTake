@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { join } from 'node:path';
-import { rename, rm } from 'node:fs/promises';
+import { mkdir, rename, rm } from 'node:fs/promises';
 import { joinedDuration, keptPieces, normalizeGain } from '../shared/plan.ts';
 import { outputFilename } from '../shared/validate.ts';
 import type { ExportProgress, ExportRequest, ExportResult, Segment } from '../shared/types.ts';
@@ -125,6 +125,8 @@ export async function runExport(
       const gain = normalizeGain(peak, seg.peakTarget, settings.ceilingDb);
       const finalPath = join(seg.outputDir, filename);
       tempFile = `${finalPath}.part`;
+      // A folder named by a subfolder rule is only made now, when something is written into it.
+      await mkdir(seg.outputDir, { recursive: true });
       report('encode', 0);
       let progressText = '';
       await runFfmpeg(

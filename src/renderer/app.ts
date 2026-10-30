@@ -1,11 +1,13 @@
 import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting } from '../shared/i18n/index.ts';
-import { highestNumber, usesToken, type FolderRule } from '../shared/naming.ts';
+import { highestNumber, recordingDate, usesToken, type FolderRule } from '../shared/naming.ts';
+import { recordingStart } from '../shared/subfolders.ts';
 import { formatPeak, MIN_PEAK_PERCENT, MP3_BITRATES, NO_NORMALIZE, peakFromPercent, presetChoices } from '../shared/presets.ts';
 import { formatTime } from '../shared/time.ts';
 import { FADE_CURVES, FADE_MARKER_STYLES, type Bitrate, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type PeakTarget, type Project, type Segment, type Settings, type UpdateState, segmentFolder } from '../shared/types.ts';
 import { onlyStillRecording, outputFilename } from '../shared/validate.ts';
 import { CommandRegistry, Keymap, overridesFrom } from './commands.ts';
 import { ShortcutEditor } from './shortcut-editor.ts';
+import { chooseDestinations } from './destinations.ts';
 import { choose, closeContextMenu, modalOpen, openModal, showContextMenu, showLoading, toast } from './dialogs.ts';
 import { h, pathText } from './dom.ts';
 import { clamp, Editor, MIN_REGION_SEC, type RegionKind, type Selection, type Tool } from './editor.ts';
@@ -448,14 +450,15 @@ export class App {
     this.player.pause();
     const loading = showLoading(t('dlg.loading', { name: basename(path) }));
     const off = window.studio.onLoadProgress((f) => loading.update(f));
+    let hasSession = false;
     try {
       const loaded = await window.studio.loadAudio(path);
+      hasSession = !!loaded.project;
       const peaks = new PeakPyramid(loaded.peaks);
       this.editor.loadAudio(loaded.info.path, loaded.info, peaks, loaded.project);
       if (!this.editor.project.outputDirs.length) this.editor.project.outputDirs = [dirname(loaded.info.path)];
       this.player.load();
       if (loaded.project && !quiet) toast(t('toast.projectLoaded', { name: basename(path) }));
-      return true;
     } catch (err) {
       toast(t('toast.openFailed', { name: basename(path), error: errorText(err) }), 'error');
       return false;
@@ -463,6 +466,28 @@ export class App {
       off();
       loading.close();
     }
+    // A WAV without a session yet: ask where its files go.
+    if (!hasSession && !quiet) await this.askDestinations();
+    return true;
+  }
+
+  /**
+   * Asks which rule folders (and folders inside them) the files go to. Kept as they are when
+   * there are no rules or the answer is "No folder": next to the WAV.
+   */
+  private async askDestinations(): Promise<void> {
+    const ed = this.editor;
+    const info = ed.info;
+    const rules = ed.settings.folderRules.filter((r) => r.folder);
+    if (!info || !rules.length) return;
+    const modified = info.modified ?? Date.now();
+    const start = recordingStart(modified, info.duration, recordingDate(info.path, modified));
+    const answer = await chooseDestinations(rules, start, ed.settings.lastDestinations);
+    if (!answer) return;
+    ed.project.outputDirs = answer.dirs;
+    ed.settings.lastDestinations = answer.chosen;
+    void window.studio.saveSettings(ed.settings);
+    ed.notify('project');
   }
 
   async save(): Promise<boolean> {
@@ -833,6 +858,7 @@ export class App {
       ),
       h('div', { class: 'form-section' }, t('settings.naming')),
       h('div', { class: 'form-note', html: t('settings.naming.note') }),
+      h('div', { class: 'form-note', html: t('settings.subfolder.note', { field: `{${t('settings.subfolder.field')}}` }) }),
       rulesEditor.el,
       h('div', { class: 'form-section' }, t('settings.export')),
       h('div', { class: 'form-grid' },
@@ -982,6 +1008,17 @@ export class App {
               else rule.bitrate = v;
             }),
           );
+          const text = (value: string | undefined, placeholder: string, title: string, set: (v: string) => void, cls = '') => {
+            const input = h('input', { type: 'text', class: cls, value: value ?? '', placeholder, title, spellcheck: false, oninput: () => set(input.value) });
+            return input;
+          };
+          const field = `{${t('settings.subfolder.field')}}`;
+          const subfolder = h('div', { class: 'naming-rule-options' },
+            t('settings.subfolder'),
+            text(rule.subfolder, `{date}_{ampm}_${field}`, t('settings.subfolder.template', { field }), (v) => (rule.subfolder = v), 'naming-subfolder'),
+            text(rule.am, 'AM', t('settings.subfolder.am'), (v) => (rule.am = v), 'naming-ampm'),
+            text(rule.pm, 'PM', t('settings.subfolder.pm'), (v) => (rule.pm = v), 'naming-ampm'),
+          );
           return h('div', { class: 'naming-rule-wrap' }, h('div', { class: 'naming-rule' },
             h('div', { class: 'folder-path', title: rule.folder }, pathText(rule.folder)),
             h('button', {
@@ -1003,7 +1040,7 @@ export class App {
                 render();
               },
             }),
-          ), options);
+          ), options, subfolder);
         }),
       );
       if (!rules.length) list.append(h('div', { class: 'form-note' }, t('settings.naming.empty')));

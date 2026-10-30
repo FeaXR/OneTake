@@ -11,6 +11,14 @@ export interface FolderRule {
   /** Defaults for the files; unset falls back to a parent folder's rule, then to Settings. */
   peakTarget?: PeakTarget;
   bitrate?: Bitrate;
+  /**
+   * Name of a folder made inside this one for each recording, such as {date}_{ampm}_{Venue}
+   * (see subfolders.ts); unset or empty when the files go straight into the folder.
+   */
+  subfolder?: string;
+  /** What {ampm} becomes before and after noon; AM and PM when unset. */
+  am?: string;
+  pm?: string;
 }
 
 export interface NameParts {

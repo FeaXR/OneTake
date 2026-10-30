@@ -159,6 +159,8 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 - **File list:** show each file's start and end time for typing exact times (hidden by default; the edges can always be dragged on the timeline).
 - **Fade boundary line:** dotted, dashed or dash-dotted marker where a fade reaches full volume.
 - **Folder rules:** for a folder and its subfolders, the start of filenames (`{nn}`, `{n}`, `{date}`, `{type}`), the `{type}` options, and default volume and bitrate. The deepest matching rule wins; a setting a rule leaves unset comes from a parent folder's rule.
+- **Folder for each recording:** a rule can also name a folder made inside it for every recording, such as `{date}_{ampm}_{Venue}`. Parts: `{date}` (261030), `{year}`, `{yy}`, `{month}`, `{day}`, `{weekday}`, `{time}` (1905), `{hour}`, `{hour12}`, `{minute}`, and `{ampm}` with your own text for before and after noon. Any other name in braces, like `{Venue}`, is a field you fill in. When you open a WAV that has no session yet, One Take asks which rule folders its files go to. For each one you can make a new folder (the recording's start time comes from the file and can be corrected), reuse an earlier one, or put the files straight into the rule's folder. **No folder** keeps them next to the WAV. A new folder is created when the first file is exported into it.
+- **Volume and bitrate presets:** the buttons each file offers. Volume is 1–100% or **Off** (no maximization: the level stays as recorded); bitrates are the ones an MP3 can have.
 - **Files use:** the peak target and bitrate for files that no folder rule covers.
 - **Updates:** look for a new version when the app starts, or check now (see [Updates](#updates)).
 

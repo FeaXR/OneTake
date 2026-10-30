@@ -81,6 +81,8 @@ export interface Settings {
   recordFolder: string;
   recordName: string;
   recordInput: string;
+  /** The folder rules (by id) chosen as destinations when a WAV was last opened. */
+  lastDestinations: string[];
   /** Look for a new version on GitHub when the app starts. */
   checkUpdates: boolean;
 }
@@ -103,6 +105,7 @@ export const DEFAULT_SETTINGS: Settings = {
   recordFolder: '',
   recordName: '',
   recordInput: '',
+  lastDestinations: [],
   checkUpdates: true,
 };
 
