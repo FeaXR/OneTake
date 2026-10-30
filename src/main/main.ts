@@ -7,7 +7,7 @@ import { runExport } from './exporter.ts';
 import { loadPeaks, savePeaks } from './peaks.ts';
 import { LEGACY_FOLDER, moveLegacyFolder } from './legacy-folders.ts';
 import { WavRecorder } from './recorder.ts';
-import { Updater } from './updates.ts';
+import { DEVELOPER_PAGE, REPOSITORY_PAGE, Updater } from './updates.ts';
 import { APP_FOLDER } from './session-path.ts';
 import {
   loadProject, loadSettings, loadShortcutOverrides, peaksCacheDir, saveProject, saveSettings, saveShortcutOverrides,
@@ -261,6 +261,8 @@ function registerIpc(): void {
     return updater!.state;
   });
   ipcMain.handle('update:openDownloadPage', () => updater!.openDownloadPage());
+  ipcMain.handle('shell:openProjectLink', (_e, link: 'developer' | 'repository') =>
+    shell.openExternal(link === 'developer' ? DEVELOPER_PAGE : REPOSITORY_PAGE));
 
   ipcMain.on('app:setDirty', (_e, value: boolean) => {
     dirty = value;

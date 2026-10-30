@@ -11,6 +11,8 @@ import { compareVersions } from '../shared/version.ts';
 const { owner, repo } = pkg.build.publish[0];
 const REPO = `${owner}/${repo}`;
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`;
+export const DEVELOPER_PAGE = `https://github.com/${owner}`;
+export const REPOSITORY_PAGE = `https://github.com/${REPO}`;
 
 /**
  * A GitHub token for a private repository's releases, from the file "update-token" in the

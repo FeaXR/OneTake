@@ -42,6 +42,7 @@ const api: StudioApi = {
   onUpdateState: (cb) => subscribe('update:state', cb),
   installUpdate: () => ipcRenderer.invoke('update:install'),
   openDownloadPage: () => ipcRenderer.invoke('update:openDownloadPage'),
+  openProjectLink: (link) => ipcRenderer.invoke('shell:openProjectLink', link),
 
   setDirty: (dirty) => ipcRenderer.send('app:setDirty', dirty),
   setTitle: (title) => ipcRenderer.send('app:setTitle', title),

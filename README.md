@@ -205,6 +205,6 @@ Issues and pull requests are welcome. Please run `npm run typecheck` and `npm te
 
 ## License
 
-[MIT](LICENSE) © FeaXR
+[MIT](LICENSE) © [Fixr](https://github.com/FeaXR)
 
 The app bundles a static build of [FFmpeg](https://ffmpeg.org/) through [ffmpeg-static](https://github.com/eugeneware/ffmpeg-static). FFmpeg is licensed under the GPL v3, and its license and source reference ship with the app (`resources/app.asar.unpacked/node_modules/ffmpeg-static/`). It runs as a separate program, and the MIT license above covers only One Take's own code.

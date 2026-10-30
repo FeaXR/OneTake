@@ -223,7 +223,7 @@ button.meter-clip.on { color: #fff; background: var(--danger); }
 .folder-num { display: flex; align-items: center; gap: 4px; color: var(--text-dim); font-size: 12px; white-space: nowrap; }
 .folder-num input { width: 56px; }
 .naming-rules { display: flex; flex-direction: column; gap: 10px; }
-.naming-rule-wrap { display: flex; flex-direction: column; gap: 4px; }
+.naming-rule-wrap { display: flex; flex-direction: column; gap: 6px; padding: 10px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); }
 .naming-rule-options { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 12px; }
 .naming-rule-options select { margin-right: 8px; }
 .naming-subfolder { flex: 1; min-width: 0; }
@@ -337,7 +337,8 @@ input.invalid { border-color: var(--danger); }
 .form-grid .inline { display: flex; gap: 8px; align-items: center; }
 .form-grid input[type='number'] { width: 90px; }
 .form-note { color: var(--text-dim); font-size: 12px; }
-.form-section { font-weight: 600; margin-top: 6px; }
+.settings-card { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); }
+.form-section { font-weight: 600; }
 
 .shortcut-table { width: 100%; border-collapse: collapse; }
 .shortcut-table td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
@@ -400,3 +401,6 @@ kbd {
 .preset-chip button.icon { padding: 2px; }
 .preset-input { width: 72px; }
 select.preset-input { width: auto; }
+.about { display: flex; flex-direction: column; gap: 4px; }
+.about-links { display: flex; gap: 14px; margin-top: 2px; }
+.about-links a { color: var(--accent); }

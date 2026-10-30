@@ -51,6 +51,8 @@ export interface StudioApi {
   /** Restarts into a downloaded update; the state says why when it could not. */
   installUpdate(): Promise<UpdateState>;
   openDownloadPage(): Promise<void>;
+  /** Opens the developer's or the project's page in the browser. */
+  openProjectLink(link: 'developer' | 'repository'): Promise<void>;
 
   setDirty(dirty: boolean): void;
   setTitle(title: string): void;
