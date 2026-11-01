@@ -1,16 +1,27 @@
+import { de } from './de.ts';
 import { en } from './en.ts';
+import { es } from './es.ts';
+import { fr } from './fr.ts';
 import { hu } from './hu.ts';
+import { sr } from './sr.ts';
 import type { Message, Params } from './types.ts';
 
 export type { Params } from './types.ts';
-export type Language = 'en' | 'hu';
+export type Language = 'en' | 'de' | 'es' | 'fr' | 'hu' | 'sr';
 export type LanguageSetting = 'system' | Language;
 export type MessageKey = keyof typeof en;
 
 /** Languages offered in Settings, each named in its own language. */
-export const LANGUAGES: Record<Language, string> = { en: 'English', hu: 'Magyar' };
+export const LANGUAGES: Record<Language, string> = {
+  en: 'English',
+  de: 'Deutsch',
+  es: 'Español',
+  fr: 'Français',
+  hu: 'Magyar',
+  sr: 'Српски',
+};
 
-const tables: Record<Language, Record<MessageKey, Message>> = { en, hu };
+const tables: Record<Language, Record<MessageKey, Message>> = { en, de, es, fr, hu, sr };
 let current: Language = 'en';
 
 export function setLanguage(lang: Language): void {
@@ -35,10 +46,10 @@ export function t(key: MessageKey, params: Params = {}): string {
   return msg.replace(/\{(\w+)\}/g, (whole, name: string) => (params[name] !== undefined ? String(params[name]) : whole));
 }
 
-/** Decimal separator for the current language (Hungarian uses a comma). */
+/** Decimal separator for the current language (only English uses a point). */
 export function formatNumber(value: number, decimals: number): string {
   const text = value.toFixed(decimals);
-  return current === 'hu' ? text.replace('.', ',') : text;
+  return current === 'en' ? text : text.replace('.', ',');
 }
 
 /**

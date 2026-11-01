@@ -1140,7 +1140,7 @@ export class App {
     const tool = (tl: Tool, icon: string, text: string, title: string) =>
       btn(`tool.${tl}`, icon, text, title, () => this.editor.tool === tl);
     const group = (...els: HTMLElement[]) => h('div', { class: 'tb-group' }, ...els);
-    const sep = () => h('div', { class: 'tb-sep' });
+    const section = (...els: HTMLElement[]) => h('div', { class: 'tb-section' }, ...els);
 
     this.rec.box.append(
       this.rec.time,
@@ -1152,34 +1152,31 @@ export class App {
     this.toolbarButtons.at(-1)!.active = () => this.editor.playing;
 
     bar.append(
-      group(btn('file.open', icons.open, t('tb.open'), t('tb.open.tip')), btn('file.save', icons.save, t('tb.save'), t('tb.save.tip'))),
-      sep(),
-      group(btn('edit.undo', icons.undo, null, t('tb.undo.tip')), btn('edit.redo', icons.redo, null, t('tb.redo.tip'))),
-      sep(),
-      h('div', { class: 'segmented' },
-        tool('select', icons.pointer, t('tb.select'), t('tb.select.tip')),
-        tool('segment', icons.segment, t('tb.segment'), t('tb.segment.tip')),
-        tool('cut', icons.cut, t('tb.cut'), t('tb.cut.tip')),
+      h('div', { class: 'tb-sections' },
+        section(group(btn('file.open', icons.open, t('tb.open'), t('tb.open.tip')), btn('file.save', icons.save, t('tb.save'), t('tb.save.tip')))),
+        section(group(btn('edit.undo', icons.undo, null, t('tb.undo.tip')), btn('edit.redo', icons.redo, null, t('tb.redo.tip')))),
+        section(h('div', { class: 'segmented' },
+          tool('select', icons.pointer, t('tb.select'), t('tb.select.tip')),
+          tool('segment', icons.segment, t('tb.segment'), t('tb.segment.tip')),
+          tool('cut', icons.cut, t('tb.cut'), t('tb.cut.tip')),
+        )),
+        section(group(
+          playBtn,
+          btn('play.selection', icons.playSelection, null, t('tb.playSelection.tip')),
+          btn('play.skipCuts', icons.skip, t('tb.skipCuts'), t('tb.skipCuts.tip'), () => this.editor.skipCuts),
+        )),
+        section(group(
+          btn('zoom.out', icons.zoomOut, null, t('tb.zoomOut.tip')),
+          btn('zoom.in', icons.zoomIn, null, t('tb.zoomIn.tip')),
+          btn('zoom.selection', icons.zoomSel, null, t('tb.zoomSelection.tip')),
+          btn('zoom.fit', icons.fit, null, t('tb.zoomFit.tip')),
+        )),
+        section(this.rec.button, this.rec.box),
       ),
-      sep(),
-      group(
-        playBtn,
-        btn('play.selection', icons.playSelection, null, t('tb.playSelection.tip')),
-        btn('play.skipCuts', icons.skip, t('tb.skipCuts'), t('tb.skipCuts.tip'), () => this.editor.skipCuts),
+      h('div', { class: 'tb-end' },
+        this.clock,
+        btn('app.settings', icons.settings, null, t('tb.settings.tip')),
       ),
-      sep(),
-      group(
-        btn('zoom.out', icons.zoomOut, null, t('tb.zoomOut.tip')),
-        btn('zoom.in', icons.zoomIn, null, t('tb.zoomIn.tip')),
-        btn('zoom.selection', icons.zoomSel, null, t('tb.zoomSelection.tip')),
-        btn('zoom.fit', icons.fit, null, t('tb.zoomFit.tip')),
-      ),
-      sep(),
-      this.rec.button,
-      this.rec.box,
-      h('div', { class: 'tb-spacer' }),
-      this.clock,
-      btn('app.settings', icons.settings, null, t('tb.settings.tip')),
     );
   }
 

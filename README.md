@@ -23,7 +23,7 @@ Most audio editors work the other way round: many tracks in, one file out. One T
 - **Hear the result.** Playback skips the cuts by default, joining them with the same crossfade as the export, and inside the selected segment it plays that file's fade-in and fade-out too. Two buttons on each file play just its start or its end, to check the fades quickly.
 - **Safe export.** Filenames are checked before anything is written, you're asked before files are overwritten, and a cancelled export never leaves half-written files.
 - **Sessions are saved** in one place (Documents → One Take), so you can come back later and re-export.
-- **English and Hungarian** interface.
+- **Six interface languages:** English, German, French, Spanish, Hungarian and Serbian.
 
 | Fades at a track boundary | A cut, ready to be removed |
 | --- | --- |
@@ -139,7 +139,7 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 
 ## Settings
 
-- **Language:** English or Magyar (Hungarian). "System language" follows your operating system. Switching reloads the window; your open file and unsaved edits are kept, but undo history starts fresh.
+- **Language:** English, Deutsch (German), Español (Spanish), Français (French), Magyar (Hungarian) or Српски (Serbian, in Cyrillic). "System language" follows your operating system. Switching reloads the window; your open file and unsaved edits are kept, but undo history starts fresh.
 - **Fade-in / fade-out:** length and curve. The defaults are 0.5 s linear in and 2 s exponential out.
 - **"100%" peak level:** 0 dBFS by default. MP3 encoding can overshoot by a fraction of a dB, so −0.3 to −1 dBFS is safer if you want to avoid any clipping.
 - **Crossfade at cuts:** 10 ms by default.
