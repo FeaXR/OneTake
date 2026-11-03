@@ -238,6 +238,7 @@ export const es: Record<keyof typeof en, Message> = {
   'panel.default': 'Predeterminada',
   'panel.defaultFolder': '{name} (predeterminada)',
   'panel.extraFolder.tip': 'Elige aquí otra carpeta; los archivos que la usan se mueven con ella',
+  'panel.openFolder.tip': 'Mostrar los archivos de esta carpeta',
   'panel.removeFolder.tip': 'Quitar esta carpeta; sus archivos vuelven a la carpeta predeterminada',
   'panel.removeDefaultFolder.tip': 'Quitar esta carpeta; la siguiente pasa a ser la predeterminada y los archivos de esta van allí',
   'panel.addOtherFolder': 'Otra carpeta…',
@@ -390,6 +391,7 @@ export const es: Record<keyof typeof en, Message> = {
   'sc.group.app': 'Aplicación',
   'sc.group.record': 'Grabación',
 
+  'err.folderMissing': '{dir} todavía no existe. Se crea con la primera exportación.',
   'err.notWav': 'No es un archivo WAV',
   'err.noFmt': 'El archivo WAV no tiene bloque de formato',
   'err.noData': 'El archivo WAV no tiene datos de audio',

@@ -19,6 +19,8 @@ export interface PanelActions {
   /** Adds an output folder; `anchor` is the button, for the menu of rule folders. */
   addFolder(anchor: HTMLElement): void;
   removeFolder(index: number): void;
+  /** Shows the files already in an output folder. */
+  openFolder(dir: string): void;
   exportAll(): void;
   playRegion(kind: 'segment' | 'cut', id: string): void;
   playSegmentEdge(id: string, edge: 'start' | 'end'): void;
@@ -458,6 +460,7 @@ export class OutputPanel {
         dirs.length > 1 ? h('span', { class: 'folder-tag' }, i === 0 ? t('panel.default') : `${i + 1}`) : null,
         path,
         dir ? this.numberStartInput(dir) : null,
+        dir ? h('button', { class: 'icon', html: icons.openFolder, title: t('panel.openFolder.tip'), onclick: () => this.actions.openFolder(dir) }) : null,
         h('button', { class: dirs.length > 1 ? 'icon' : '', html: icons.folder, title: i === 0 ? t('panel.folder.tip') : t('panel.extraFolder.tip'), onclick: () => this.actions.changeFolder(i) },
           dirs.length > 1 ? null : t('panel.folder')),
         dirs.length > 1

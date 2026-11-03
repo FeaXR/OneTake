@@ -246,6 +246,7 @@ export const sr: Record<keyof typeof en, Message> = {
   'panel.default': 'Подразумевана',
   'panel.defaultFolder': '{name} (подразумевана)',
   'panel.extraFolder.tip': 'Овде изаберите другу фасциклу; датотеке које је користе премештају се заједно с њом',
+  'panel.openFolder.tip': 'Прикажи датотеке у овој фасцикли',
   'panel.removeFolder.tip': 'Уклони ову фасциклу; њене датотеке се враћају у подразумевану фасциклу',
   'panel.removeDefaultFolder.tip': 'Уклони ову фасциклу; следећа постаје подразумевана и датотеке ове фасцикле прелазе у њу',
   'panel.addOtherFolder': 'Друга фасцикла…',
@@ -398,6 +399,7 @@ export const sr: Record<keyof typeof en, Message> = {
   'sc.group.app': 'Апликација',
   'sc.group.record': 'Снимање',
 
+  'err.folderMissing': '{dir} још не постоји. Направиће се при првом извозу.',
   'err.notWav': 'Није WAV датотека',
   'err.noFmt': 'WAV датотека нема блок формата',
   'err.noData': 'WAV датотека нема аудио-податке',

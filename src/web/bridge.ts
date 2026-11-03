@@ -121,6 +121,7 @@ const api: StudioApi = {
   listFiles: (dir) => call('fs:list', dir),
   listFolders: (dir) => call('fs:listFolders', dir),
   showInFolder: async (path) => void (await browse('view', dirname(path))),
+  openFolder: async (dir) => void (await browse('view', dir)),
 
   startExport: (req) => call('export:start', req),
   cancelExport: () => call('export:cancel'),

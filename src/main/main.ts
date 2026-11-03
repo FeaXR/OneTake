@@ -241,6 +241,11 @@ function registerIpc(): void {
   });
   ipcMain.handle('fs:existing', (_e, dir: string, names: string[]) => names.filter((n) => existsSync(join(dir, n))));
   ipcMain.handle('shell:showInFolder', (_e, path: string) => shell.showItemInFolder(path));
+  ipcMain.handle('shell:openFolder', async (_e, dir: string) => {
+    if (!existsSync(dir)) throw codedError('err.folderMissing', { dir });
+    const error = await shell.openPath(dir);
+    if (error) throw new Error(error);
+  });
 
   ipcMain.handle('export:start', async (e, req: ExportRequest) => {
     exportAbort?.abort();

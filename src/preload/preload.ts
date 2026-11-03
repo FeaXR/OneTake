@@ -31,6 +31,7 @@ const api: StudioApi = {
   listFiles: (dir) => ipcRenderer.invoke('fs:list', dir),
   listFolders: (dir) => ipcRenderer.invoke('fs:listFolders', dir),
   showInFolder: (path) => ipcRenderer.invoke('shell:showInFolder', path),
+  openFolder: (dir) => ipcRenderer.invoke('shell:openFolder', dir),
 
   startExport: (req) => ipcRenderer.invoke('export:start', req),
   cancelExport: () => ipcRenderer.invoke('export:cancel'),

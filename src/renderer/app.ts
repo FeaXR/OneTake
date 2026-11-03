@@ -109,6 +109,7 @@ export class App {
       changeFolder: (index) => void this.changeFolder(index),
       addFolder: (anchor) => this.addFolderMenu(anchor),
       removeFolder: (index) => this.removeFolder(index),
+      openFolder: (dir) => void window.studio.openFolder(dir).catch((err: unknown) => toast(errorText(err), 'error')),
       exportAll: () => this.commands.run('file.export'),
       playRegion: (kind, id) => this.playRegion(kind, id),
       playSegmentEdge: (id, edge) => this.playSegmentEdge(edge, id),

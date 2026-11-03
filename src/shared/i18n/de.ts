@@ -238,6 +238,7 @@ export const de: Record<keyof typeof en, Message> = {
   'panel.default': 'Standard',
   'panel.defaultFolder': '{name} (Standard)',
   'panel.extraFolder.tip': 'Hier einen anderen Ordner wählen; die Dateien, die ihn verwenden, ziehen mit um',
+  'panel.openFolder.tip': 'Die Dateien in diesem Ordner anzeigen',
   'panel.removeFolder.tip': 'Diesen Ordner entfernen; seine Dateien gehen zurück in den Standardordner',
   'panel.removeDefaultFolder.tip': 'Diesen Ordner entfernen; der nächste Ordner wird zum Standard und die Dateien dieses Ordners gehen dorthin',
   'panel.addOtherFolder': 'Anderer Ordner…',
@@ -390,6 +391,7 @@ export const de: Record<keyof typeof en, Message> = {
   'sc.group.app': 'App',
   'sc.group.record': 'Aufnahme',
 
+  'err.folderMissing': '{dir} gibt es noch nicht. Der Ordner entsteht beim ersten Export.',
   'err.notWav': 'Keine WAV-Datei',
   'err.noFmt': 'Die WAV-Datei hat keinen Format-Chunk',
   'err.noData': 'Die WAV-Datei enthält keine Audiodaten',

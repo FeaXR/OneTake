@@ -233,6 +233,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'panel.default': 'Alapértelmezett',
   'panel.defaultFolder': '{name} (alapértelmezett)',
   'panel.extraFolder.tip': 'Másik mappa választása ehelyett; az ide küldött fájlok vele mennek',
+  'panel.openFolder.tip': 'A mappában lévő fájlok megjelenítése',
   'panel.removeFolder.tip': 'Mappa eltávolítása; a fájljai az alapértelmezett mappába kerülnek',
   'panel.removeDefaultFolder.tip': 'Mappa eltávolítása; a következő mappa lesz az alapértelmezett, és ennek a fájljai oda kerülnek',
   'panel.addOtherFolder': 'Másik mappa…',
@@ -385,6 +386,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'sc.group.app': 'Alkalmazás',
   'sc.group.record': 'Felvétel',
 
+  'err.folderMissing': 'A(z) {dir} még nem létezik. Az első exportálás hozza létre.',
   'err.notWav': 'Nem WAV fájl',
   'err.noFmt': 'A WAV fájlból hiányzik a formátumleírás',
   'err.noData': 'A WAV fájl nem tartalmaz hangadatot',

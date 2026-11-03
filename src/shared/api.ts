@@ -39,6 +39,8 @@ export interface StudioApi {
   /** Names of the folders in a folder; empty when it does not exist. */
   listFolders(dir: string): Promise<string[]>;
   showInFolder(path: string): Promise<void>;
+  /** Shows the files in a folder (the file manager on the desktop, a download list in the web build). */
+  openFolder(dir: string): Promise<void>;
 
   startExport(req: ExportRequest): Promise<ExportResult>;
   cancelExport(): Promise<void>;

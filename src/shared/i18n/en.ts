@@ -248,6 +248,7 @@ export const en = {
   'panel.default': 'Default',
   'panel.defaultFolder': '{name} (default)',
   'panel.extraFolder.tip': 'Choose a different folder here; files that use it move along',
+  'panel.openFolder.tip': 'Show the files in this folder',
   'panel.removeFolder.tip': 'Remove this folder; its files go back to the default folder',
   'panel.removeDefaultFolder.tip': 'Remove this folder; the next folder becomes the default and this folder\'s files go there',
   'panel.addOtherFolder': 'Other folder…',
@@ -405,6 +406,7 @@ export const en = {
   'sc.group.record': 'Recording',
 
   // Errors raised in the main process (sent as codes, shown in the UI language)
+  'err.folderMissing': '{dir} does not exist yet. It is made by the first export.',
   'err.notWav': 'Not a WAV file',
   'err.noFmt': 'The WAV file has no format chunk',
   'err.noData': 'The WAV file has no audio data',

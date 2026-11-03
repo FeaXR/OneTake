@@ -24,6 +24,7 @@ export const icons = {
   trash: svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
   target: svg('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/>'),
   folder: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
+  openFolder: svg('<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>'),
   export: svg('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>'),
   record: svg('<circle cx="12" cy="12" r="6" fill="currentColor" stroke="none"/>'),
   stop: svg('<rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" stroke="none"/>'),

@@ -239,6 +239,7 @@ export const fr: Record<keyof typeof en, Message> = {
   'panel.default': 'Par défaut',
   'panel.defaultFolder': '{name} (par défaut)',
   'panel.extraFolder.tip': 'Choisir un autre dossier ici ; les fichiers qui l’utilisent suivent',
+  'panel.openFolder.tip': 'Afficher les fichiers de ce dossier',
   'panel.removeFolder.tip': 'Retirer ce dossier ; ses fichiers reviennent au dossier par défaut',
   'panel.removeDefaultFolder.tip': 'Retirer ce dossier ; le suivant devient le dossier par défaut et les fichiers de celui-ci y sont transférés',
   'panel.addOtherFolder': 'Autre dossier…',
@@ -391,6 +392,7 @@ export const fr: Record<keyof typeof en, Message> = {
   'sc.group.app': 'Application',
   'sc.group.record': 'Enregistrement',
 
+  'err.folderMissing': '{dir} n’existe pas encore. Il sera créé au premier export.',
   'err.notWav': 'Ce n’est pas un fichier WAV',
   'err.noFmt': 'Le fichier WAV n’a pas de bloc de format',
   'err.noData': 'Le fichier WAV ne contient pas de données audio',
