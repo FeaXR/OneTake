@@ -190,6 +190,19 @@ export const en = {
   'dlg.openWav.title': 'Open WAV file',
   'dlg.openWav.filter': 'WAV audio',
   'dlg.folder.title': 'Choose output folder',
+
+  // Web build: file browser on the server
+  'web.files.title': 'Files on the server',
+  'web.chooseFolder': 'Choose this folder',
+  'web.newFolder': 'New folder…',
+  'web.folderName': 'Folder name',
+  'web.create': 'Create',
+  'web.upload': 'Upload WAV…',
+  'web.uploading': 'Uploading {name}',
+  'web.uploadFailed': 'The upload did not get through. Check the connection to the server.',
+  'web.empty': 'This folder is empty.',
+  'web.needsHttps': 'Recording needs a secure connection: open One Take over HTTPS, or as localhost on the computer it runs on.',
+
   'dlg.rec.title': 'New recording',
   'dlg.rec.input': 'Input',
   'dlg.rec.format': (p) =>

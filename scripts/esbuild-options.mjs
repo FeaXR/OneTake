@@ -16,3 +16,14 @@ export const mainBuildOptions = {
   external: ['electron', 'ffmpeg-static', 'electron-updater'],
   logLevel: 'info',
 };
+
+// esbuild settings for the web build's server (Docker), which reuses the main process modules.
+export const serverBuildOptions = {
+  ...mainBuildOptions,
+  entryPoints: {
+    server: 'src/server/server.ts',
+    'peaks-worker': 'src/main/peaks-worker.ts',
+  },
+  outdir: 'dist/server',
+  external: ['ffmpeg-static'],
+};

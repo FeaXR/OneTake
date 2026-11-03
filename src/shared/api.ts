@@ -3,7 +3,8 @@ import type { AudioInfo, ExportProgress, ExportRequest, ExportResult, LoadedAudi
 /** The bridge the preload script exposes to the renderer as `window.studio`. */
 export interface StudioApi {
   pickWav(): Promise<string | null>;
-  pathForDroppedFile(file: File): string;
+  /** Path of a WAV dropped on the window (the web build uploads it first); null when it was not sent. */
+  droppedFilePath(file: File): Promise<string | null>;
   loadAudio(path: string): Promise<LoadedAudio>;
   onLoadProgress(cb: (fraction: number) => void): () => void;
   /** Samples of the open WAV for playback: one array per channel, from frame `start`. */

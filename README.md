@@ -162,6 +162,37 @@ Each output file is rendered from the untouched WAV in two ffmpeg passes (ffmpeg
 
 Because the peak is measured after cuts and fades, a cut-out cough can't hold the level down. Files are written as `.part` first and renamed when complete.
 
+## Running in Docker
+
+One Take can also run on a server and be used from a browser. The container holds the same editor, export and recording code as the desktop app, and works on files in a folder on the server.
+
+```bash
+docker build -t one-take .
+```
+
+```bash
+docker run -d --name one-take -p 8080:8080 -v ~/OneTake:/data -v one-take-config:/config -e ONETAKE_PASSWORD=choose-one one-take
+```
+
+Then open `http://<server>:8080`.
+
+- **`/data`** holds the WAVs and the exported MP3s. **Open** and the folder buttons browse this folder on the server. **Upload WAV…** in the Open dialog, or dropping a WAV on the window, sends a file from your computer (dropped files go to `/data/Uploads`). **Show in folder** lists the folder with download links.
+- **`/config`** holds settings, sessions and the waveform cache.
+- The app runs as the image's `node` user (uid 1000). If the folder you mount belongs to someone else, add `--user $(id -u):$(id -g)`.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `ONETAKE_PASSWORD` | none | When set, the browser asks for it (any user name). Set it whenever the port can be reached by others. |
+| `PORT` | `8080` | Port the server listens on |
+| `ONETAKE_TLS_CERT`, `ONETAKE_TLS_KEY` | none | Paths to a certificate and key, to serve HTTPS directly instead of through a reverse proxy |
+| `ONETAKE_DATA_DIR`, `ONETAKE_CONFIG_DIR` | `/data`, `/config` | The two folders above |
+
+**Recording** works in the browser, from the audio inputs of the computer the browser runs on. Browsers allow this only on a secure page, so open the app over HTTPS (behind a reverse proxy such as Caddy or Traefik, or with the TLS variables), or as `http://localhost:8080` on the server itself. Samples are sent to the server as they arrive. A recording is finished properly when you stop it, close the tab, or stop the container.
+
+The server is meant for one person at a time: like the desktop app, it has one open file, one recording and one export. Updates are not installed by the app. The status bar says when a new version is out, and you update by rebuilding or pulling the image.
+
+To run the server without Docker, use `npm run serve` (data in `./data`, unless `ONETAKE_DATA_DIR` says otherwise).
+
 ## Development
 
 Requires Node.js 22 or newer.
@@ -195,6 +226,7 @@ Installed copies look for releases in the repository named under `build.publish`
 
 - `src/main/`: Electron main process (WAV parsing, waveform scan and cache, ffmpeg export, reading samples for playback, writing recordings)
 - `src/preload/`: the bridge between the UI and the main process (`window.studio`)
+- `src/server/`, `src/web/`: the web build (Docker). The server does the main process's work over HTTP, and `src/web/` is the browser's `window.studio`, including the server file browser
 - `src/renderer/`: the UI (canvas timeline and overview, output list, commands and shortcuts)
 - `src/shared/`: types, time formatting, cut/segment planning and filename validation
 - `src/shared/i18n/`: translations. `en.ts` is the master list of texts. To add a language, copy `hu.ts`, translate it, and register it in `index.ts`. The type checker reports any missing text, and a test checks that placeholders match.

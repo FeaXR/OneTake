@@ -7,10 +7,11 @@ import { runExport } from './exporter.ts';
 import { loadPeaks, savePeaks } from './peaks.ts';
 import { LEGACY_FOLDER, moveLegacyFolder } from './legacy-folders.ts';
 import { WavRecorder } from './recorder.ts';
-import { DEVELOPER_PAGE, REPOSITORY_PAGE, Updater } from './updates.ts';
+import { Updater } from './updates.ts';
+import { DEVELOPER_PAGE, REPOSITORY_PAGE } from '../shared/links.ts';
 import { APP_FOLDER } from './session-path.ts';
 import {
-  loadProject, loadSettings, loadShortcutOverrides, peaksCacheDir, saveProject, saveSettings, saveShortcutOverrides,
+  configureStore, loadProject, loadSettings, loadShortcutOverrides, peaksCacheDir, saveProject, saveSettings, saveShortcutOverrides,
 } from './store.ts';
 import { readFrames, readWavLayout, type WavLayout } from './wav.ts';
 import { trimDir } from '../shared/naming.ts';
@@ -284,6 +285,7 @@ function registerIpc(): void {
 // Documents folder (sessions) move to the new names before anything reads them.
 moveLegacyFolder(join(app.getPath('appData'), LEGACY_FOLDER), app.getPath('userData'));
 moveLegacyFolder(join(app.getPath('documents'), LEGACY_FOLDER), join(app.getPath('documents'), APP_FOLDER));
+configureStore({ userData: app.getPath('userData'), sessions: join(app.getPath('documents'), APP_FOLDER, 'Sessions') });
 
 /**
  * No menu bar on Windows and Linux: everything is in the toolbar. A Mac always has a menu bar,

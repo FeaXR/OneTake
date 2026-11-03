@@ -4,15 +4,11 @@ import { spawn } from 'node:child_process';
 import { chmodSync, copyFileSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import pkg from '../../package.json' with { type: 'json' };
+import { RELEASES_PAGE, REPO } from '../shared/links.ts';
 import type { UpdateState } from '../shared/types.ts';
 import { compareVersions } from '../shared/version.ts';
 
-// The same repository electron-builder publishes to, so a fork only changes it in package.json.
 const { owner, repo } = pkg.build.publish[0];
-const REPO = `${owner}/${repo}`;
-const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`;
-export const DEVELOPER_PAGE = `https://github.com/${owner}`;
-export const REPOSITORY_PAGE = `https://github.com/${REPO}`;
 
 /**
  * A GitHub token for a private repository's releases, from the file "update-token" in the

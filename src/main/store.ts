@@ -1,12 +1,29 @@
-import { app } from 'electron';
 import { join } from 'node:path';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { trimDir } from '../shared/naming.ts';
 import { cleanPresets, DEFAULT_BITRATE_PRESETS, DEFAULT_PEAK_PRESETS, isBitrate, isPeakTarget } from '../shared/presets.ts';
 import { DEFAULT_SETTINGS, type Project, type Settings } from '../shared/types.ts';
-import { APP_FOLDER, legacySessionFileFor, sessionFileFor } from './session-path.ts';
+import { legacySessionFileFor, sessionFileFor } from './session-path.ts';
 
-const userFile = (name: string) => join(app.getPath('userData'), name);
+/** Where settings, the peaks cache and sessions are kept; set once at startup. */
+export interface StorePaths {
+  userData: string;
+  sessions: string;
+}
+
+let paths: StorePaths | null = null;
+
+/** Called before anything is read: the desktop app passes its system folders, the server its config folder. */
+export function configureStore(p: StorePaths): void {
+  paths = p;
+}
+
+function storePaths(): StorePaths {
+  if (!paths) throw new Error('configureStore() was not called');
+  return paths;
+}
+
+const userFile = (name: string) => join(storePaths().userData, name);
 
 async function readJson<T>(file: string): Promise<T | null> {
   try {
@@ -48,8 +65,8 @@ export async function saveShortcutOverrides(overrides: Record<string, string[]>)
   await writeJson(shortcutsFile(), overrides);
 }
 
-/** Sessions live in one place, Documents/One Take/Sessions, on every system. */
-export const sessionsDir = () => join(app.getPath('documents'), APP_FOLDER, 'Sessions');
+/** Sessions live in one place (Documents/One Take/Sessions in the desktop app). */
+export const sessionsDir = () => storePaths().sessions;
 
 const isProject = (p: Project | null): p is Project => !!p && p.version === 1 && Array.isArray(p.segments);
 
@@ -66,4 +83,4 @@ export async function saveProject(wavPath: string, project: Project): Promise<vo
   await writeJson(sessionFileFor(sessionsDir(), wavPath), { wavPath, ...project });
 }
 
-export const peaksCacheDir = () => join(app.getPath('userData'), 'peaks');
+export const peaksCacheDir = () => join(storePaths().userData, 'peaks');

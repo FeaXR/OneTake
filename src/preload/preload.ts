@@ -9,7 +9,7 @@ function subscribe<T>(channel: string, cb: (value: T) => void): () => void {
 
 const api: StudioApi = {
   pickWav: () => ipcRenderer.invoke('dialog:pickWav'),
-  pathForDroppedFile: (file) => webUtils.getPathForFile(file),
+  droppedFilePath: async (file) => webUtils.getPathForFile(file),
   loadAudio: (path) => ipcRenderer.invoke('audio:load', path),
   onLoadProgress: (cb) => subscribe('audio:loadProgress', cb),
   readAudio: (start, count) => ipcRenderer.invoke('audio:read', start, count),

@@ -419,3 +419,34 @@ select.preset-input { width: auto; }
 .about { display: flex; flex-direction: column; gap: 4px; }
 .about-links { display: flex; gap: 14px; margin-top: 2px; }
 .about-links a { color: var(--accent); }
+
+/* ---------- Web build: server file browser ---------- */
+
+.file-browser {
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.file-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.file-row:hover:not(:disabled) { background: var(--bg-3); }
+.file-row.folder span:first-child { color: var(--accent); }
+.file-browser > .form-note { padding: 10px; }
+.folder-row input { flex: 1; min-width: 0; }
+.modal .hidden { display: none; }

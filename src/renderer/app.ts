@@ -1335,9 +1335,11 @@ export class App {
       document.body.classList.remove('dragging');
       const file = e.dataTransfer?.files[0];
       if (!file) return;
-      const path = window.studio.pathForDroppedFile(file);
-      if (!/\.wav$/i.test(path)) return toast(t('toast.onlyWav'), 'error');
-      void this.openPath(path);
+      if (!/\.wav$/i.test(file.name)) return toast(t('toast.onlyWav'), 'error');
+      void window.studio.droppedFilePath(file).then(
+        (path) => void (path && this.openPath(path)),
+        (err: unknown) => toast(errorText(err), 'error'),
+      );
     });
 
     window.studio.onSaveAndClose(async () => {
