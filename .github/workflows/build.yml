@@ -1,5 +1,6 @@
 # Builds the app for Windows, macOS and Linux on every push and pull request.
-# Pushing a tag like v1.0.0 also publishes all the files as a GitHub release.
+# Pushing a tag like v1.0.0 also publishes all the files as a GitHub release, and the Docker
+# image to ghcr.io. A manual run with "Publish the Docker image" ticked pushes only the image.
 name: Build
 
 on:
@@ -8,6 +9,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      docker:
+        description: Publish the Docker image for the version in package.json
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -91,3 +97,48 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+
+  docker:
+    name: Docker image
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.docker
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Image name and version
+        id: meta
+        run: |
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+
+      # The arm64 image (Raspberry Pi and similar) is built under emulation.
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.image }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.title=One Take
+            org.opencontainers.image.description=Record or open one long WAV and cut it into faded, peak-normalized MP3 files.
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

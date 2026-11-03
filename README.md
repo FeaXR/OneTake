@@ -164,17 +164,29 @@ Because the peak is measured after cuts and fades, a cut-out cough can't hold th
 
 ## Running in Docker
 
-One Take can also run on a server and be used from a browser. The container holds the same editor, export and recording code as the desktop app, and works on files in a folder on the server.
+One Take can also run on a server and be used from a browser. The container holds the same editor, export and recording code as the desktop app, and works on files in a folder on the server. Every release publishes the image as `ghcr.io/feaxr/onetake` (tagged with the version and `latest`, for amd64 and arm64).
 
 ```bash
-docker build -t one-take .
+docker run -d --name one-take -p 8080:8080 -v ~/OneTake:/data -v one-take-config:/config -e ONETAKE_PASSWORD=choose-one ghcr.io/feaxr/onetake:latest
 ```
 
-```bash
-docker run -d --name one-take -p 8080:8080 -v ~/OneTake:/data -v one-take-config:/config -e ONETAKE_PASSWORD=choose-one one-take
+Then open `http://<server>:8080`. With Docker Compose (or **Install via YAML** on TrueNAS):
+
+```yaml
+services:
+  one-take:
+    image: ghcr.io/feaxr/onetake:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ONETAKE_PASSWORD: "choose-one"
+    volumes:
+      - ./OneTake:/data
+      - ./one-take-config:/config
 ```
 
-Then open `http://<server>:8080`.
+To build the image yourself instead: `docker build -t one-take .`
 
 - **`/data`** holds the WAVs and the exported MP3s. **Open** and the folder buttons browse this folder on the server. **Upload WAV…** in the Open dialog, or dropping a WAV on the window, sends a file from your computer (dropped files go to `/data/Uploads`). **Show in folder** lists the folder with download links.
 - **`/config`** holds settings, sessions and the waveform cache.
@@ -189,7 +201,7 @@ Then open `http://<server>:8080`.
 
 **Recording** works in the browser, from the audio inputs of the computer the browser runs on. Browsers allow this only on a secure page, so open the app over HTTPS (behind a reverse proxy such as Caddy or Traefik, or with the TLS variables), or as `http://localhost:8080` on the server itself. Samples are sent to the server as they arrive. A recording is finished properly when you stop it, close the tab, or stop the container.
 
-The server is meant for one person at a time: like the desktop app, it has one open file, one recording and one export. Updates are not installed by the app. The status bar says when a new version is out, and you update by rebuilding or pulling the image.
+The server is meant for one person at a time: like the desktop app, it has one open file, one recording and one export. Updates are not installed by the app. The status bar says when a new version is out, and you update by pulling the new image (or rebuilding it).
 
 To run the server without Docker, use `npm run serve` (data in `./data`, unless `ONETAKE_DATA_DIR` says otherwise).
 
@@ -210,7 +222,7 @@ npm run icon       # re-render build/icon.png and build/icon.ico from build/icon
 
 ### Automatic builds and releases
 
-[GitHub Actions](.github/workflows/build.yml) builds and tests the app on Windows, macOS and Linux for every push and pull request. To publish a release, bump `version` in `package.json`, commit, then push a matching tag. The workflow attaches the five downloads to a new GitHub release, together with the `latest*.yml` and `.blockmap` files that installed copies use to update themselves:
+[GitHub Actions](.github/workflows/build.yml) builds and tests the app on Windows, macOS and Linux for every push and pull request. To publish a release, bump `version` in `package.json`, commit, then push a matching tag. The workflow attaches the five downloads to a new GitHub release, together with the `latest*.yml` and `.blockmap` files that installed copies use to update themselves, and pushes the Docker image to `ghcr.io`. A manual run of the workflow with **Publish the Docker image** ticked pushes the image alone:
 
 ```bash
 git tag v1.0.0
