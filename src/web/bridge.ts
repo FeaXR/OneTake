@@ -13,8 +13,20 @@ const UPLOADS_FOLDER = 'Uploads';
 const headers = { [CALL_HEADER]: '1' };
 const dirname = (p: string) => p.replace(/\/[^/]*$/, '');
 
+/**
+ * The address of a server call, relative to the page (so a reverse proxy may serve the app
+ * under a path). A page opened as http://user:password@host/ would otherwise make fetch()
+ * refuse every call: the browser keeps sending the password it was given anyway.
+ */
+function apiUrl(route: string): string {
+  const url = new URL(`api/${route}`, location.href);
+  url.username = '';
+  url.password = '';
+  return url.href;
+}
+
 async function post(route: string, body: BodyInit, keepalive = false): Promise<Response> {
-  const res = await fetch(`api/${route}`, { method: 'POST', headers, body, keepalive });
+  const res = await fetch(apiUrl(route), { method: 'POST', headers, body, keepalive });
   if (!res.ok) throw new Error((await res.json().catch(() => null) as { error?: string } | null)?.error ?? `${res.status} ${res.statusText}`);
   return res;
 }
@@ -27,7 +39,7 @@ export async function call<T>(channel: string, ...args: unknown[]): Promise<T> {
 export function upload(file: File, dir: string, onProgress: (fraction: number) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `api/upload?dir=${encodeURIComponent(dir)}&name=${encodeURIComponent(file.name)}`);
+    xhr.open('PUT', apiUrl(`upload?dir=${encodeURIComponent(dir)}&name=${encodeURIComponent(file.name)}`));
     xhr.setRequestHeader(CALL_HEADER, '1');
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
     xhr.onload = () => {
@@ -44,7 +56,7 @@ export function upload(file: File, dir: string, onProgress: (fraction: number) =
 }
 
 const listeners = new Map<string, Set<(value: never) => void>>();
-const events = new EventSource('api/events');
+const events = new EventSource(apiUrl('events'));
 
 function subscribe<T>(channel: string, cb: (value: T) => void): () => void {
   if (!listeners.has(channel)) {
