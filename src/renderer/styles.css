@@ -346,7 +346,7 @@ input.invalid { border-color: var(--danger); }
 .modal.wide { width: min(760px, 94vw); }
 .modal h2 { margin: 0; padding: 14px 18px; font-size: 16px; border-bottom: 1px solid var(--line); }
 .modal-body { padding: 14px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; line-height: 1.5; }
-.modal-foot { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; }
+.modal-foot { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 
 .form-grid { display: grid; grid-template-columns: 170px 1fr; gap: 8px 12px; align-items: center; }
 .form-grid .inline { display: flex; gap: 8px; align-items: center; }
@@ -420,7 +420,7 @@ select.preset-input { width: auto; }
 .about-links { display: flex; gap: 14px; margin-top: 2px; }
 .about-links a { color: var(--accent); }
 
-/* ---------- Web build: server file browser ---------- */
+/* ---------- Web builds: file browser ---------- */
 
 .file-browser {
   display: flex;
@@ -450,3 +450,14 @@ select.preset-input { width: auto; }
 .file-browser > .form-note { padding: 10px; }
 .folder-row input { flex: 1; min-width: 0; }
 .modal .hidden { display: none; }
+.file-line { display: flex; align-items: stretch; }
+.file-line > .file-row { flex: 1; min-width: 0; }
+.file-action {
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--text-dim, var(--text));
+  padding: 0 12px;
+  cursor: pointer;
+}
+.file-action:hover { background: var(--bg-3); color: var(--danger, var(--text)); }

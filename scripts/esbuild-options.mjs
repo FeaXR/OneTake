@@ -17,11 +17,13 @@ export const mainBuildOptions = {
   logLevel: 'info',
 };
 
-// esbuild settings for the web build's server (Docker), which reuses the main process modules.
+// esbuild settings for the web builds' servers (Docker): the full server, which reuses the main
+// process modules, and the one that only hands out the browser-only build.
 export const serverBuildOptions = {
   ...mainBuildOptions,
   entryPoints: {
     server: 'src/server/server.ts',
+    static: 'src/server/static.ts',
     'peaks-worker': 'src/main/peaks-worker.ts',
   },
   outdir: 'dist/server',

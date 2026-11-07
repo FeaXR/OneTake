@@ -1,12 +1,9 @@
 import { openSync, readSync, closeSync, fstatSync } from 'node:fs';
 import { codedError } from '../shared/i18n/index.ts';
 import type { AudioInfo } from '../shared/types.ts';
+import { decodeFrames, type WavLayout } from '../shared/wav.ts';
 
-export interface WavLayout extends AudioInfo {
-  dataOffset: number;
-  dataBytes: number;
-  blockAlign: number;
-}
+export { sampleReader, type WavLayout } from '../shared/wav.ts';
 
 const WAVE_FORMAT_PCM = 1;
 const WAVE_FORMAT_IEEE_FLOAT = 3;
@@ -95,41 +92,9 @@ export function readWavLayout(path: string): WavLayout {
   }
 }
 
-/**
- * Returns a reader for sample i (interleaved) of a block of raw WAV data, scaled to -1..1.
- * `chunk` must start at a frame boundary.
- */
-export function sampleReader(layout: WavLayout, chunk: ArrayBuffer, samples: number): (i: number) => number {
-  const { bitsPerSample, sampleFormat } = layout;
-  const bytes = new Uint8Array(chunk);
-  if (sampleFormat === 'float' && bitsPerSample === 32) {
-    const view = new Float32Array(chunk, 0, samples);
-    return (i) => view[i];
-  }
-  if (sampleFormat === 'float') {
-    const view = new Float64Array(chunk, 0, samples);
-    return (i) => view[i];
-  }
-  if (bitsPerSample === 16) {
-    const view = new Int16Array(chunk, 0, samples);
-    return (i) => view[i] / 32768;
-  }
-  if (bitsPerSample === 24) {
-    return (i) => {
-      const o = i * 3;
-      return (((bytes[o] | (bytes[o + 1] << 8) | (bytes[o + 2] << 16)) << 8) >> 8) / 8388608;
-    };
-  }
-  if (bitsPerSample === 32) {
-    const view = new Int32Array(chunk, 0, samples);
-    return (i) => view[i] / 2147483648;
-  }
-  return (i) => (bytes[i] - 128) / 128;
-}
-
 /** Reads `count` frames from `start` as one Float32Array per channel (shorter at the end of the file). */
 export function readFrames(layout: WavLayout, start: number, count: number): Float32Array[] {
-  const { channels, blockAlign } = layout;
+  const { blockAlign } = layout;
   const first = Math.max(0, Math.min(layout.frames, Math.floor(start)));
   const frames = Math.max(0, Math.min(layout.frames - first, Math.floor(count)));
   const chunk = new ArrayBuffer(frames * blockAlign);
@@ -147,11 +112,5 @@ export function readFrames(layout: WavLayout, start: number, count: number): Flo
       closeSync(fd);
     }
   }
-  const usable = Math.floor(got / blockAlign);
-  const sampleAt = sampleReader(layout, chunk, usable * channels);
-  const out = Array.from({ length: channels }, () => new Float32Array(usable));
-  for (let f = 0; f < usable; f++) {
-    for (let c = 0; c < channels; c++) out[c][f] = sampleAt(f * channels + c);
-  }
-  return out;
+  return decodeFrames(layout, new Uint8Array(chunk, 0, Math.floor(got / blockAlign) * blockAlign));
 }

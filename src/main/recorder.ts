@@ -1,17 +1,12 @@
 import { open, type FileHandle } from 'node:fs/promises';
 import { BucketBuilder, GrowingBuckets } from '../shared/peaks.ts';
 import type { PeakData } from '../shared/types.ts';
-import type { WavLayout } from './wav.ts';
+import { encodeInt24, HEADER_BYTES, wavHeaderBytes, type WavLayout } from '../shared/wav.ts';
 
-/**
- * RIFF header, a 28-byte JUNK chunk and the fmt chunk. The JUNK chunk is where the RF64 ds64
- * chunk goes if the recording outgrows 4 GB (about 4 hours of 48 kHz 24-bit stereo).
- */
-export const HEADER_BYTES = 80;
-const RIFF_LIMIT = 0xffffffff;
+export { HEADER_BYTES } from '../shared/wav.ts';
+
 /** How often the header sizes are brought up to date, so a crash loses at most this much. */
 const HEADER_REFRESH_MS = 1000;
-const INT24_SCALE = 8388608;
 
 /**
  * Writes a 24-bit PCM WAV while it is being recorded. Samples are appended as they arrive;
@@ -77,15 +72,7 @@ export class WavRecorder {
     if (this.finished) return Promise.resolve(this.frames);
     const frames = Math.min(...planes.slice(0, this.channels).map((p) => p.length));
     if (planes.length < this.channels || !frames) return this.enqueue(() => this.frames);
-    const data = Buffer.alloc(frames * this.blockAlign);
-    let o = 0;
-    for (let f = 0; f < frames; f++) {
-      for (let c = 0; c < this.channels; c++) {
-        const v = Math.round(planes[c][f] * INT24_SCALE);
-        data.writeIntLE(v > 8388607 ? 8388607 : v < -8388608 ? -8388608 : v, o, 3);
-        o += 3;
-      }
-    }
+    const data = Buffer.from(encodeInt24(planes.map((p) => p.subarray(0, frames)), this.channels).buffer);
     this.builder.push(planes.slice(0, this.channels).map((p) => p.subarray(0, frames)));
     return this.enqueue(async () => {
       await this.write(data, HEADER_BYTES + this.frames * this.blockAlign);
@@ -140,28 +127,5 @@ export class WavRecorder {
 
 /** The 80-byte header for `dataBytes` of 24-bit PCM; RF64 once the sizes no longer fit 32 bits. */
 export function wavHeader(sampleRate: number, channels: number, dataBytes: number): Buffer {
-  const h = Buffer.alloc(HEADER_BYTES);
-  const riffBytes = HEADER_BYTES - 8 + dataBytes;
-  const rf64 = riffBytes > RIFF_LIMIT;
-  h.write(rf64 ? 'RF64' : 'RIFF', 0, 'ascii');
-  h.writeUInt32LE(rf64 ? RIFF_LIMIT : riffBytes, 4);
-  h.write('WAVE', 8, 'ascii');
-  h.write(rf64 ? 'ds64' : 'JUNK', 12, 'ascii');
-  h.writeUInt32LE(28, 16);
-  if (rf64) {
-    h.writeBigUInt64LE(BigInt(riffBytes), 20);
-    h.writeBigUInt64LE(BigInt(dataBytes), 28);
-    h.writeBigUInt64LE(BigInt(Math.floor(dataBytes / (channels * 3))), 36);
-  }
-  h.write('fmt ', 48, 'ascii');
-  h.writeUInt32LE(16, 52);
-  h.writeUInt16LE(1, 56); // PCM
-  h.writeUInt16LE(channels, 58);
-  h.writeUInt32LE(sampleRate, 60);
-  h.writeUInt32LE(sampleRate * channels * 3, 64);
-  h.writeUInt16LE(channels * 3, 68);
-  h.writeUInt16LE(24, 70);
-  h.write('data', 72, 'ascii');
-  h.writeUInt32LE(rf64 ? RIFF_LIMIT : dataBytes, 76);
-  return h;
+  return Buffer.from(wavHeaderBytes(sampleRate, channels, dataBytes).buffer);
 }

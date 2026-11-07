@@ -2,13 +2,11 @@
 // process does on the desktop, over HTTP. Everything it reads or writes stays inside the data
 // folder (ONETAKE_DATA_DIR); settings, sessions and the peaks cache live in ONETAKE_CONFIG_DIR.
 // One user at a time: like the desktop app it holds one open WAV, recording and export.
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync, mkdirSync, realpathSync, statSync } from 'node:fs';
 import { mkdir, readdir, rm } from 'node:fs/promises';
-import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { createServer as createHttpsServer } from 'node:https';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { basename, dirname, extname, join, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { timingSafeEqual } from 'node:crypto';
 import { codedError } from '../shared/i18n/index.ts';
 import { APP_VERSION, REPO } from '../shared/links.ts';
 import type { AudioInfo, ExportRequest, LoadedAudio, Project, Settings, UpdateState } from '../shared/types.ts';
@@ -23,15 +21,10 @@ import {
   configureStore, loadProject, loadSettings, loadShortcutOverrides, peaksCacheDir, saveProject, saveSettings, saveShortcutOverrides,
 } from '../main/store.ts';
 import { readFrames, readWavLayout, type WavLayout } from '../main/wav.ts';
+import { askPassword, authorized, createServer, HOST, HTTPS, PASSWORD, PORT, send, serveStatic } from './http.ts';
 
 const DATA_DIR = resolve(process.env.ONETAKE_DATA_DIR ?? join(process.cwd(), 'data'));
 const CONFIG_DIR = resolve(process.env.ONETAKE_CONFIG_DIR ?? join(DATA_DIR, '.one-take'));
-const PORT = Number(process.env.PORT ?? 8080);
-const HOST = process.env.HOST ?? '0.0.0.0';
-/** When set, the browser asks for it (any user name) before showing anything. */
-const PASSWORD = process.env.ONETAKE_PASSWORD ?? '';
-const TLS_CERT = process.env.ONETAKE_TLS_CERT;
-const TLS_KEY = process.env.ONETAKE_TLS_KEY;
 const WEB_DIR = join(__dirname, '..', 'web');
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 /** A recording left without a page sending it samples is finished after this long. */
@@ -237,61 +230,19 @@ const handlers: Record<string, Handler> = {
 
 // ---------- HTTP ----------
 
-const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
-  '.json': 'application/json',
-  '.map': 'application/json',
-  '.woff2': 'font/woff2',
-};
-
 async function readBody(req: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks);
 }
 
-function send(res: ServerResponse, status: number, body: string | Uint8Array, type = 'application/json'): void {
-  res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store' });
-  res.end(body);
-}
-
-function authorized(req: IncomingMessage): boolean {
-  if (!PASSWORD) return true;
-  const header = req.headers.authorization ?? '';
-  if (!header.startsWith('Basic ')) return false;
-  const given = Buffer.from(Buffer.from(header.slice(6), 'base64').toString('utf8').replace(/^[^:]*:/, ''));
-  const expected = Buffer.from(PASSWORD);
-  return given.length === expected.length && timingSafeEqual(given, expected);
-}
-
-function serveStatic(url: URL, res: ServerResponse): void {
-  const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html';
-  const file = resolve(WEB_DIR, rel);
-  if (!file.startsWith(WEB_DIR + sep) || !existsSync(file) || !statSync(file).isFile()) return send(res, 404, 'Not found', 'text/plain');
-  // Built assets have a hash in their name and never change; the page itself is always fetched fresh.
-  const immutable = rel.startsWith('assets/');
-  res.writeHead(200, {
-    'Content-Type': MIME[extname(file)] ?? 'application/octet-stream',
-    'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
-  });
-  createReadStream(file).pipe(res);
-}
-
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://localhost');
   if (url.pathname === '/healthz') return send(res, 200, 'ok', 'text/plain');
-  if (!authorized(req)) {
-    res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="One Take", charset="UTF-8"' });
-    return void res.end();
-  }
+  if (!authorized(req)) return askPassword(res);
   if (!url.pathname.startsWith('/api/')) {
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
-    return serveStatic(url, res);
+    return serveStatic(WEB_DIR, url, res);
   }
   const route = url.pathname.slice('/api/'.length);
   if (route === 'events') return openEvents(req, res);
@@ -348,12 +299,10 @@ function onRequest(req: IncomingMessage, res: ServerResponse): void {
   });
 }
 
-const server = TLS_CERT && TLS_KEY
-  ? createHttpsServer({ cert: readFileSync(TLS_CERT), key: readFileSync(TLS_KEY) }, onRequest)
-  : createHttpServer(onRequest);
+const server = createServer(onRequest);
 
 server.listen(PORT, HOST, () => {
-  console.log(`One Take ${APP_VERSION} on ${TLS_CERT && TLS_KEY ? 'https' : 'http'}://${HOST}:${PORT}`);
+  console.log(`One Take ${APP_VERSION} on ${HTTPS ? 'https' : 'http'}://${HOST}:${PORT}`);
   console.log(`Data folder: ${dataRoot}, settings: ${CONFIG_DIR}${PASSWORD ? ', password required' : ''}`);
 });
 

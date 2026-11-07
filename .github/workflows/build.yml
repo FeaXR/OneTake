@@ -1,6 +1,6 @@
 # Builds the app for Windows, macOS and Linux on every push and pull request.
-# Pushing a tag like v1.0.0 also publishes all the files as a GitHub release, and the Docker
-# image to ghcr.io. A manual run with "Publish the Docker image" ticked pushes only the image.
+# Pushing a tag like v1.0.0 also publishes all the files as a GitHub release, and the two Docker
+# images to ghcr.io. A manual run with "Publish the Docker image" ticked pushes only the images.
 name: Build
 
 on:
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       docker:
-        description: Publish the Docker image for the version in package.json
+        description: Publish the Docker images for the version in package.json
         type: boolean
         default: false
 
@@ -99,7 +99,7 @@ jobs:
         run: gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
 
   docker:
-    name: Docker image
+    name: Docker images
     if: startsWith(github.ref, 'refs/tags/v') || inputs.docker
     needs: build
     runs-on: ubuntu-latest
@@ -126,9 +126,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      # The server: editing in the browser, files and export on the server.
       - uses: docker/build-push-action@v7
         with:
           context: .
+          target: server
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
@@ -139,6 +141,25 @@ jobs:
             org.opencontainers.image.version=${{ steps.meta.outputs.version }}
             org.opencontainers.image.title=One Take
             org.opencontainers.image.description=Record or open one long WAV and cut it into faded, peak-normalized MP3 files.
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Browser only: the container serves the page, everything else happens in the browser.
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: browser
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}-browser:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.image }}-browser:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.title=One Take (browser only)
+            org.opencontainers.image.description=One Take running entirely in the browser: the container only serves the page.
             org.opencontainers.image.licenses=MIT
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -164,7 +164,7 @@ Because the peak is measured after cuts and fades, a cut-out cough can't hold th
 
 ## Running in Docker
 
-One Take can also run on a server and be used from a browser. The container holds the same editor, export and recording code as the desktop app, and works on files in a folder on the server. Every release publishes the image as `ghcr.io/feaxr/onetake` (tagged with the version and `latest`, for amd64 and arm64).
+One Take can also run on a server and be used from a browser. The container holds the same editor, export and recording code as the desktop app, and works on files in a folder on the server. Every release publishes the image as `ghcr.io/feaxr/onetake` (tagged with the version and `latest`, for amd64 and arm64). To keep the audio on your own computer instead, use the [browser-only image](#running-in-the-browser-only).
 
 ```bash
 docker run -d --name one-take -p 8080:8080 -v ~/OneTake:/data -v one-take-config:/config -e ONETAKE_PASSWORD=choose-one ghcr.io/feaxr/onetake:latest
@@ -205,6 +205,27 @@ The server is meant for one person at a time: like the desktop app, it has one o
 
 To run the server without Docker, use `npm run serve` (data in `./data`, unless `ONETAKE_DATA_DIR` says otherwise).
 
+### Running in the browser only
+
+A second image, `ghcr.io/feaxr/onetake-browser`, runs everything inside the browser. The container only serves the page. Opening a WAV, the waveform, playback, recording and the MP3 export all happen on the computer the browser runs on, and no audio, settings or sessions are sent to the server. The page's content security policy lets it contact nothing else except GitHub's release list for the update check, which can be switched off in Settings. After the first visit the page also opens without a connection to the server. Several people can use one container, each with their own files.
+
+```bash
+docker run -d --name one-take-browser -p 8080:8080 ghcr.io/feaxr/onetake-browser:latest
+```
+
+To build it yourself: `docker build --target browser -t one-take-browser .` It needs no volumes. `ONETAKE_PASSWORD`, `PORT` and the TLS variables work as in the table above.
+
+Browsers keep files only for pages on a secure connection, so open it over HTTPS (behind a reverse proxy, or with the TLS variables), or as `http://localhost:8080` on the computer that runs the container. Where the files go depends on the browser:
+
+- **Chrome and Edge** can use folders on the computer. **Add a folder from this computer…** in the Open and folder dialogs gives One Take a folder, such as the one your recordings are in. WAVs are opened where they are, and MP3s and recordings are written straight into it. After a browser restart, the browser asks once more before One Take may use it again.
+- **Every browser** (Firefox, Safari, and Chromium-based browsers that switch folder access off, such as Brave) has the browser's own storage for this site, shown as the **One Take** folder. A WAV opened from elsewhere, or dropped on the window, is copied into `One Take/Imported` first. Exported MP3s and recordings stay there until you download them: **Show in folder** lists the files, and clicking one downloads it. The × next to a file deletes it.
+
+A recording into a folder on the computer is written to the browser's storage while it runs, and copied into the folder when it stops. A recording that is cut off (by closing the tab, for example) stays in `One Take/Recordings in progress`.
+
+The export gives the same audio as the desktop app's: the same trims, crossfades, fade curves and normalization, computed in the page (the tests compare it with ffmpeg's sample by sample), and encoded with the same LAME encoder, compiled to WebAssembly. A file that is cancelled or fails is never left half-written.
+
+Run it without Docker with `npm run serve:browser`.
+
 ## Development
 
 Requires Node.js 22 or newer.
@@ -212,7 +233,7 @@ Requires Node.js 22 or newer.
 ```bash
 npm install
 npm run dev        # Vite dev server + Electron (UI hot-reloads)
-npm test           # unit tests and an ffmpeg export test
+npm test           # unit tests, and export tests against ffmpeg
 npm run typecheck
 npm run dist       # installers for the current OS, in release/
 npm run icon       # re-render build/icon.png and build/icon.ico from build/icon.svg
@@ -239,6 +260,8 @@ Installed copies look for releases in the repository named under `build.publish`
 - `src/main/`: Electron main process (WAV parsing, waveform scan and cache, ffmpeg export, reading samples for playback, writing recordings)
 - `src/preload/`: the bridge between the UI and the main process (`window.studio`)
 - `src/server/`, `src/web/`: the web build (Docker). The server does the main process's work over HTTP, and `src/web/` is the browser's `window.studio`, including the server file browser
+- `src/browser/`: the browser-only build. Its `window.studio` keeps files in the browser's storage or in folders on the computer, settings and sessions in IndexedDB, and runs the waveform scan and the recording in web workers. `src/server/static.ts` serves it
+- `src/shared/render.ts`, `src/shared/export.ts`: the export without ffmpeg (trim, crossfade, fades, gain, then LAME), used by the browser-only build
 - `src/renderer/`: the UI (canvas timeline and overview, output list, commands and shortcuts)
 - `src/shared/`: types, time formatting, cut/segment planning and filename validation
 - `src/shared/i18n/`: translations. `en.ts` is the master list of texts. To add a language, copy `hu.ts`, translate it, and register it in `index.ts`. The type checker reports any missing text, and a test checks that placeholders match.

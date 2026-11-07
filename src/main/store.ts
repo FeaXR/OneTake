@@ -1,8 +1,7 @@
 import { join } from 'node:path';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { trimDir } from '../shared/naming.ts';
-import { cleanPresets, DEFAULT_BITRATE_PRESETS, DEFAULT_PEAK_PRESETS, isBitrate, isPeakTarget } from '../shared/presets.ts';
-import { DEFAULT_SETTINGS, type Project, type Settings } from '../shared/types.ts';
+import { completeSettings, isProject } from '../shared/settings.ts';
+import type { Project, Settings } from '../shared/types.ts';
 import { legacySessionFileFor, sessionFileFor } from './session-path.ts';
 
 /** Where settings, the peaks cache and sessions are kept; set once at startup. */
@@ -39,14 +38,7 @@ async function writeJson(file: string, value: unknown): Promise<void> {
 }
 
 export async function loadSettings(): Promise<Settings> {
-  const s: Settings = { ...DEFAULT_SETTINGS, ...(await readJson<Partial<Settings>>(userFile('settings.json'))) };
-  // Paths typed into settings.json by hand may end in a separator; the app expects none.
-  s.folderRules = (Array.isArray(s.folderRules) ? s.folderRules : []).map((r) => ({ ...r, folder: trimDir(r.folder ?? '') }));
-  s.peakPresets = cleanPresets(s.peakPresets, isPeakTarget, DEFAULT_PEAK_PRESETS);
-  s.bitratePresets = cleanPresets(s.bitratePresets, isBitrate, DEFAULT_BITRATE_PRESETS);
-  if (!isPeakTarget(s.defaultPeakTarget)) s.defaultPeakTarget = DEFAULT_SETTINGS.defaultPeakTarget;
-  if (!isBitrate(s.defaultBitrate)) s.defaultBitrate = DEFAULT_SETTINGS.defaultBitrate;
-  return s;
+  return completeSettings(await readJson<Partial<Settings>>(userFile('settings.json')));
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
@@ -67,8 +59,6 @@ export async function saveShortcutOverrides(overrides: Record<string, string[]>)
 
 /** Sessions live in one place (Documents/One Take/Sessions in the desktop app). */
 export const sessionsDir = () => storePaths().sessions;
-
-const isProject = (p: Project | null): p is Project => !!p && p.version === 1 && Array.isArray(p.segments);
 
 /** The WAV's session, or one saved next to it by older versions; null when there is none. */
 export async function loadProject(wavPath: string): Promise<Project | null> {
