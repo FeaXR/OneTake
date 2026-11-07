@@ -147,7 +147,8 @@ test('the browser export writes MP3s like the desktop export', async () => {
     const desktop = await runExport(request(desktopDir), () => {}, new AbortController().signal);
     assert.ok(desktop.ok, desktop.error ?? "");
 
-    const browserDir = join(dir, 'browser');
+    // A folder as the browser build names them (its paths always use /); the MP3s stay in memory.
+    const browserDir = '/One Take/Exports';
     const files = new Map<string, Uint8Array[]>();
     const io: ExportIo = {
       read: async (start, count) => readFrames(layout, start, count),
@@ -155,7 +156,7 @@ test('the browser export writes MP3s like the desktop export', async () => {
         const chunks: Uint8Array[] = [];
         return {
           write: async (b) => void chunks.push(b),
-          close: async () => void files.set(join(folder, name), chunks),
+          close: async () => void files.set(`${folder}/${name}`, chunks),
           abort: async () => {},
         };
       },
@@ -164,12 +165,12 @@ test('the browser export writes MP3s like the desktop export', async () => {
     const phases: string[] = [];
     const result = await exportSegments(request(browserDir), layout, io, (p) => phases.push(p.phase), new AbortController().signal);
     assert.ok(result.ok, result.error ?? "");
-    assert.deepEqual(result.written, [join(browserDir, 'Loud.mp3'), join(browserDir, 'Quiet.mp3')]);
+    assert.deepEqual(result.written, [`${browserDir}/Loud.mp3`, `${browserDir}/Quiet.mp3`]);
     assert.ok(phases.includes('measure') && phases.includes('encode') && phases.at(-1) === 'done');
 
     for (const name of ['Loud.mp3', 'Quiet.mp3']) {
       const file = join(dir, `browser-${name}`);
-      writeFileSync(file, Buffer.concat(files.get(join(browserDir, name))!));
+      writeFileSync(file, Buffer.concat(files.get(`${browserDir}/${name}`)!));
       const ours = probe(file);
       const theirs = probe(join(desktopDir, name));
       assert.equal(ours.rate, 48000, name);
