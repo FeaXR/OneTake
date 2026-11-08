@@ -3,7 +3,7 @@
 [![Build](https://github.com/FeaXR/OneTake/actions/workflows/build.yml/badge.svg)](https://github.com/FeaXR/OneTake/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A focused desktop editor for cutting **one long WAV recording into several MP3 files**, for Windows, macOS and Linux. It can also record that WAV itself, and you can start marking and exporting while the recording goes on.
+A focused editor for cutting **one long WAV recording into several MP3 files**. It runs as a desktop app on Windows, macOS and Linux, and as a web app you host yourself with Docker, in two versions: one that works on files on the server, and one that runs entirely in the browser. It can also record that WAV itself, and you can start marking and exporting while the recording goes on.
 
 Most audio editors work the other way round: many tracks in, one file out. One Take is for the opposite job: a long recording of a concert, a radio show or a lecture that has to become a set of separate, finished files. You mark where each file starts and ends, cut out coughs and noises, and export them all in one go. Each file gets consistent fades and its own loudness and bitrate.
 
@@ -42,6 +42,16 @@ Most audio editors work the other way round: many tracks in, one file out. One T
 
 ## Download
 
+One Take comes in three forms. All of them have the same editor, the same export and the same recording.
+
+| Version | Where the audio is | Best for |
+| --- | --- | --- |
+| [Desktop app](#desktop-app) | On your computer | Working on one computer, with no setup |
+| [Server version](#server-version) (`ghcr.io/feaxr/onetake`) | In a folder on the server | Recordings that already live on a server or NAS, used from any browser |
+| [Browser-only version](#browser-only-version) (`ghcr.io/feaxr/onetake-browser`) | On the computer the browser runs on | Using it from a browser without installing anything, while the audio never leaves your computer |
+
+### Desktop app
+
 Get the latest version from the [Releases page](https://github.com/FeaXR/OneTake/releases).
 
 | System | File | Notes |
@@ -60,7 +70,7 @@ xattr -dr com.apple.quarantine "/Applications/One Take.app"
 
 On a Mac, use **Cmd** wherever this page says Ctrl, and **Option** for Alt. Shortcuts are shown with the Mac symbols in the app.
 
-### Updates
+#### Updates
 
 The app looks for a new version on GitHub when it starts (switch this off in **Settings → Updates**, where **Check now** also is). The Windows installer version and the AppImage download it in the background; the status bar then offers **restart to update**, and otherwise it is installed when you close the app. It never restarts during a recording or an export, and asks about unsaved changes first. The AppImage keeps its file name, so launchers made by AppImage managers keep working. The portable .exe, the .deb and the Mac version show a link to the download page instead.
 
@@ -151,7 +161,7 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 - **Files use:** the peak target and bitrate for files that no folder rule covers.
 - **Updates:** look for a new version when the app starts, or check now (see [Updates](#updates)).
 
-Settings are stored in `%APPDATA%\One Take` on Windows, `~/Library/Application Support/One Take` on macOS and `~/.config/One Take` on Linux. Versions from before the rename called the app Studio Audio Editor; its settings and sessions folders are moved to the new names on the first start.
+Settings are stored in `%APPDATA%\One Take` on Windows, `~/Library/Application Support/One Take` on macOS and `~/.config/One Take` on Linux. The server version keeps them in its `/config` folder, and the browser-only version in the browser's storage for the site. Versions from before the rename called the app Studio Audio Editor; its settings and sessions folders are moved to the new names on the first start.
 
 ## How export works
 
@@ -162,9 +172,13 @@ Each output file is rendered from the untouched WAV in two ffmpeg passes (ffmpeg
 
 Because the peak is measured after cuts and fades, a cut-out cough can't hold the level down. Files are written as `.part` first and renamed when complete.
 
-## Running in Docker
+## Web versions
 
-One Take can also run on a server and be used from a browser. The container holds the same editor, export and recording code as the desktop app, and works on files in a folder on the server. Every release publishes the image as `ghcr.io/feaxr/onetake` (tagged with the version and `latest`, for amd64 and arm64). To keep the audio on your own computer instead, use the [browser-only image](#running-in-the-browser-only).
+Both web versions run in Docker and are used from a browser. Every release publishes both images to `ghcr.io`, tagged with the version and `latest`, for amd64 and arm64.
+
+### Server version
+
+`ghcr.io/feaxr/onetake` runs One Take on a server. The container holds the same editor, export and recording code as the desktop app, and works on files in a folder on the server. To keep the audio on your own computer instead, use the [browser-only version](#browser-only-version).
 
 ```bash
 docker run -d --name one-take -p 8080:8080 -v ~/OneTake:/data -v one-take-config:/config -e ONETAKE_PASSWORD=choose-one ghcr.io/feaxr/onetake:latest
@@ -205,9 +219,9 @@ The server is meant for one person at a time: like the desktop app, it has one o
 
 To run the server without Docker, use `npm run serve` (data in `./data`, unless `ONETAKE_DATA_DIR` says otherwise).
 
-### Running in the browser only
+### Browser-only version
 
-A second image, `ghcr.io/feaxr/onetake-browser`, runs everything inside the browser. The container only serves the page. Opening a WAV, the waveform, playback, recording and the MP3 export all happen on the computer the browser runs on, and no audio, settings or sessions are sent to the server. The page's content security policy lets it contact nothing else except GitHub's release list for the update check, which can be switched off in Settings. After the first visit the page also opens without a connection to the server. Several people can use one container, each with their own files.
+`ghcr.io/feaxr/onetake-browser` runs everything inside the browser. The container only serves the page. Opening a WAV, the waveform, playback, recording and the MP3 export all happen on the computer the browser runs on, and no audio, settings or sessions are sent to the server. The page's content security policy lets it contact nothing else except GitHub's release list for the update check, which can be switched off in Settings. After the first visit the page also opens without a connection to the server. Several people can use one container, each with their own files.
 
 ```bash
 docker run -d --name one-take-browser -p 8080:8080 ghcr.io/feaxr/onetake-browser:latest
