@@ -70,9 +70,37 @@ xattr -dr com.apple.quarantine "/Applications/One Take.app"
 
 On a Mac, use **Cmd** wherever this page says Ctrl, and **Option** for Alt. Shortcuts are shown with the Mac symbols in the app.
 
+#### Package managers
+
+From version 1.6.2, One Take can also be installed with a package manager, which then also updates it.
+
+**winget** (Windows), the same as the installer above:
+
+```bash
+winget install FeaXR.OneTake
+```
+
+**Scoop** (Windows), installed for your user only. Add this repository as a bucket once, then install:
+
+```bash
+scoop bucket add one-take https://github.com/FeaXR/OneTake
+```
+
+```bash
+scoop install one-take/one-take
+```
+
+**AUR** (Arch Linux and derivatives such as CachyOS and Manjaro), as `one-take-bin`, with an AUR helper such as yay or paru:
+
+```bash
+yay -S one-take-bin
+```
+
+Copies from Scoop and the AUR don't update themselves: when a new version is out, the status bar says to update it with Scoop or the AUR. A copy from winget updates itself like the installer, and `winget upgrade` works too.
+
 #### Updates
 
-The app looks for a new version on GitHub when it starts (switch this off in **Settings → Updates**, where **Check now** also is). The Windows installer version and the AppImage download it in the background; the status bar then offers **restart to update**, and otherwise it is installed when you close the app. It never restarts during a recording or an export, and asks about unsaved changes first. The AppImage keeps its file name, so launchers made by AppImage managers keep working. The portable .exe, the .deb and the Mac version show a link to the download page instead.
+The app looks for a new version on GitHub when it starts (switch this off in **Settings → Updates**, where **Check now** also is). The Windows installer version and the AppImage download it in the background; the status bar then offers **restart to update**, and otherwise it is installed when you close the app. It never restarts during a recording or an export, and asks about unsaved changes first. The AppImage keeps its file name, so launchers made by AppImage managers keep working. The portable .exe, the .deb and the Mac version show a link to the download page instead, and copies from Scoop or the AUR say to update them there.
 
 Builds of every commit are also available from the [Actions page](https://github.com/FeaXR/OneTake/actions/workflows/build.yml). Open a run and download the artifact at the bottom (requires a GitHub account).
 
@@ -267,6 +295,14 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
+After the release, the workflow also writes the package-manager files with [scripts/package-manifests.mjs](scripts/package-manifests.mjs) and publishes them:
+
+- **Scoop:** `bucket/one-take.json` is updated and committed to the default branch. This needs nothing set up.
+- **AUR:** the `one-take-bin` package is pushed to the AUR, which creates it on the first push. This needs an [AUR account](https://aur.archlinux.org/register) with an SSH public key, and the matching private key as the repository secret `AUR_SSH_KEY`.
+- **winget:** a pull request to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) is opened from a fork under your account. It appears in winget once Microsoft's checks and a moderator approve it, usually within a few days. This needs a classic GitHub token with the `public_repo` scope as the repository secret `WINGET_TOKEN`.
+
+Without its secret, the AUR or winget step is skipped.
+
 Installed copies look for releases in the repository named under `build.publish` in `package.json`, so a fork that publishes its own releases only changes it there. If that repository is private, put a GitHub token that can read it in a file called `update-token` in the app's settings folder (`%APPDATA%\One Take` on Windows, `~/Library/Application Support/One Take` on macOS, `~/.config/One Take` on Linux) on each computer. The token is read when the app starts and is never built into the app.
 
 ### Project layout
@@ -276,6 +312,8 @@ Installed copies look for releases in the repository named under `build.publish`
 - `src/server/`, `src/web/`: the web build (Docker). The server does the main process's work over HTTP, and `src/web/` is the browser's `window.studio`, including the server file browser
 - `src/browser/`: the browser-only build. Its `window.studio` keeps files in the browser's storage or in folders on the computer, settings and sessions in IndexedDB, and runs the waveform scan and the recording in web workers. `src/server/static.ts` serves it
 - `src/shared/render.ts`, `src/shared/export.ts`: the export without ffmpeg (trim, crossfade, fades, gain, then LAME), used by the browser-only build
+- `bucket/`: the Scoop manifest, written by the release workflow
+- `scripts/package-manifests.mjs`: writes the AUR, Scoop and winget files for a release
 - `src/renderer/`: the UI (canvas timeline and overview, output list, commands and shortcuts)
 - `src/shared/`: types, time formatting, cut/segment planning and filename validation
 - `src/shared/i18n/`: translations. `en.ts` is the master list of texts. To add a language, copy `hu.ts`, translate it, and register it in `index.ts`. The type checker reports any missing text, and a test checks that placeholders match.

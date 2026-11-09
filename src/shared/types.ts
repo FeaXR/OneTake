@@ -169,5 +169,7 @@ export interface ExportResult {
 export type UpdateState =
   | { status: 'idle' | 'checking' | 'none' | 'unsupported' }
   | { status: 'downloading'; version: string; percent: number }
-  | { status: 'ready' | 'available'; version: string }
+  | { status: 'ready'; version: string }
+  /** manager: the package manager that installed this copy, and that updates it. */
+  | { status: 'available'; version: string; manager?: string }
   | { status: 'error'; message: string };

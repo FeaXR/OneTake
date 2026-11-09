@@ -23,12 +23,27 @@ function readToken(): string | null {
 }
 
 /**
+ * The package manager that installed this copy, such as "Scoop" or "pacman", from a file
+ * "package-manager" that its package puts in the app's resources folder. Null when there is none.
+ */
+function packageManager(): string | null {
+  if (!app.isPackaged) return null;
+  try {
+    return readFileSync(join(process.resourcesPath, 'package-manager'), 'utf8').trim().slice(0, 40) || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * How this copy can be updated. The Windows installer and an AppImage update themselves;
  * the portable .exe, the .deb (a system package) and the Mac app (not signed with an Apple
- * certificate) can only be told that a new version exists. Not at all when run from source.
+ * certificate) can only be told that a new version exists, and so can a copy a package
+ * manager installed (which also updates it). Not at all when run from source.
  */
-function updateMode(): 'self' | 'notify' | null {
+function updateMode(manager: string | null): 'self' | 'notify' | null {
   if (!app.isPackaged) return null;
+  if (manager) return 'notify';
   if (process.platform === 'win32') return process.env.PORTABLE_EXECUTABLE_DIR ? 'notify' : 'self';
   if (process.platform === 'linux') return process.env.APPIMAGE ? 'self' : 'notify';
   return 'notify';
@@ -40,7 +55,8 @@ function updateMode(): 'self' | 'notify' | null {
  */
 export class Updater {
   state: UpdateState = { status: 'idle' };
-  private readonly mode = updateMode();
+  private readonly manager = packageManager();
+  private readonly mode = updateMode(this.manager);
   private readonly onState: (state: UpdateState) => void;
   /** A downloaded AppImage, put in place of the running one on restart or quit. */
   private pendingAppImage: string | null = null;
@@ -97,7 +113,9 @@ export class Updater {
           });
           if (!res.ok) throw new Error(`GitHub: ${res.status} ${res.statusText}`);
           const latest = String((await res.json() as { tag_name?: string }).tag_name ?? '').replace(/^v/i, '');
-          this.set(latest && compareVersions(latest, app.getVersion()) > 0 ? { status: 'available', version: latest } : { status: 'none' });
+          this.set(latest && compareVersions(latest, app.getVersion()) > 0
+            ? { status: 'available', version: latest, ...(this.manager && { manager: this.manager }) }
+            : { status: 'none' });
         }
       } catch (err) {
         this.set({ status: 'error', message: err instanceof Error ? err.message : String(err) });

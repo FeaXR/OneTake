@@ -1193,7 +1193,8 @@ export class App {
     this.update = state;
     // The status bar note is easy to miss, so a new version is also announced once.
     if (state.status !== before && (state.status === 'ready' || state.status === 'available')) {
-      toast(t(state.status === 'ready' ? 'update.readyToast' : 'update.availableToast', { version: state.version }), 'info', UPDATE_TOAST_MS);
+      const key = state.status === 'ready' ? 'update.readyToast' : state.manager ? 'update.managedToast' : 'update.availableToast';
+      toast(t(key, { version: state.version, manager: state.status === 'available' ? state.manager ?? '' : '' }), 'info', UPDATE_TOAST_MS);
     }
     const el = this.updateNotice;
     const shown = state.status === 'downloading' || state.status === 'ready' || state.status === 'available';
@@ -1205,6 +1206,10 @@ export class App {
     } else if (state.status === 'ready') {
       el.textContent = t('update.ready', { version: state.version });
       el.title = t('update.ready.tip');
+    } else if (state.status === 'available' && state.manager) {
+      // The package manager installs the update; the link only shows what is new.
+      el.textContent = t('update.managed', { version: state.version, manager: state.manager });
+      el.title = t('update.managed.tip');
     } else if (state.status === 'available') {
       el.textContent = t('update.available', { version: state.version });
       el.title = t('update.available.tip');
