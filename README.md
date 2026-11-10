@@ -190,6 +190,7 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 - **Volume and bitrate presets:** the buttons each file offers. Volume is 1–100% or **Off** (no maximization: the level stays as recorded); bitrates are the ones an MP3 can have.
 - **Files use:** the peak target and bitrate for files that no folder rule covers.
 - **Updates:** look for a new version when the app starts, or check now (see [Updates](#updates)).
+- **Settings file:** **Export settings…** saves the parts you tick (language, file list, fades, folder rules, export options, last recording, updates, keyboard shortcuts) to a JSON file, and **Import settings…** loads them on another computer or from a backup. On import you choose which parts to replace; parts the file does not have are greyed out, and everything you leave unticked stays as it is.
 
 Settings are stored in `%APPDATA%\One Take` on Windows, `~/Library/Application Support/One Take` on macOS and `~/.config/One Take` on Linux. The server version keeps them in its `/config` folder, and the browser-only version in the browser's storage for the site. Versions from before the rename called the app Studio Audio Editor; its settings and sessions folders are moved to the new names on the first start.
 

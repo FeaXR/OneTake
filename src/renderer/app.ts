@@ -1,5 +1,6 @@
-import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting } from '../shared/i18n/index.ts';
+import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting, type MessageKey } from '../shared/i18n/index.ts';
 import { highestNumber, recordingDate, trimDir, usesToken, type FolderRule } from '../shared/naming.ts';
+import { importSettings, readSettingsFile, settingsFile, SETTINGS_PARTS, type SettingsFile, type SettingsPart } from '../shared/settings.ts';
 import { recordingStart } from '../shared/subfolders.ts';
 import { formatPeak, MIN_PEAK_PERCENT, MP3_BITRATES, NO_NORMALIZE, peakFromPercent, presetChoices } from '../shared/presets.ts';
 import { formatTime } from '../shared/time.ts';
@@ -945,6 +946,13 @@ export class App {
       card(t('settings.shortcuts'),
         shortcuts.el,
       ),
+      card(t('settings.backup'),
+        h('div', { class: 'form-note' }, t('settings.backup.note')),
+        h('div', { class: 'inline' },
+          h('button', { onclick: () => void this.exportSettings(s, overridesFrom(shortcuts.result())) }, t('settings.backup.export')),
+          h('button', { onclick: () => void this.importSettings(m.close) }, t('settings.backup.import')),
+        ),
+      ),
       card(t('settings.about'),
         h('div', { class: 'about' },
           h('div', {}, h('b', {}, 'One Take'), ` ${this.version}`),
@@ -961,17 +969,56 @@ export class App {
       h('button', {
         class: 'primary',
         onclick: async () => {
-          const languageChanged = resolveLanguage(s.language, navigator.language) !== getLanguage();
-          ed.settings = s;
-          await window.studio.saveSettings(s);
-          await window.studio.saveShortcutOverrides(overridesFrom(shortcuts.result()));
+          await this.applySettings(s, overridesFrom(shortcuts.result()));
           m.close();
-          if (languageChanged) return this.reloadForLanguage();
-          await this.reloadKeymap();
-          ed.notify('settings', 'project');
+          await this.afterSettingsSaved();
         },
       }, t('btn.save')),
     );
+  }
+
+  /** Saves settings and key binding changes; call afterSettingsSaved() once the dialog is closed. */
+  private async applySettings(s: Settings, overrides: Record<string, string[]>): Promise<void> {
+    this.languageChanged = resolveLanguage(s.language, navigator.language) !== getLanguage();
+    this.editor.settings = s;
+    await window.studio.saveSettings(s);
+    await window.studio.saveShortcutOverrides(overrides);
+  }
+
+  private languageChanged = false;
+
+  private async afterSettingsSaved(): Promise<void> {
+    if (this.languageChanged) return this.reloadForLanguage();
+    await this.reloadKeymap();
+    this.editor.notify('settings', 'project');
+  }
+
+  /** Saves the chosen parts of the settings shown in the dialog to a file. */
+  private async exportSettings(s: Settings, overrides: Record<string, string[]>): Promise<void> {
+    const parts = await chooseSettingsParts(t('dlg.exportSettings.title'), t('dlg.exportSettings.message'), t('dlg.exportSettings.confirm'), new Set(SETTINGS_PARTS));
+    if (parts) saveSettingsFile(settingsFile(s, overrides, this.version, parts));
+  }
+
+  /**
+   * Replaces the chosen parts of the settings and key bindings with those in a file exported
+   * from this or another computer. Closes the settings dialog (`closeSettings`) when it does.
+   */
+  private async importSettings(closeSettings: () => void): Promise<void> {
+    const file = await pickJsonFile();
+    if (!file) return;
+    const read = readSettingsFile(await file.text());
+    if (!read) return toast(t('toast.settingsImportInvalid', { name: file.name }), 'error');
+    const parts = await chooseSettingsParts(t('dlg.importSettings.title'), t('dlg.importSettings.message', { name: file.name }), t('dlg.importSettings.confirm'), read.parts);
+    if (!parts) return;
+    const imported = importSettings(read, this.editor.settings, parts);
+    try {
+      await this.applySettings(imported.settings, imported.shortcuts ?? await window.studio.getShortcutOverrides());
+    } catch (err) {
+      return toast(t('toast.settingsImportFailed', { error: errorText(err) }), 'error');
+    }
+    closeSettings();
+    toast(t('toast.settingsImported'));
+    await this.afterSettingsSaved();
   }
 
   /** Volume presets: one chip each, and a percent to add. Edits `s` in place. */
@@ -1352,6 +1399,70 @@ export class App {
       if (await this.save()) window.studio.closeNow();
     });
   }
+}
+
+/** Saves a settings file (a download, or a save dialog on the desktop). */
+function saveSettingsFile(file: SettingsFile): void {
+  const text = JSON.stringify(file, null, 2) + '\n';
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const a = h('a', { href: url, download: 'One Take settings.json' });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+const PART_LABELS: Record<SettingsPart, MessageKey> = {
+  language: 'settings.language',
+  fileList: 'settings.fileList',
+  fades: 'settings.backup.fades',
+  folderRules: 'settings.naming',
+  export: 'settings.backup.export.part',
+  recording: 'settings.backup.recording',
+  updates: 'settings.updates',
+  shortcuts: 'settings.shortcuts',
+};
+
+/**
+ * Asks which parts of the settings to export or import, one checkbox each. Parts not in
+ * `available` (not in the file being imported) are greyed out. Null when cancelled.
+ */
+function chooseSettingsParts(title: string, message: string, confirm: string, available: Set<SettingsPart>): Promise<Set<SettingsPart> | null> {
+  return new Promise((resolve) => {
+    let result: Set<SettingsPart> | null = null;
+    const m = openModal(title, { onClose: () => resolve(result) });
+    const checks = new Map<SettingsPart, HTMLInputElement>();
+    const ok = h('button', {
+      class: 'primary',
+      onclick: () => {
+        result = new Set([...checks].filter(([, c]) => c.checked).map(([p]) => p));
+        m.close();
+      },
+    }, confirm);
+    const update = () => (ok.disabled = ![...checks.values()].some((c) => c.checked));
+    const list = h('div', { class: 'part-list' });
+    for (const part of SETTINGS_PARTS) {
+      const has = available.has(part);
+      const check = h('input', { type: 'checkbox', checked: has, disabled: !has, onchange: update });
+      checks.set(part, check);
+      list.append(h('label', { class: has ? 'part' : 'part missing' }, check, t(PART_LABELS[part]),
+        has ? null : h('span', { class: 'form-note' }, t('settings.backup.notInFile'))));
+    }
+    m.body.append(h('div', {}, message), list);
+    m.foot.append(h('button', { onclick: () => m.close() }, t('btn.cancel')), ok);
+    update();
+    queueMicrotask(() => ok.focus());
+  });
+}
+
+/** Lets the user choose a .json file; null when the picker is closed without one. */
+function pickJsonFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = h('input', { type: 'file', accept: '.json,application/json' });
+    input.addEventListener('change', () => resolve(input.files?.[0] ?? null));
+    input.addEventListener('cancel', () => resolve(null));
+    input.click();
+  });
 }
 
 function errorText(err: unknown): string {
