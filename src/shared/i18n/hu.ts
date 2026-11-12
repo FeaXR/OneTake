@@ -338,8 +338,25 @@ export const hu: Record<keyof typeof en, Message> = {
   'ctx.zoomFit': 'Teljes fájl megjelenítése',
 
   'settings.title': 'Beállítások',
+
+  'settings.page.interface': 'Felület',
+
+  'settings.page.export': 'Úsztatások és exportálás',
+
+  'settings.page.folders': 'Mappák',
+
+  'settings.page.shortcuts': 'Billentyűparancsok',
+
+  'settings.page.app': 'Alkalmazás',
+
+  'settings.timeline': 'Idővonal',
   'settings.language': 'Nyelv',
   'settings.languageLabel': 'Felület nyelve',
+  'settings.theme': 'Téma',
+  'settings.themeLabel': 'Színek',
+  'theme.system': 'Rendszer',
+  'theme.dark': 'Sötét',
+  'theme.light': 'Világos',
   'settings.languageSystem': 'Rendszer nyelve',
   'settings.fileList': 'Fájllista',
   'settings.showTimes': 'Kezdő- és záróidő',

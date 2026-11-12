@@ -14,10 +14,10 @@ export interface ModalHandle {
   foot: HTMLElement;
 }
 
-export function openModal(title: string, opts: { wide?: boolean; onClose?: () => void; dismissable?: boolean } = {}): ModalHandle {
+export function openModal(title: string, opts: { wide?: boolean; className?: string; onClose?: () => void; dismissable?: boolean } = {}): ModalHandle {
   const body = h('div', { class: 'modal-body' });
   const foot = h('div', { class: 'modal-foot' });
-  const modal = h('div', { class: `modal${opts.wide ? ' wide' : ''}` }, h('h2', {}, title), body, foot);
+  const modal = h('div', { class: ['modal', opts.wide && 'wide', opts.className].filter(Boolean).join(' ') }, h('h2', {}, title), body, foot);
   const backdrop = h('div', { class: 'modal-backdrop' }, modal);
   const close = () => {
     backdrop.remove();

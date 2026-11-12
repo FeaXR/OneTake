@@ -351,8 +351,25 @@ export const sr: Record<keyof typeof en, Message> = {
   'ctx.zoomFit': 'Уклопи у прозор',
 
   'settings.title': 'Подешавања',
+
+  'settings.page.interface': 'Изглед',
+
+  'settings.page.export': 'Утапања и извоз',
+
+  'settings.page.folders': 'Фасцикле',
+
+  'settings.page.shortcuts': 'Пречице на тастатури',
+
+  'settings.page.app': 'Апликација',
+
+  'settings.timeline': 'Временска линија',
   'settings.language': 'Језик',
   'settings.languageLabel': 'Језик интерфејса',
+  'settings.theme': 'Тема',
+  'settings.themeLabel': 'Боје',
+  'theme.system': 'Системска',
+  'theme.dark': 'Тамна',
+  'theme.light': 'Светла',
   'settings.languageSystem': 'Језик система',
   'settings.fileList': 'Листа датотека',
   'settings.showTimes': 'Време почетка и краја',

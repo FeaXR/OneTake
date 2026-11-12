@@ -343,8 +343,25 @@ export const de: Record<keyof typeof en, Message> = {
   'ctx.zoomFit': 'Ganze Datei anzeigen',
 
   'settings.title': 'Einstellungen',
+
+  'settings.page.interface': 'Oberfläche',
+
+  'settings.page.export': 'Fades & Export',
+
+  'settings.page.folders': 'Ordner',
+
+  'settings.page.shortcuts': 'Tastenkürzel',
+
+  'settings.page.app': 'App',
+
+  'settings.timeline': 'Zeitleiste',
   'settings.language': 'Sprache',
   'settings.languageLabel': 'Sprache der Oberfläche',
+  'settings.theme': 'Design',
+  'settings.themeLabel': 'Farben',
+  'theme.system': 'System',
+  'theme.dark': 'Dunkel',
+  'theme.light': 'Hell',
   'settings.languageSystem': 'Systemsprache',
   'settings.fileList': 'Dateiliste',
   'settings.showTimes': 'Anfangs- und Endzeiten',

@@ -1,4 +1,5 @@
 import type { Change, Editor } from './editor.ts';
+import { canvasColors } from './theme.ts';
 import { fitCanvas, withAlpha } from './draw.ts';
 
 /** Whole-file strip above the timeline. Click or drag to move the view; wheel to zoom. */
@@ -69,7 +70,7 @@ export class Overview {
   }
 
   private onChange(changes: Set<Change>): void {
-    if (changes.has('audio') || changes.has('length') || (this.editor.recording && changes.has('view'))) this.waveCache = null;
+    if (changes.has('audio') || changes.has('length') || changes.has('settings') || (this.editor.recording && changes.has('view'))) this.waveCache = null;
     this.draw();
   }
 
@@ -85,7 +86,7 @@ export class Overview {
     const half = c.height / 2 - 2;
     const framesPerPx = (this.span() * ed.info.sampleRate) / c.width;
     const env = { min: 0, max: 0 };
-    ctx.fillStyle = '#5f6f86';
+    ctx.fillStyle = canvasColors.overviewWave;
     for (let x = 0; x < c.width; x++) {
       if (x * framesPerPx >= ed.info.frames) break;
       if (!ed.peaks.range(x * framesPerPx, (x + 1) * framesPerPx, env)) continue;
@@ -99,7 +100,7 @@ export class Overview {
     const { ctx, w, h, dpr } = this;
     const ed = this.editor;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#121418';
+    ctx.fillStyle = canvasColors.overviewBg;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     // Not measured yet (a file opened before the first layout); resize() draws again.
     if (!ed.info || !w || !h) return;
@@ -116,7 +117,7 @@ export class Overview {
       ctx.fillStyle = ed.segmentColor(s.id);
       ctx.fillRect(x0, h - 5, Math.max(1, x1 - x0 - 1), 5);
     }
-    ctx.fillStyle = 'rgba(239, 91, 91, 0.8)';
+    ctx.fillStyle = withAlpha(canvasColors.cut, 0.8);
     for (const c of ed.project.cuts) {
       const x0 = this.timeToX(c.start);
       ctx.fillRect(x0, 0, Math.max(1, this.timeToX(c.end) - x0), 6);
@@ -125,14 +126,14 @@ export class Overview {
     // Visible window.
     const vx0 = this.timeToX(ed.view.start);
     const vx1 = this.timeToX(ed.viewEnd);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.fillStyle = canvasColors.overviewShade;
     ctx.fillRect(0, 0, vx0, h);
     ctx.fillRect(vx1, 0, w - vx1, h);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.strokeStyle = canvasColors.overviewFrame;
     ctx.lineWidth = 1;
     ctx.strokeRect(vx0 + 0.5, 0.5, Math.max(2, vx1 - vx0 - 1), h - 1);
 
-    ctx.fillStyle = '#ffd166';
+    ctx.fillStyle = canvasColors.playhead;
     ctx.fillRect(this.timeToX(ed.playhead), 0, 1.5, h);
   }
 }

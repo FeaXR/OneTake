@@ -46,15 +46,16 @@ test('files that are not settings files are refused', () => {
 });
 
 test('malformed settings keep the current ones', () => {
-  const current: Settings = { ...DEFAULT_SETTINGS, fadeOutSec: 3, defaultBitrate: 256 };
+  const current: Settings = { ...DEFAULT_SETTINGS, fadeOutSec: 3, defaultBitrate: 256, theme: 'light' };
   const text = JSON.stringify({
     kind: 'one-take-settings',
-    settings: { fadeInSec: 'loud', fadeInCurve: 'wobble', language: 'xx', defaultBitrate: 7, fadeOutSec: 999, unknown: 1, folderRules: [rule, { folder: '' }, 'x'] },
+    settings: { theme: 'neon', fadeInSec: 'loud', fadeInCurve: 'wobble', language: 'xx', defaultBitrate: 7, fadeOutSec: 999, unknown: 1, folderRules: [rule, { folder: '' }, 'x'] },
   });
   const settings = importSettings(readSettingsFile(text)!, current, SETTINGS_PARTS).settings;
   assert.equal(settings.fadeInSec, current.fadeInSec);
   assert.equal(settings.fadeInCurve, current.fadeInCurve);
   assert.equal(settings.language, current.language);
+  assert.equal(settings.theme, 'light');
   assert.equal(settings.defaultBitrate, 256);
   assert.equal(settings.fadeOutSec, 60);
   assert.deepEqual(settings.folderRules, [rule]);

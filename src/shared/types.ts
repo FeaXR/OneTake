@@ -57,9 +57,14 @@ export type FadeCurve = (typeof FADE_CURVES)[number];
 export const FADE_MARKER_STYLES = ['dotted', 'dashed', 'dashdot'] as const;
 export type FadeMarkerStyle = (typeof FADE_MARKER_STYLES)[number];
 
+/** Color themes offered in the settings (labels are translated as `theme.<name>`); 'system' follows the operating system. */
+export const THEMES = ['system', 'dark', 'light'] as const;
+export type ThemeSetting = (typeof THEMES)[number];
+
 /** App-wide settings that are the same for every file. */
 export interface Settings {
   language: LanguageSetting;
+  theme: ThemeSetting;
   fadeInSec: number;
   fadeInCurve: FadeCurve;
   fadeOutSec: number;
@@ -89,6 +94,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   language: 'system',
+  theme: 'system',
   fadeInSec: 0.5,
   fadeInCurve: 'tri',
   fadeOutSec: 2,

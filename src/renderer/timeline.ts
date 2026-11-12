@@ -1,4 +1,5 @@
 import { formatNumber, t as tr } from '../shared/i18n/index.ts';
+import { canvasColors as COLORS } from './theme.ts';
 import { formatTime } from '../shared/time.ts';
 import type { Cut, FadeMarkerStyle, Segment } from '../shared/types.ts';
 import { clamp, MIN_REGION_SEC, type Editor, type RegionKind, type Selection } from './editor.ts';
@@ -18,22 +19,6 @@ const FADE_MARKER_DASHES: Record<FadeMarkerStyle, number[]> = {
   dashdot: [10, 4, 2, 4],
 };
 
-const COLORS = {
-  bg: '#14161a',
-  laneBg: '#1a1d22',
-  rulerBg: '#1e2126',
-  rulerText: '#9aa1ad',
-  rulerTick: '#4a505a',
-  grid: 'rgba(255,255,255,0.04)',
-  wave: '#8fa3bf',
-  waveCenter: 'rgba(255,255,255,0.08)',
-  cut: '#ef5b5b',
-  playhead: '#ffd166',
-  markIn: '#4cc38a',
-  border: '#353a43',
-  live: '#ff4d4d',
-  notRecorded: 'rgba(0, 0, 0, 0.28)',
-};
 
 type Area = 'ruler' | 'segLane' | 'wave' | 'cutLane';
 
@@ -649,7 +634,7 @@ export class Timeline {
       roundRect(ctx, x0, y + 1, Math.max(2, x1 - x0), LANE_ROW_H - 2, 4);
       ctx.fill();
       if (selected) {
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = COLORS.selected;
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
@@ -662,7 +647,7 @@ export class Timeline {
         ctx.beginPath();
         ctx.rect(textX, y, maxW, LANE_ROW_H);
         ctx.clip();
-        ctx.fillStyle = '#0d0f12';
+        ctx.fillStyle = COLORS.segmentText;
         ctx.fillText(label, textX, y + LANE_ROW_H / 2 + 1);
         ctx.restore();
       }
@@ -756,7 +741,7 @@ export class Timeline {
       roundRect(ctx, x0, bottom + 2, width, CUT_LANE_H - 4, 3);
       ctx.fill();
       if (selected) {
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = COLORS.selected;
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
@@ -764,7 +749,7 @@ export class Timeline {
       ctx.fillRect(Math.round(x1) - 1, top, 1.5, bottom - top);
       const label = tr('tl.cutLabel', { sec: formatNumber(c.end - c.start, 2) });
       if (width > ctx.measureText(label).width + 10) {
-        ctx.fillStyle = '#1a0d0d';
+        ctx.fillStyle = COLORS.cutText;
         ctx.fillText(label, x0 + 5, bottom + CUT_LANE_H / 2);
       }
     }

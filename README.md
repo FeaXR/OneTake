@@ -31,7 +31,7 @@ Most audio editors work the other way round: many tracks in, one file out. One T
 
 | Exporting | Settings |
 | --- | --- |
-| ![Export window showing per-file progress, measured peak and applied gain](docs/screenshots/export.png) | ![Settings with language, fades, export options and the keyboard shortcut editor](docs/screenshots/settings.png) |
+| ![Export window showing per-file progress, measured peak and applied gain](docs/screenshots/export.png) | ![Settings on its Interface page: language, theme, file list and timeline, with the other pages listed on the left](docs/screenshots/settings.png) |
 
 <details>
 <summary>Hungarian interface</summary>
@@ -179,7 +179,10 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 
 ## Settings
 
+Settings are split into pages: **Interface**, **Fades & export**, **Folders**, **Keyboard shortcuts** and **App** (updates, the settings file and About).
+
 - **Language:** English, Deutsch (German), Español (Spanish), Français (French), Magyar (Hungarian) or Српски (Serbian, in Cyrillic). "System language" follows your operating system. Switching reloads the window; your open file and unsaved edits are kept, but undo history starts fresh.
+- **Theme:** dark, light, or **System** (the default), which follows your operating system's light or dark mode, also when it changes while the app is open. A choice shows at once; **Cancel** goes back to the saved theme.
 - **Fade-in / fade-out:** length and curve. The defaults are 0.5 s linear in and 2 s exponential out.
 - **"100%" peak level:** 0 dBFS by default. MP3 encoding can overshoot by a fraction of a dB, so −0.3 to −1 dBFS is safer if you want to avoid any clipping.
 - **Crossfade at cuts:** 10 ms by default.
@@ -190,7 +193,7 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 - **Volume and bitrate presets:** the buttons each file offers. Volume is 1–100% or **Off** (no maximization: the level stays as recorded); bitrates are the ones an MP3 can have.
 - **Files use:** the peak target and bitrate for files that no folder rule covers.
 - **Updates:** look for a new version when the app starts, or check now (see [Updates](#updates)).
-- **Settings file:** **Export settings…** saves the parts you tick (language, file list, fades, folder rules, export options, last recording, updates, keyboard shortcuts) to a JSON file, and **Import settings…** loads them on another computer or from a backup. On import you choose which parts to replace; parts the file does not have are greyed out, and everything you leave unticked stays as it is.
+- **Settings file:** **Export settings…** saves the parts you tick (language, theme, file list, fades, folder rules, export options, last recording, updates, keyboard shortcuts) to a JSON file, and **Import settings…** loads them on another computer or from a backup. On import you choose which parts to replace; parts the file does not have are greyed out, and everything you leave unticked stays as it is.
 
 Settings are stored in `%APPDATA%\One Take` on Windows, `~/Library/Application Support/One Take` on macOS and `~/.config/One Take` on Linux. The server version keeps them in its `/config` folder, and the browser-only version in the browser's storage for the site. Versions from before the rename called the app Studio Audio Editor; its settings and sessions folders are moved to the new names on the first start.
 

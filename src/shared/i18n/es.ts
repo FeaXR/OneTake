@@ -343,8 +343,25 @@ export const es: Record<keyof typeof en, Message> = {
   'ctx.zoomFit': 'Ajustar a la ventana',
 
   'settings.title': 'Ajustes',
+
+  'settings.page.interface': 'Interfaz',
+
+  'settings.page.export': 'Fundidos y exportación',
+
+  'settings.page.folders': 'Carpetas',
+
+  'settings.page.shortcuts': 'Atajos de teclado',
+
+  'settings.page.app': 'Aplicación',
+
+  'settings.timeline': 'Línea de tiempo',
   'settings.language': 'Idioma',
   'settings.languageLabel': 'Idioma de la interfaz',
+  'settings.theme': 'Tema',
+  'settings.themeLabel': 'Colores',
+  'theme.system': 'Sistema',
+  'theme.dark': 'Oscuro',
+  'theme.light': 'Claro',
   'settings.languageSystem': 'Idioma del sistema',
   'settings.fileList': 'Lista de archivos',
   'settings.showTimes': 'Tiempos de inicio y final',

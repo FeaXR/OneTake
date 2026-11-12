@@ -4,12 +4,12 @@ import { importSettings, readSettingsFile, settingsFile, SETTINGS_PARTS, type Se
 import { recordingStart } from '../shared/subfolders.ts';
 import { formatPeak, MIN_PEAK_PERCENT, MP3_BITRATES, NO_NORMALIZE, peakFromPercent, presetChoices } from '../shared/presets.ts';
 import { formatTime } from '../shared/time.ts';
-import { FADE_CURVES, FADE_MARKER_STYLES, type Bitrate, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type PeakTarget, type Project, type Segment, type Settings, type UpdateState, segmentFolder } from '../shared/types.ts';
+import { FADE_CURVES, FADE_MARKER_STYLES, THEMES, type ThemeSetting, type Bitrate, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type PeakTarget, type Project, type Segment, type Settings, type UpdateState, segmentFolder } from '../shared/types.ts';
 import { onlyStillRecording, outputFilename } from '../shared/validate.ts';
 import { CommandRegistry, Keymap, overridesFrom } from './commands.ts';
 import { ShortcutEditor } from './shortcut-editor.ts';
 import { chooseDestinations } from './destinations.ts';
-import { choose, closeContextMenu, modalOpen, openModal, showContextMenu, showLoading, toast } from './dialogs.ts';
+import { choose, closeContextMenu, modalOpen, openModal, showContextMenu, showLoading, toast, type ModalHandle } from './dialogs.ts';
 import { h, pathText } from './dom.ts';
 import { clamp, Editor, MIN_REGION_SEC, type RegionKind, type Selection, type Tool } from './editor.ts';
 import { icons } from './icons.ts';
@@ -18,6 +18,7 @@ import { OutputPanel } from './panel.ts';
 import { PeakPyramid } from './peaks.ts';
 import { Player } from './player.ts';
 import { RecordingController } from './recording.ts';
+import { applyTheme, onThemeChange } from './theme.ts';
 import { Timeline } from './timeline.ts';
 
 const NUDGE_SEC = 0.01;
@@ -30,6 +31,9 @@ const RELOAD_STATE_KEY = 'sae.reloadState';
 const EDGE_PREVIEW_SEC = 3;
 /** How long the "new version" message stays up. */
 const UPDATE_TOAST_MS = 10000;
+/** The pages of the settings dialog. */
+type SettingsPage = 'interface' | 'export' | 'folders' | 'shortcuts' | 'app';
+
 const basename = (p: string) => p.replace(/^.*[\\/]/, '');
 const DEVELOPER_NAME = 'Fixr';
 const openLink = (e: Event, link: 'developer' | 'repository') => {
@@ -84,6 +88,7 @@ export class App {
     document.getElementById('empty-title')!.textContent = t('empty.title');
     document.getElementById('empty-record')!.textContent = t('empty.record');
 
+    onThemeChange(() => ed.notify('settings'));
     this.player = new Player(ed);
     this.recording = new RecordingController(ed, {
       begin: (info, peaks) => {
@@ -882,88 +887,114 @@ export class App {
     };
 
     const shortcuts = new ShortcutEditor(this.commands.all(), this.keymap.toRecord());
-    const m = openModal(t('settings.title'), { wide: true, onClose: () => shortcuts.dispose() });
+    const m = openModal(t('settings.title'), { wide: true, className: 'settings-modal', onClose: () => {
+      shortcuts.dispose();
+      applyTheme(this.editor.settings.theme);
+    } });
     const card = (title: string, ...content: (HTMLElement | string)[]) =>
       h('section', { class: 'settings-card' }, h('div', { class: 'form-section' }, title), ...content);
-    m.body.append(
-      card(t('settings.language'),
-        h('div', { class: 'form-grid' },
-          h('label', {}, t('settings.languageLabel')),
-          h('div', { class: 'inline' }, languageSelect()),
-        ),
-      ),
-      card(t('settings.fileList'),
-        h('div', { class: 'form-grid' },
-          h('label', { for: 'show-times' }, t('settings.showTimes')),
-          h('div', { class: 'inline' },
-            h('input', { type: 'checkbox', id: 'show-times', checked: s.showSegmentTimes, onchange: (e: Event) => (s.showSegmentTimes = (e.target as HTMLInputElement).checked) }),
-            h('span', { class: 'form-note' }, t('settings.showTimesNote')),
+    const pages: [SettingsPage, string, HTMLElement[]][] = [
+      ['interface', t('settings.page.interface'), [
+        card(t('settings.language'),
+          h('div', { class: 'form-grid' },
+            h('label', {}, t('settings.languageLabel')),
+            h('div', { class: 'inline' }, languageSelect()),
           ),
         ),
-      ),
-      card(t('settings.fades'),
-        h('div', { class: 'form-grid' },
-          h('label', {}, t('settings.fadeIn')),
-          h('div', { class: 'inline' }, num(s.fadeInSec, 0, 60, 0.1, (v) => (s.fadeInSec = v)), t('settings.seconds'), curveSelect(s.fadeInCurve, (v) => (s.fadeInCurve = v))),
-          h('label', {}, t('settings.fadeOut')),
-          h('div', { class: 'inline' }, num(s.fadeOutSec, 0, 60, 0.1, (v) => (s.fadeOutSec = v)), t('settings.seconds'), curveSelect(s.fadeOutCurve, (v) => (s.fadeOutCurve = v))),
-          h('label', {}, t('settings.fadeMarker')),
-          h('div', { class: 'inline' },
-            choice(FADE_MARKER_STYLES.map((k): [FadeMarkerStyle, string] => [k, t(`marker.${k}`)]), s.fadeMarkerStyle, (v) => (s.fadeMarkerStyle = v))),
-        ),
-      ),
-      card(t('settings.naming'),
-        h('div', { class: 'form-note', html: t('settings.naming.note') }),
-        h('div', { class: 'form-note', html: t('settings.subfolder.note', { field: `{${t('settings.subfolder.field')}}` }) }),
-        rulesEditor.el,
-      ),
-      card(t('settings.export'),
-        h('div', { class: 'form-grid' },
-          h('label', {}, t('settings.ceiling')),
-          h('div', { class: 'inline' }, num(s.ceilingDb, -3, 0, 0.1, (v) => (s.ceilingDb = v)), 'dBFS',
-            h('span', { class: 'form-note' }, t('settings.ceilingNote'))),
-          h('label', {}, t('settings.crossfade')),
-          h('div', { class: 'inline' }, num(s.cutCrossfadeMs, 1, 200, 1, (v) => (s.cutCrossfadeMs = v)), 'ms'),
-          h('label', {}, t('settings.peakPresets')),
-          this.peakPresetsEditor(s, presetsChanged),
-          h('label', {}, t('settings.bitratePresets')),
-          this.bitratePresetsEditor(s, presetsChanged),
-          h('label', {}, t('settings.defaults')),
-          defaults,
-        ),
-      ),
-      card(t('settings.updates'),
-        h('div', { class: 'form-grid' },
-          h('label', { for: 'check-updates' }, t('settings.checkUpdates')),
-          h('div', { class: 'inline' },
-            h('input', { type: 'checkbox', id: 'check-updates', checked: s.checkUpdates, onchange: (e: Event) => (s.checkUpdates = (e.target as HTMLInputElement).checked) }),
-            h('span', { class: 'form-note' }, t('settings.checkUpdatesNote')),
-          ),
-          h('label', {}, t('settings.version')),
-          h('div', { class: 'inline' }, this.version, h('button', { onclick: () => void this.checkForUpdatesNow() }, t('settings.checkNow'))),
-        ),
-      ),
-      card(t('settings.shortcuts'),
-        shortcuts.el,
-      ),
-      card(t('settings.backup'),
-        h('div', { class: 'form-note' }, t('settings.backup.note')),
-        h('div', { class: 'inline' },
-          h('button', { onclick: () => void this.exportSettings(s, overridesFrom(shortcuts.result())) }, t('settings.backup.export')),
-          h('button', { onclick: () => void this.importSettings(m.close) }, t('settings.backup.import')),
-        ),
-      ),
-      card(t('settings.about'),
-        h('div', { class: 'about' },
-          h('div', {}, h('b', {}, 'One Take'), ` ${this.version}`),
-          h('div', {}, t('settings.about.developedBy', { name: DEVELOPER_NAME })),
-          h('div', { class: 'about-links' },
-            h('a', { href: '#', onclick: (e: Event) => openLink(e, 'developer') }, t('settings.about.github')),
-            h('a', { href: '#', onclick: (e: Event) => openLink(e, 'repository') }, t('settings.about.repository')),
+        card(t('settings.theme'),
+          h('div', { class: 'form-grid' },
+            h('label', {}, t('settings.themeLabel')),
+            h('div', { class: 'inline' },
+              // Shown at once; closing without saving goes back to the saved theme.
+              choice(THEMES.map((k): [ThemeSetting, string] => [k, t(`theme.${k}`)]), s.theme, (v) => applyTheme((s.theme = v)))),
           ),
         ),
-      ),
-    );
+        card(t('settings.fileList'),
+          h('div', { class: 'form-grid' },
+            h('label', { for: 'show-times' }, t('settings.showTimes')),
+            h('div', { class: 'inline' },
+              h('input', { type: 'checkbox', id: 'show-times', checked: s.showSegmentTimes, onchange: (e: Event) => (s.showSegmentTimes = (e.target as HTMLInputElement).checked) }),
+              h('span', { class: 'form-note' }, t('settings.showTimesNote')),
+            ),
+          ),
+        ),
+        card(t('settings.timeline'),
+          h('div', { class: 'form-grid' },
+            h('label', {}, t('settings.fadeMarker')),
+            h('div', { class: 'inline' },
+              choice(FADE_MARKER_STYLES.map((k): [FadeMarkerStyle, string] => [k, t(`marker.${k}`)]), s.fadeMarkerStyle, (v) => (s.fadeMarkerStyle = v))),
+          ),
+        ),
+      ]],
+      ['export', t('settings.page.export'), [
+        card(t('settings.fades'),
+          h('div', { class: 'form-grid' },
+            h('label', {}, t('settings.fadeIn')),
+            h('div', { class: 'inline' }, num(s.fadeInSec, 0, 60, 0.1, (v) => (s.fadeInSec = v)), t('settings.seconds'), curveSelect(s.fadeInCurve, (v) => (s.fadeInCurve = v))),
+            h('label', {}, t('settings.fadeOut')),
+            h('div', { class: 'inline' }, num(s.fadeOutSec, 0, 60, 0.1, (v) => (s.fadeOutSec = v)), t('settings.seconds'), curveSelect(s.fadeOutCurve, (v) => (s.fadeOutCurve = v))),
+          ),
+        ),
+        card(t('settings.export'),
+          h('div', { class: 'form-grid' },
+            h('label', {}, t('settings.ceiling')),
+            h('div', { class: 'inline' }, num(s.ceilingDb, -3, 0, 0.1, (v) => (s.ceilingDb = v)), 'dBFS',
+              h('span', { class: 'form-note' }, t('settings.ceilingNote'))),
+            h('label', {}, t('settings.crossfade')),
+            h('div', { class: 'inline' }, num(s.cutCrossfadeMs, 1, 200, 1, (v) => (s.cutCrossfadeMs = v)), 'ms'),
+            h('label', {}, t('settings.peakPresets')),
+            this.peakPresetsEditor(s, presetsChanged),
+            h('label', {}, t('settings.bitratePresets')),
+            this.bitratePresetsEditor(s, presetsChanged),
+            h('label', {}, t('settings.defaults')),
+            defaults,
+          ),
+        ),
+      ]],
+      ['folders', t('settings.page.folders'), [
+        card(t('settings.naming'),
+          h('div', { class: 'form-note', html: t('settings.naming.note') }),
+          h('div', { class: 'form-note', html: t('settings.subfolder.note', { field: `{${t('settings.subfolder.field')}}` }) }),
+          rulesEditor.el,
+        ),
+      ]],
+      ['shortcuts', t('settings.page.shortcuts'), [
+        card(t('settings.shortcuts'),
+          shortcuts.el,
+        ),
+      ]],
+      ['app', t('settings.page.app'), [
+        card(t('settings.updates'),
+          h('div', { class: 'form-grid' },
+            h('label', { for: 'check-updates' }, t('settings.checkUpdates')),
+            h('div', { class: 'inline' },
+              h('input', { type: 'checkbox', id: 'check-updates', checked: s.checkUpdates, onchange: (e: Event) => (s.checkUpdates = (e.target as HTMLInputElement).checked) }),
+              h('span', { class: 'form-note' }, t('settings.checkUpdatesNote')),
+            ),
+            h('label', {}, t('settings.version')),
+            h('div', { class: 'inline' }, this.version, h('button', { onclick: () => void this.checkForUpdatesNow() }, t('settings.checkNow'))),
+          ),
+        ),
+        card(t('settings.backup'),
+          h('div', { class: 'form-note' }, t('settings.backup.note')),
+          h('div', { class: 'inline' },
+            h('button', { onclick: () => void this.exportSettings(s, overridesFrom(shortcuts.result())) }, t('settings.backup.export')),
+            h('button', { onclick: () => void this.importSettings(m.close) }, t('settings.backup.import')),
+          ),
+        ),
+        card(t('settings.about'),
+          h('div', { class: 'about' },
+            h('div', {}, h('b', {}, 'One Take'), ` ${this.version}`),
+            h('div', {}, t('settings.about.developedBy', { name: DEVELOPER_NAME })),
+            h('div', { class: 'about-links' },
+              h('a', { href: '#', onclick: (e: Event) => openLink(e, 'developer') }, t('settings.about.github')),
+              h('a', { href: '#', onclick: (e: Event) => openLink(e, 'repository') }, t('settings.about.repository')),
+            ),
+          ),
+        ),
+      ]],
+    ];
+    this.settingsPages(m, pages);
     m.foot.append(
       h('button', { onclick: () => m.close() }, t('btn.cancel')),
       h('button', {
@@ -975,6 +1006,49 @@ export class App {
         },
       }, t('btn.save')),
     );
+  }
+
+  /** The page of the settings dialog shown last; it opens there again. */
+  private settingsPage: SettingsPage = 'interface';
+
+  /** Fills the settings dialog with a list of pages on the left and the chosen page beside it. */
+  private settingsPages(m: ModalHandle, pages: [SettingsPage, string, HTMLElement[]][]): void {
+    const nav = h('nav', { class: 'settings-nav', role: 'tablist', 'aria-orientation': 'vertical' });
+    const pane = h('div', { class: 'settings-pane' });
+    const tabs = new Map<SettingsPage, HTMLButtonElement>();
+    const show = (id: SettingsPage) => {
+      this.settingsPage = id;
+      for (const [pid, tab] of tabs) {
+        tab.classList.toggle('active', pid === id);
+        tab.setAttribute('aria-selected', String(pid === id));
+        tab.tabIndex = pid === id ? 0 : -1;
+      }
+      pane.replaceChildren(...pages.find(([pid]) => pid === id)![2]);
+      pane.scrollTop = 0;
+    };
+    // Arrows move from the page shown, which is not always the focused tab (a click does not focus a button everywhere).
+    const go = (id: SettingsPage) => {
+      show(id);
+      tabs.get(id)!.focus();
+    };
+    for (const [id, label] of pages) {
+      const tab = h('button', {
+        class: 'settings-tab', role: 'tab',
+        onclick: () => go(id),
+        onkeydown: (e: KeyboardEvent) => {
+          const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+          if (!step) return;
+          e.preventDefault();
+          const i = pages.findIndex(([pid]) => pid === this.settingsPage);
+          go(pages[(i + step + pages.length) % pages.length][0]);
+        },
+      }, label);
+      tabs.set(id, tab);
+      nav.append(tab);
+    }
+    m.body.classList.add('settings-body');
+    m.body.append(nav, pane);
+    show(pages.some(([id]) => id === this.settingsPage) ? this.settingsPage : pages[0][0]);
   }
 
   /** Saves settings and key binding changes; call afterSettingsSaved() once the dialog is closed. */
@@ -1414,6 +1488,7 @@ function saveSettingsFile(file: SettingsFile): void {
 
 const PART_LABELS: Record<SettingsPart, MessageKey> = {
   language: 'settings.language',
+  theme: 'settings.theme',
   fileList: 'settings.fileList',
   fades: 'settings.backup.fades',
   folderRules: 'settings.naming',

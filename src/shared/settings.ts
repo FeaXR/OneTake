@@ -1,7 +1,7 @@
 import { LANGUAGES } from './i18n/index.ts';
 import { trimDir, type FolderRule } from './naming.ts';
 import { cleanPresets, DEFAULT_BITRATE_PRESETS, DEFAULT_PEAK_PRESETS, isBitrate, isPeakTarget } from './presets.ts';
-import { DEFAULT_SETTINGS, FADE_CURVES, FADE_MARKER_STYLES, type Project, type Settings } from './types.ts';
+import { DEFAULT_SETTINGS, FADE_CURVES, FADE_MARKER_STYLES, THEMES, type Project, type Settings } from './types.ts';
 
 /** Saved settings filled up with the defaults, with anything invalid replaced by them. */
 export function completeSettings(saved: Partial<Settings> | null): Settings {
@@ -10,6 +10,7 @@ export function completeSettings(saved: Partial<Settings> | null): Settings {
   s.folderRules = (Array.isArray(s.folderRules) ? s.folderRules : []).map((r) => ({ ...r, folder: trimDir(r.folder ?? '') }));
   s.peakPresets = cleanPresets(s.peakPresets, isPeakTarget, DEFAULT_PEAK_PRESETS);
   s.bitratePresets = cleanPresets(s.bitratePresets, isBitrate, DEFAULT_BITRATE_PRESETS);
+  if (!(THEMES as readonly string[]).includes(s.theme)) s.theme = DEFAULT_SETTINGS.theme;
   if (!isPeakTarget(s.defaultPeakTarget)) s.defaultPeakTarget = DEFAULT_SETTINGS.defaultPeakTarget;
   if (!isBitrate(s.defaultBitrate)) s.defaultBitrate = DEFAULT_SETTINGS.defaultBitrate;
   return s;
@@ -21,12 +22,13 @@ export const isProject = (p: Project | null): p is Project => !!p && p.version =
 export const SETTINGS_FILE_KIND = 'one-take-settings';
 
 /** The parts of a settings file that can be exported and imported on their own. */
-export const SETTINGS_PARTS = ['language', 'fileList', 'fades', 'folderRules', 'export', 'recording', 'updates', 'shortcuts'] as const;
+export const SETTINGS_PARTS = ['language', 'theme', 'fileList', 'fades', 'folderRules', 'export', 'recording', 'updates', 'shortcuts'] as const;
 export type SettingsPart = (typeof SETTINGS_PARTS)[number];
 
 /** The settings in each part; the key bindings are the 'shortcuts' part. */
 const PART_KEYS: Record<Exclude<SettingsPart, 'shortcuts'>, (keyof Settings)[]> = {
   language: ['language'],
+  theme: ['theme'],
   fileList: ['showSegmentTimes'],
   fades: ['fadeInSec', 'fadeInCurve', 'fadeOutSec', 'fadeOutCurve', 'fadeMarkerStyle'],
   folderRules: ['folderRules', 'lastDestinations'],
@@ -94,6 +96,7 @@ export function readSettingsFile(text: string): ReadSettingsFile | null {
     if (sameType) picked[key as keyof Settings] = value;
   }
   if (picked.language !== undefined && picked.language !== 'system' && !(String(picked.language) in LANGUAGES)) delete picked.language;
+  if (picked.theme !== undefined && !(THEMES as readonly unknown[]).includes(picked.theme)) delete picked.theme;
   for (const key of ['fadeInCurve', 'fadeOutCurve'] as const) {
     if (picked[key] !== undefined && !(FADE_CURVES as readonly unknown[]).includes(picked[key])) delete picked[key];
   }
