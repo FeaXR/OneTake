@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { importSettings, readSettingsFile, settingsFile, SETTINGS_PARTS } from './settings.ts';
-import { DEFAULT_SETTINGS, type Settings } from './types.ts';
+import { DEFAULT_SETTINGS, isAccent, type Settings } from './types.ts';
 
 const rule = { id: 'r1', folder: '/music/sunday', template: '{nn}_{type}', types: ['song', 'talk'], bitrate: 192 };
 
@@ -46,18 +46,31 @@ test('files that are not settings files are refused', () => {
 });
 
 test('malformed settings keep the current ones', () => {
-  const current: Settings = { ...DEFAULT_SETTINGS, fadeOutSec: 3, defaultBitrate: 256, theme: 'light' };
+  const current: Settings = { ...DEFAULT_SETTINGS, fadeOutSec: 3, defaultBitrate: 256, theme: 'light', accent: 'teal' };
   const text = JSON.stringify({
     kind: 'one-take-settings',
-    settings: { theme: 'neon', fadeInSec: 'loud', fadeInCurve: 'wobble', language: 'xx', defaultBitrate: 7, fadeOutSec: 999, unknown: 1, folderRules: [rule, { folder: '' }, 'x'] },
+    settings: { theme: 'neon', accent: 'url(evil)', fadeInSec: 'loud', fadeInCurve: 'wobble', language: 'xx', defaultBitrate: 7, fadeOutSec: 999, unknown: 1, folderRules: [rule, { folder: '' }, 'x'] },
   });
   const settings = importSettings(readSettingsFile(text)!, current, SETTINGS_PARTS).settings;
   assert.equal(settings.fadeInSec, current.fadeInSec);
   assert.equal(settings.fadeInCurve, current.fadeInCurve);
   assert.equal(settings.language, current.language);
   assert.equal(settings.theme, 'light');
+  assert.equal(settings.accent, 'teal');
   assert.equal(settings.defaultBitrate, 256);
   assert.equal(settings.fadeOutSec, 60);
   assert.deepEqual(settings.folderRules, [rule]);
   assert.equal('unknown' in settings, false);
+});
+
+test('the accent color is a preset or #rrggbb, and travels with the theme', () => {
+  assert.ok(isAccent('purple'));
+  assert.ok(isAccent('#12ab9F'));
+  for (const bad of ['#fff', 'blue;', '#12ab9g', 'rgb(1,2,3)', 7, null]) assert.equal(isAccent(bad), false, String(bad));
+  const s: Settings = { ...DEFAULT_SETTINGS, theme: 'dark', accent: '#c0ffee' };
+  const read = readSettingsFile(JSON.stringify(settingsFile(s, {}, '1.8.0', ['theme'])))!;
+  assert.deepEqual([...read.parts], ['theme']);
+  const imported = importSettings(read, DEFAULT_SETTINGS, ['theme']).settings;
+  assert.equal(imported.accent, '#c0ffee');
+  assert.equal(imported.theme, 'dark');
 });

@@ -61,10 +61,22 @@ export type FadeMarkerStyle = (typeof FADE_MARKER_STYLES)[number];
 export const THEMES = ['system', 'dark', 'light'] as const;
 export type ThemeSetting = (typeof THEMES)[number];
 
+/** Accent colors offered in the settings (labels are translated as `accent.<name>`). */
+export const ACCENTS = ['blue', 'teal', 'green', 'purple', 'pink', 'orange', 'red'] as const;
+export type AccentPreset = (typeof ACCENTS)[number];
+/** One of ACCENTS, or a color of the user's own as #rrggbb. */
+export type AccentSetting = AccentPreset | `#${string}`;
+
+/** True for a value the Accent color setting can have. */
+export const isAccent = (v: unknown): v is AccentSetting =>
+  (ACCENTS as readonly unknown[]).includes(v) || (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v));
+
 /** App-wide settings that are the same for every file. */
 export interface Settings {
   language: LanguageSetting;
   theme: ThemeSetting;
+  /** Color of buttons, selections and highlights. */
+  accent: AccentSetting;
   fadeInSec: number;
   fadeInCurve: FadeCurve;
   fadeOutSec: number;
@@ -95,6 +107,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   language: 'system',
   theme: 'system',
+  accent: 'blue',
   fadeInSec: 0.5,
   fadeInCurve: 'tri',
   fadeOutSec: 2,

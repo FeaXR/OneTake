@@ -4,7 +4,7 @@ import { importSettings, readSettingsFile, settingsFile, SETTINGS_PARTS, type Se
 import { recordingStart } from '../shared/subfolders.ts';
 import { formatPeak, MIN_PEAK_PERCENT, MP3_BITRATES, NO_NORMALIZE, peakFromPercent, presetChoices } from '../shared/presets.ts';
 import { formatTime } from '../shared/time.ts';
-import { FADE_CURVES, FADE_MARKER_STYLES, THEMES, type ThemeSetting, type Bitrate, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type PeakTarget, type Project, type Segment, type Settings, type UpdateState, segmentFolder } from '../shared/types.ts';
+import { FADE_CURVES, FADE_MARKER_STYLES, THEMES, ACCENTS, type AccentSetting, type ThemeSetting, type Bitrate, type ExportProgress, type FadeCurve, type FadeMarkerStyle, type PeakTarget, type Project, type Segment, type Settings, type UpdateState, segmentFolder } from '../shared/types.ts';
 import { onlyStillRecording, outputFilename } from '../shared/validate.ts';
 import { CommandRegistry, Keymap, overridesFrom } from './commands.ts';
 import { ShortcutEditor } from './shortcut-editor.ts';
@@ -18,7 +18,7 @@ import { OutputPanel } from './panel.ts';
 import { PeakPyramid } from './peaks.ts';
 import { Player } from './player.ts';
 import { RecordingController } from './recording.ts';
-import { applyTheme, onThemeChange } from './theme.ts';
+import { accentColor, applyTheme, currentTheme, onThemeChange } from './theme.ts';
 import { Timeline } from './timeline.ts';
 
 const NUDGE_SEC = 0.01;
@@ -889,8 +889,9 @@ export class App {
     const shortcuts = new ShortcutEditor(this.commands.all(), this.keymap.toRecord());
     const m = openModal(t('settings.title'), { wide: true, className: 'settings-modal', onClose: () => {
       shortcuts.dispose();
-      applyTheme(this.editor.settings.theme);
+      applyTheme(this.editor.settings.theme, this.editor.settings.accent);
     } });
+    const accents = accentPicker(s);
     const card = (title: string, ...content: (HTMLElement | string)[]) =>
       h('section', { class: 'settings-card' }, h('div', { class: 'form-section' }, title), ...content);
     const pages: [SettingsPage, string, HTMLElement[]][] = [
@@ -906,7 +907,12 @@ export class App {
             h('label', {}, t('settings.themeLabel')),
             h('div', { class: 'inline' },
               // Shown at once; closing without saving goes back to the saved theme.
-              choice(THEMES.map((k): [ThemeSetting, string] => [k, t(`theme.${k}`)]), s.theme, (v) => applyTheme((s.theme = v)))),
+              choice(THEMES.map((k): [ThemeSetting, string] => [k, t(`theme.${k}`)]), s.theme, (v) => {
+                applyTheme((s.theme = v), s.accent);
+                accents.render();
+              })),
+            h('label', {}, t('settings.accent')),
+            accents.el,
           ),
         ),
         card(t('settings.fileList'),
@@ -1473,6 +1479,46 @@ export class App {
       if (await this.save()) window.studio.closeNow();
     });
   }
+}
+
+/**
+ * The accent color choice: a swatch per preset, in the colors of the theme in use, and a
+ * picker for a color of one's own. A choice is shown at once (the dialog undoes it on Cancel).
+ */
+function accentPicker(s: Settings): { el: HTMLElement; render(): void } {
+  const el = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('settings.accent') });
+  const pick = (accent: AccentSetting) => {
+    s.accent = accent;
+    applyTheme(s.theme, accent);
+    render();
+  };
+  const custom = h('input', { type: 'color', title: t('accent.custom') });
+  custom.addEventListener('input', () => pick(custom.value as AccentSetting));
+  const customWrap = h('label', { class: 'swatch-custom' }, custom, t('accent.custom'));
+  const render = () => {
+    const theme = currentTheme();
+    const own = s.accent.startsWith('#');
+    el.replaceChildren(...ACCENTS.map((a) => {
+      const swatch = h('button', {
+        class: `swatch${s.accent === a ? ' active' : ''}`,
+        role: 'radio',
+        'aria-checked': String(s.accent === a),
+        title: t(`accent.${a}`),
+        'aria-label': t(`accent.${a}`),
+        onclick: () => {
+          pick(a);
+          el.querySelector<HTMLElement>('.swatch.active')?.focus();
+        },
+      });
+      swatch.style.setProperty('--swatch', accentColor(a, theme));
+      return swatch;
+    }), customWrap);
+    customWrap.classList.toggle('active', own);
+    // While dragging in the picker the input keeps its own value; otherwise it starts from the color in use.
+    if (document.activeElement !== custom) custom.value = accentColor(s.accent, theme);
+  };
+  render();
+  return { el, render };
 }
 
 /** Saves a settings file (a download, or a save dialog on the desktop). */

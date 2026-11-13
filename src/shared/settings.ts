@@ -1,7 +1,7 @@
 import { LANGUAGES } from './i18n/index.ts';
 import { trimDir, type FolderRule } from './naming.ts';
 import { cleanPresets, DEFAULT_BITRATE_PRESETS, DEFAULT_PEAK_PRESETS, isBitrate, isPeakTarget } from './presets.ts';
-import { DEFAULT_SETTINGS, FADE_CURVES, FADE_MARKER_STYLES, THEMES, type Project, type Settings } from './types.ts';
+import { DEFAULT_SETTINGS, FADE_CURVES, FADE_MARKER_STYLES, isAccent, THEMES, type Project, type Settings } from './types.ts';
 
 /** Saved settings filled up with the defaults, with anything invalid replaced by them. */
 export function completeSettings(saved: Partial<Settings> | null): Settings {
@@ -11,6 +11,7 @@ export function completeSettings(saved: Partial<Settings> | null): Settings {
   s.peakPresets = cleanPresets(s.peakPresets, isPeakTarget, DEFAULT_PEAK_PRESETS);
   s.bitratePresets = cleanPresets(s.bitratePresets, isBitrate, DEFAULT_BITRATE_PRESETS);
   if (!(THEMES as readonly string[]).includes(s.theme)) s.theme = DEFAULT_SETTINGS.theme;
+  if (!isAccent(s.accent)) s.accent = DEFAULT_SETTINGS.accent;
   if (!isPeakTarget(s.defaultPeakTarget)) s.defaultPeakTarget = DEFAULT_SETTINGS.defaultPeakTarget;
   if (!isBitrate(s.defaultBitrate)) s.defaultBitrate = DEFAULT_SETTINGS.defaultBitrate;
   return s;
@@ -28,7 +29,7 @@ export type SettingsPart = (typeof SETTINGS_PARTS)[number];
 /** The settings in each part; the key bindings are the 'shortcuts' part. */
 const PART_KEYS: Record<Exclude<SettingsPart, 'shortcuts'>, (keyof Settings)[]> = {
   language: ['language'],
-  theme: ['theme'],
+  theme: ['theme', 'accent'],
   fileList: ['showSegmentTimes'],
   fades: ['fadeInSec', 'fadeInCurve', 'fadeOutSec', 'fadeOutCurve', 'fadeMarkerStyle'],
   folderRules: ['folderRules', 'lastDestinations'],
@@ -97,6 +98,7 @@ export function readSettingsFile(text: string): ReadSettingsFile | null {
   }
   if (picked.language !== undefined && picked.language !== 'system' && !(String(picked.language) in LANGUAGES)) delete picked.language;
   if (picked.theme !== undefined && !(THEMES as readonly unknown[]).includes(picked.theme)) delete picked.theme;
+  if (picked.accent !== undefined && !isAccent(picked.accent)) delete picked.accent;
   for (const key of ['fadeInCurve', 'fadeOutCurve'] as const) {
     if (picked[key] !== undefined && !(FADE_CURVES as readonly unknown[]).includes(picked[key])) delete picked[key];
   }

@@ -7,20 +7,22 @@
   --text: #e3e6eb;
   --text-dim: #9aa1ad;
   --text-faint: #6b7280;
+  /* --accent and --on-accent (text on it) are set by theme.ts from the Accent color setting. */
   --accent: #4f9cf7;
-  --accent-dim: #2d5f9c;
+  --on-accent: #fff;
+  --accent-dim: color-mix(in srgb, var(--accent) 50%, #17191d);
   --danger: #ef5b5b;
   --warn: #e8b04a;
   --ok: #4cc38a;
   /* Colors only the dark theme or only the light theme needs as they are. */
-  --primary-hover: #3d8be6;
+  --primary-hover: color-mix(in srgb, var(--accent) 85%, #000);
   --danger-bg: #5a2626;
-  --row-selected: #2b3340;
+  --row-selected: color-mix(in srgb, var(--accent) 12%, #262a31);
   --row-error: #6b2c2c;
   --cut-selected: #3a2626;
   --backdrop: rgba(0, 0, 0, 0.55);
   --shadow: rgba(0, 0, 0, 0.5);
-  --sc-active: rgba(79, 156, 247, 0.12);
+  --sc-active: color-mix(in srgb, var(--accent) 12%, transparent);
   /* The timeline and overview canvases (read by theme.ts). */
   --canvas-bg: #14161a;
   --canvas-lane-bg: #1a1d22;
@@ -60,18 +62,18 @@
   --text-dim: #565e6b;
   --text-faint: #8a919c;
   --accent: #2b78d8;
-  --accent-dim: #9cc2f0;
+  --accent-dim: color-mix(in srgb, var(--accent) 42%, #fff);
   --danger: #d43f3f;
   --warn: #b7791f;
   --ok: #23905d;
-  --primary-hover: #1f68c2;
+  --primary-hover: color-mix(in srgb, var(--accent) 85%, #000);
   --danger-bg: #f6d5d5;
-  --row-selected: #dde9f8;
+  --row-selected: color-mix(in srgb, var(--accent) 15%, #fff);
   --row-error: #e9a3a3;
   --cut-selected: #f8dede;
   --backdrop: rgba(20, 24, 30, 0.35);
   --shadow: rgba(20, 24, 30, 0.18);
-  --sc-active: rgba(43, 120, 216, 0.12);
+  --sc-active: color-mix(in srgb, var(--accent) 12%, transparent);
   --canvas-bg: #f7f8fa;
   --canvas-lane-bg: #eef0f3;
   --canvas-ruler-bg: #e6e9ee;
@@ -164,7 +166,7 @@ button:hover:not(:disabled) { background: var(--bg-4); }
 button:disabled { opacity: 0.4; cursor: default; }
 button.icon { padding: 5px 7px; }
 button.active { background: var(--accent-dim); border-color: var(--accent); }
-button.primary { background: var(--accent); color: #fff; font-weight: 600; }
+button.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 button.primary:hover:not(:disabled) { background: var(--primary-hover); }
 button.danger:hover:not(:disabled) { background: var(--danger-bg); }
 button svg { width: 16px; height: 16px; flex: none; }
@@ -435,6 +437,13 @@ input.invalid { border-color: var(--danger); }
 .form-note { color: var(--text-dim); font-size: 12px; }
 .settings-card { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); }
 .form-section { font-weight: 600; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.swatch { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid var(--bg-2); box-shadow: 0 0 0 1px var(--line); background: var(--swatch); }
+.swatch:hover:not(.active) { box-shadow: 0 0 0 1px var(--text-dim); background: var(--swatch); }
+.swatch.active { box-shadow: 0 0 0 2px var(--text); background: var(--swatch); border-color: var(--bg-2); }
+.swatch-custom { display: flex; align-items: center; gap: 6px; margin-left: 6px; }
+.swatch-custom input[type='color'] { width: 34px; height: 26px; padding: 0 2px; border-radius: var(--radius); cursor: pointer; }
+.swatch-custom.active input[type='color'] { box-shadow: 0 0 0 2px var(--text); }
 .modal.settings-modal { width: min(920px, 94vw); height: min(680px, 86vh); }
 .settings-body { flex: 1; min-height: 0; padding: 0; flex-direction: row; gap: 0; overflow: hidden; }
 .settings-nav { flex: none; width: 180px; padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--line); overflow-y: auto; }

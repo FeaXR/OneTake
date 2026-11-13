@@ -183,6 +183,7 @@ Settings are split into pages: **Interface**, **Fades & export**, **Folders**, *
 
 - **Language:** English, Deutsch (German), Español (Spanish), Français (French), Magyar (Hungarian) or Српски (Serbian, in Cyrillic). "System language" follows your operating system. Switching reloads the window; your open file and unsaved edits are kept, but undo history starts fresh.
 - **Theme:** dark, light, or **System** (the default), which follows your operating system's light or dark mode, also when it changes while the app is open. A choice shows at once; **Cancel** goes back to the saved theme.
+- **Accent color:** the color of buttons, selections and highlights: blue (the default), teal, green, purple, pink, orange or red, each a little darker in the light theme, or any color of your own with **Custom**. Text on accent-colored buttons turns dark when the color is light.
 - **Fade-in / fade-out:** length and curve. The defaults are 0.5 s linear in and 2 s exponential out.
 - **"100%" peak level:** 0 dBFS by default. MP3 encoding can overshoot by a fraction of a dB, so −0.3 to −1 dBFS is safer if you want to avoid any clipping.
 - **Crossfade at cuts:** 10 ms by default.

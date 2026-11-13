@@ -11,7 +11,7 @@ if (import.meta.env.MODE === 'browser') await import('../browser/bridge.ts');
 // The language must be known before any UI text is created.
 const settings = await window.studio.getSettings();
 setLanguage(resolveLanguage(settings.language, navigator.language));
-applyTheme(settings.theme);
+applyTheme(settings.theme, settings.accent);
 
 const app = new App(settings);
 await app.init();
