@@ -87,6 +87,7 @@ export const DEFAULT_SHORTCUTS: Record<string, string[]> = {
   'rec.start': ['Ctrl+R'],
   'view.followLive': ['L'],
   'app.settings': ['Ctrl+,'],
+  'app.newWindow': ['Ctrl+N'],
   'app.devtools': ['F12'],
 };
 

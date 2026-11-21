@@ -148,13 +148,26 @@ export class App {
     this.editor.notify('settings', 'ui');
     window.studio.onOpenFile((path) => void this.openPath(path));
     window.studio.onCommand((command) => void this.recording.runCommand(command));
-    const recovered = await window.studio.takeRecovered();
-    if (recovered) toast(t('toast.recRecovered', { name: basename(recovered.path), time: formatTime(recovered.duration, 0) }), 'info', 10_000);
+    window.studio.onSettingsChanged((settings) => this.takeSettings(settings));
+    window.studio.onShortcutsChanged(() => void this.reloadKeymap());
+    for (const r of await window.studio.takeRecovered()) {
+      toast(t('toast.recRecovered', { name: basename(r.path), time: formatTime(r.duration, 0) }), 'info', 10_000);
+    }
     if (await this.restoreAfterReload()) return;
     const command = await window.studio.takeCommand();
     if (command) return this.recording.runCommand(command);
     const startupFile = await window.studio.takeStartupFile();
     if (startupFile) await this.openPath(startupFile, false);
+  }
+
+  /**
+   * Settings saved in another window. The language is used from this window's next start, as
+   * switching reloads the window (which would end a recording).
+   */
+  private takeSettings(settings: Settings): void {
+    this.editor.settings = settings;
+    applyTheme(settings.theme, settings.accent);
+    this.editor.notify('settings', 'project');
   }
 
   private async reloadKeymap(): Promise<void> {
@@ -275,6 +288,7 @@ export class App {
         },
       },
       { id: 'app.settings', label: t('cmd.app.settings'), run: () => this.openSettings() },
+      { id: 'app.newWindow', label: t('cmd.app.newWindow'), run: () => window.studio.newWindow() },
       { id: 'app.devtools', label: t('cmd.app.devtools'), run: () => window.studio.toggleDevTools() },
     );
   }
@@ -1451,7 +1465,7 @@ export class App {
       const typing = target.matches('input, select, textarea');
       if (typing) {
         // In text fields only app-level Ctrl shortcuts apply; everything else is typing.
-        if (!id || !(e.ctrlKey || e.metaKey) || !['file.save', 'file.export', 'file.open', 'app.settings'].includes(id)) return;
+        if (!id || !(e.ctrlKey || e.metaKey) || !['file.save', 'file.export', 'file.open', 'app.settings', 'app.newWindow'].includes(id)) return;
         target.blur();
       }
       if (!id) return;

@@ -142,18 +142,65 @@ The desktop app can start and stop recordings from a terminal or a script, for e
 
 ```sh
 one-take --record --dir ~/Recordings --name "Sunday service" --duration 1h30m
-one-take --record --dir ~/Recordings --input Scarlett     # until stopped
-one-take --stop
+one-take --record --dir ~/Recordings --name Stage --input Scarlett     # until stopped
+one-take --record --dir ~/Recordings --name Room --input "USB Mic"     # a second one, at the same time
+one-take --stop --name Stage                                           # stops only Stage.wav
+one-take --stop                                                        # stops all
 ```
 
-- `--record` opens One Take (or uses the one that is running) and starts recording at once, in the window as usual: waveform, meter and **Stop** button.
+- `--record` opens One Take (or uses the one that is running) and starts recording at once, in a window as usual: waveform, meter and **Stop** button. It uses the window you used last if that one is idle (not recording, exporting or holding unsaved edits), else another idle window, else it opens a new one. So a second `--record` while one runs starts a second recording beside it, and a running recording or unsaved work is never interrupted.
 - `--dir`: the folder for the WAV, the current folder if left out. It is made if it does not exist.
 - `--name`: the file name, `.wav` added if missing. Left out, it is today's `MMDD_` and the last recording's name, as in the Record dialog. An existing file is never overwritten: the recording becomes `Sunday service (2).wav` instead.
 - `--duration`: stop by itself after `90` (seconds), `90s`, `45m`, `2h`, `1h30m`, `1:30` (minutes:seconds) or `1:30:00`. The file is exactly that long. Without it, the recording runs until **Stop** or `one-take --stop`.
 - `--input`: the audio input whose name contains this text (any case); left out, the one used last. If none matches, the message lists the inputs there are.
-- Unsaved edits of the file that is open are saved first, so the recording can start without anyone there to answer. A recording that is already running is never interrupted: a second `--record` is refused.
+- `--stop` stops every recording; `--stop --name Stage` only `Stage.wav` (and a `Stage (2).wav` that got a number). Each window's **Stop** button stops its own.
 - What happens is shown in the window and printed in the terminal that started One Take (`Recording to …`, `Recording saved: …`). Wrong options print the usage and exit with code 2; `--stop` exits with code 1 when One Take is not running. `one-take --help` lists the options.
 - The command is `one-take` with the .deb and the Arch package, the AppImage's path for the AppImage, `"%LOCALAPPDATA%\Programs\One Take\One Take.exe"` on Windows (or the folder chosen when installing; the portable .exe's path for that one) and `"/Applications/One Take.app/Contents/MacOS/One Take"` on a Mac. On Windows the commands work, but nothing is printed in the console, as One Take is a windowed app there.
+
+#### Several windows, several recordings
+
+**New window** (Ctrl+N) opens another window, each with its own file, recording, edits and export. So you can record two inputs at once, or cut yesterday's recording while today's runs. Each recording is kept safe on its own: shutting down finishes all of them, and after a crash all cut-off files are repaired. A WAV that is already open in one window is brought to the front instead of being opened twice. Settings and shortcuts saved in one window apply to the others at once (a new language from their next start). An update restarts the app only when no window is recording, exporting or holding unsaved edits.
+
+##### Inputs 3–4 of the same interface (Linux)
+
+Each recording takes two channels from one input, the most the app's audio engine (Chromium) delivers from a device. To record inputs 1–2 and 3–4 of one interface at the same time, PipeWire can offer each pair as an input of its own. Both come from the same interface clock, so they stay in step; they start a few milliseconds apart. This setup was checked on a Scarlett 4i4 (4th gen):
+
+1. Give the card an input profile with all its channels. With **pavucontrol** (Configuration tab) or in a terminal:
+
+   ```sh
+   pactl set-card-profile alsa_card.usb-Focusrite_Scarlett_4i4_4th_Gen_<serial>-00 output:analog-surround-21+input:analog-surround-51
+   ```
+
+   `pactl list cards short` shows the card's name. Only the input half changes; keep the output part you use now. WirePlumber remembers the profile.
+2. Save this as `~/.config/pipewire/pipewire.conf.d/one-take-inputs.conf`, with your input's name from `pactl list sources short`:
+
+   ```
+   context.modules = [
+       { name = libpipewire-module-loopback
+         args = {
+             node.description = "Scarlett Inputs 1-2"
+             capture.props = { node.name = "capture.scarlett_in_1_2" target.object = "<your input>.analog-surround-51"
+                               audio.position = [ FL FR ] stream.dont-remix = true node.passive = true }
+             playback.props = { node.name = "scarlett_in_1_2" node.description = "Scarlett Inputs 1-2"
+                                media.class = "Audio/Source" audio.position = [ FL FR ] } } }
+       { name = libpipewire-module-loopback
+         args = {
+             node.description = "Scarlett Inputs 3-4"
+             capture.props = { node.name = "capture.scarlett_in_3_4" target.object = "<your input>.analog-surround-51"
+                               audio.position = [ FC LFE ] stream.dont-remix = true node.passive = true }
+             playback.props = { node.name = "scarlett_in_3_4" node.description = "Scarlett Inputs 3-4"
+                                media.class = "Audio/Source" audio.position = [ FL FR ] } } }
+   ]
+   ```
+
+3. Restart PipeWire (`systemctl --user restart pipewire pipewire-pulse wireplumber`) and record each pair in its own window:
+
+   ```sh
+   one-take --record --name Stage --input "Inputs 1-2"
+   one-take --record --name Room  --input "Inputs 3-4"
+   ```
+
+On the 4i4 the six channels are, in this order: input 1 (FL), input 2 (FR), loopback 1–2 (RL, RR: what plays on outputs 1–2), input 3 (FC) and input 4 (LFE). That is why inputs 3–4 are `FC LFE` above, and why the 4.1 profile (five channels) has no input 4. Other interfaces order them differently. To find out, play something into one input at a time and record the full input, for example `parecord --device=<your input> --channels=6 --channel-map=front-left,front-right,rear-left,rear-right,front-center,lfe test.wav`, then open `test.wav` in an editor that shows each channel (such as Audacity) and see which one moves. Name the channel map to match the input, or PipeWire reorders the channels to its default. `stream.dont-remix = true` keeps the other channels from being mixed into a pair. To undo, delete the file, restart PipeWire and set the old profile again.
 
 ### Mouse
 
@@ -195,6 +242,7 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Ctrl+S / Ctrl+E / Ctrl+O | Save / export / open |
 | Ctrl+R | Record a new WAV |
+| Ctrl+N | New window (for a second recording or file) |
 | L | While recording: follow the live point or not |
 
 ## Settings

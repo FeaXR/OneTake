@@ -36,6 +36,7 @@ test('other arguments are left alone', () => {
 
 test('stop and help', () => {
   assert.deepEqual(parse('--stop'), { command: { kind: 'stop' } });
+  assert.deepEqual(parse('--stop', '--name', 'Sunday'), { command: { kind: 'stop', name: 'Sunday' } });
   assert.deepEqual(parse('--help'), { command: { kind: 'help' } });
 });
 
@@ -47,7 +48,9 @@ test('mistakes are reported', () => {
     ['--record', '--name', 'a/b'],
     ['--record', '--name', '  '],
     ['--record', '--stop'],
-    ['--stop', '--name', 'x'],
+    ['--stop', '--duration', '5m'],
+    ['--stop', '--name', ' '],
+    ['--help', '--name', 'x'],
     ['--duration', '5m'],
   ]) assert.ok('error' in parse(...args), args.join(' '));
 });

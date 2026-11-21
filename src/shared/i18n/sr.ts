@@ -61,6 +61,7 @@ export const sr: Record<keyof typeof en, Message> = {
   'cmd.zoom.fit': 'Прикажи целу датотеку',
   'cmd.zoom.selection': 'Увећај на избор',
   'cmd.app.settings': 'Подешавања',
+  'cmd.app.newWindow': 'Нови прозор',
   'cmd.app.devtools': 'Алатке за програмере',
   'cmd.rec.start': 'Сними…',
   'cmd.rec.stop': 'Заустави снимање',
@@ -152,6 +153,7 @@ export const sr: Record<keyof typeof en, Message> = {
   'update.installFailed': 'Ажурирање није могло да се инсталира: {error}. Уместо тога преузмите га са странице Releases.',
   'update.devBuild': 'Само инсталиране копије апликације траже ажурирања.',
   'update.afterRecording': 'Прво зауставите снимање. Ажурирање се инсталира и када затворите апликацију.',
+  'update.otherWindowBusy': 'Други прозор још снима, извози или има несачуване измене. Прво завршите тамо; ажурирање се инсталира и када затворите апликацију.',
   'toast.languageAfterRecording': 'Нови језик се користи од следећег покретања апликације (поновно учитавање сада би зауставило снимање).',
   'toast.recStarted': 'Снимање у {name}',
   'toast.recStopped': 'Снимање је заустављено. {name} је сачувано ({time}).',
@@ -489,4 +491,5 @@ export const sr: Record<keyof typeof en, Message> = {
   'err.peakScan': 'Читање таласног облика је заустављено (код {code})',
   'err.recExists': '{name} већ постоји; изаберите други назив',
   'err.alreadyRecording': 'Снимање је већ у току',
+  'err.openInOtherWindow': '{name} је већ отворен у другом прозору',
 };

@@ -29,8 +29,14 @@ export interface StudioApi {
   takeCommand(): Promise<CliCommand | null>;
   /** A recording or stop asked for on the command line while the app is running. */
   onCommand(cb: (command: CliCommand) => void): () => void;
-  /** A recording that was cut off (crash, power cut) and repaired at startup, or null. Returns it only once. */
-  takeRecovered(): Promise<{ path: string; duration: number } | null>;
+  /** Recordings that were cut off (crash, power cut) and repaired at startup. Returns them only once. */
+  takeRecovered(): Promise<{ path: string; duration: number }[]>;
+  /** Opens another window (a new browser tab in the web builds), e.g. for a second recording. */
+  newWindow(): void;
+  /** Settings saved in another window. */
+  onSettingsChanged(cb: (settings: Settings) => void): () => void;
+  /** Key bindings saved in another window. */
+  onShortcutsChanged(cb: () => void): () => void;
   /** Prints a line in the terminal the app was started from (for command-line recordings). */
   cliLog(text: string, error?: boolean): void;
 

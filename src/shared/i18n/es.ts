@@ -53,6 +53,7 @@ export const es: Record<keyof typeof en, Message> = {
   'cmd.zoom.fit': 'Ajustar a todo el archivo',
   'cmd.zoom.selection': 'Ajustar a la selección',
   'cmd.app.settings': 'Ajustes',
+  'cmd.app.newWindow': 'Nueva ventana',
   'cmd.app.devtools': 'Herramientas de desarrollo',
   'cmd.rec.start': 'Grabar…',
   'cmd.rec.stop': 'Detener grabación',
@@ -144,6 +145,7 @@ export const es: Record<keyof typeof en, Message> = {
   'update.installFailed': 'No se pudo instalar la actualización: {error}. Descárgala desde la página de Releases.',
   'update.devBuild': 'Solo las copias instaladas de la aplicación buscan actualizaciones.',
   'update.afterRecording': 'Detén primero la grabación. La actualización también se instala al cerrar la aplicación.',
+  'update.otherWindowBusy': 'Otra ventana aún está grabando, exportando o tiene cambios sin guardar. Termina allí primero; la actualización también se instala al cerrar la aplicación.',
   'toast.languageAfterRecording': 'El nuevo idioma se usará a partir del próximo inicio de la aplicación (recargar ahora detendría la grabación).',
   'toast.recStarted': 'Grabando en {name}',
   'toast.recStopped': 'Grabación detenida. {name} se ha guardado ({time}).',
@@ -481,4 +483,5 @@ export const es: Record<keyof typeof en, Message> = {
   'err.peakScan': 'La lectura de la forma de onda se detuvo (código {code})',
   'err.recExists': '{name} ya existe; elige otro nombre',
   'err.alreadyRecording': 'Ya hay una grabación en curso',
+  'err.openInOtherWindow': '{name} ya está abierto en otra ventana',
 };

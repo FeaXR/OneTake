@@ -22,6 +22,9 @@ const api: StudioApi = {
   takeCommand: () => ipcRenderer.invoke('app:takeCommand'),
   onCommand: (cb) => subscribe('app:command', cb),
   takeRecovered: () => ipcRenderer.invoke('app:takeRecovered'),
+  newWindow: () => ipcRenderer.send('app:newWindow'),
+  onSettingsChanged: (cb) => subscribe('settings:changed', cb),
+  onShortcutsChanged: (cb) => subscribe('shortcuts:changed', cb),
   cliLog: (text, error = false) => ipcRenderer.send('app:cliLog', text, error),
 
   saveProject: (wavPath, project) => ipcRenderer.invoke('project:save', wavPath, project),

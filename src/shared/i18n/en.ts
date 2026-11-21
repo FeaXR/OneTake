@@ -53,6 +53,7 @@ export const en = {
   'cmd.zoom.fit': 'Zoom to whole file',
   'cmd.zoom.selection': 'Zoom to selection',
   'cmd.app.settings': 'Settings',
+  'cmd.app.newWindow': 'New window',
   'cmd.app.devtools': 'Developer tools',
   'cmd.rec.start': 'Record…',
   'cmd.rec.stop': 'Stop recording',
@@ -148,6 +149,7 @@ export const en = {
   'update.installFailed': 'The update could not be installed: {error}. Download it from the Releases page instead.',
   'update.devBuild': 'Only installed copies of the app look for updates.',
   'update.afterRecording': 'Stop the recording first. The update is also installed when you close the app.',
+  'update.otherWindowBusy': 'Another window is still recording, exporting or has unsaved edits. Finish there first; the update is also installed when you close the app.',
   'toast.languageAfterRecording': 'The new language is used from the next start of the app (reloading now would stop the recording).',
   'toast.recStarted': 'Recording to {name}',
   'toast.recStopped': 'Recording stopped. {name} is saved ({time}).',
@@ -490,4 +492,5 @@ export const en = {
   'err.peakScan': 'Reading the waveform stopped (code {code})',
   'err.recExists': '{name} already exists; choose another name',
   'err.alreadyRecording': 'A recording is already running',
+  'err.openInOtherWindow': '{name} is already open in another window',
 } satisfies Record<string, Message>;

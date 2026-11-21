@@ -54,6 +54,7 @@ export const fr: Record<keyof typeof en, Message> = {
   'cmd.zoom.fit': 'Zoomer sur tout le fichier',
   'cmd.zoom.selection': 'Zoomer sur la sélection',
   'cmd.app.settings': 'Réglages',
+  'cmd.app.newWindow': 'Nouvelle fenêtre',
   'cmd.app.devtools': 'Outils de développement',
   'cmd.rec.start': 'Enregistrer…',
   'cmd.rec.stop': 'Arrêter l’enregistrement',
@@ -145,6 +146,7 @@ export const fr: Record<keyof typeof en, Message> = {
   'update.installFailed': 'La mise à jour n’a pas pu être installée : {error}. Téléchargez-la plutôt depuis la page Releases.',
   'update.devBuild': 'Seules les copies installées de l’application recherchent des mises à jour.',
   'update.afterRecording': 'Arrêtez d’abord l’enregistrement. La mise à jour est aussi installée à la fermeture de l’application.',
+  'update.otherWindowBusy': 'Une autre fenêtre enregistre, exporte ou a des modifications non enregistrées. Terminez-y d’abord ; la mise à jour s’installe aussi à la fermeture de l’application.',
   'toast.languageAfterRecording': 'La nouvelle langue s’appliquera au prochain démarrage de l’application (recharger maintenant arrêterait l’enregistrement).',
   'toast.recStarted': 'Enregistrement vers {name}',
   'toast.recStopped': 'Enregistrement arrêté. {name} est sauvegardé ({time}).',
@@ -482,4 +484,5 @@ export const fr: Record<keyof typeof en, Message> = {
   'err.peakScan': 'La lecture de la forme d’onde s’est arrêtée (code {code})',
   'err.recExists': '{name} existe déjà ; choisissez un autre nom',
   'err.alreadyRecording': 'Un enregistrement est déjà en cours',
+  'err.openInOtherWindow': '{name} est déjà ouvert dans une autre fenêtre',
 };

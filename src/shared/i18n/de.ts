@@ -53,6 +53,7 @@ export const de: Record<keyof typeof en, Message> = {
   'cmd.zoom.fit': 'Ganze Datei anzeigen',
   'cmd.zoom.selection': 'Auf Auswahl zoomen',
   'cmd.app.settings': 'Einstellungen',
+  'cmd.app.newWindow': 'Neues Fenster',
   'cmd.app.devtools': 'Entwicklertools',
   'cmd.rec.start': 'Aufnehmen…',
   'cmd.rec.stop': 'Aufnahme beenden',
@@ -144,6 +145,7 @@ export const de: Record<keyof typeof en, Message> = {
   'update.installFailed': 'Das Update konnte nicht installiert werden: {error}. Laden Sie es stattdessen von der Releases-Seite herunter.',
   'update.devBuild': 'Nur installierte Kopien der App suchen nach Updates.',
   'update.afterRecording': 'Beenden Sie zuerst die Aufnahme. Das Update wird auch beim Schließen der App installiert.',
+  'update.otherWindowBusy': 'Ein anderes Fenster nimmt noch auf, exportiert oder hat ungespeicherte Änderungen. Bitte dort zuerst abschließen; das Update wird auch beim Schließen der App installiert.',
   'toast.languageAfterRecording': 'Die neue Sprache gilt ab dem nächsten Start der App (ein Neuladen würde jetzt die Aufnahme beenden).',
   'toast.recStarted': 'Aufnahme in {name}',
   'toast.recStopped': 'Aufnahme beendet. {name} ist gespeichert ({time}).',
@@ -481,4 +483,5 @@ export const de: Record<keyof typeof en, Message> = {
   'err.peakScan': 'Das Lesen der Wellenform wurde beendet (Code {code})',
   'err.recExists': '{name} ist bereits vorhanden; wählen Sie einen anderen Namen',
   'err.alreadyRecording': 'Es läuft bereits eine Aufnahme',
+  'err.openInOtherWindow': '{name} ist schon in einem anderen Fenster geöffnet',
 };

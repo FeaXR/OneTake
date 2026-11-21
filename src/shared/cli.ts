@@ -13,17 +13,19 @@ export type CliCommand =
       /** Part of an input's name; unset means the input used last. */
       input?: string;
     }
-  | { kind: 'stop' }
+  /** Stops every recording, or only the one whose file is `name` (or `name` with a number added). */
+  | { kind: 'stop'; name?: string }
   | { kind: 'help' };
 
 export type CliResult = { command: CliCommand | null } | { error: string };
 
 export const CLI_USAGE = `Usage:
   one-take --record [--dir <folder>] [--name <file>] [--duration <time>] [--input <name>]
-  one-take --stop
+  one-take --stop [--name <file>]
   one-take [file.wav]
 
-  --record          Start recording in One Take (the running one, or a new one).
+  --record          Start recording in One Take: in the window used last if it is idle,
+                    else in a new window, so several recordings can run at once.
   --dir <folder>    Where the WAV goes (default: the current folder). Made if missing.
   --name <file>     File name (default: today's MMDD_ and the last recording's name).
                     ".wav" is added if missing; an existing file is never overwritten,
@@ -31,7 +33,7 @@ export const CLI_USAGE = `Usage:
   --duration <time> Stop by itself after this long: 90 (seconds), 90s, 45m, 2h, 1h30m,
                     1:30 (minutes:seconds) or 1:30:00. Without it, record until stopped.
   --input <name>    Audio input whose name contains this (default: the last one used).
-  --stop            Stop the recording that is running.
+  --stop            Stop every recording that is running; with --name, only that one.
   --help            Show this text.`;
 
 const VALUE_OPTIONS = ['dir', 'name', 'duration', 'input'] as const;
@@ -60,11 +62,18 @@ export function parseCli(args: readonly string[], cwd: string, resolvePath: (cwd
   }
   const given = Object.keys(values);
   if (action !== 'record' && given.length) {
-    if (action === null) return { error: `--${given[0]} only works with --record` };
-    if (action === 'stop') return { error: `--stop takes no other options` };
+    if (action === null) return { error: `--${given[0]} only works with --record or --stop` };
+    const other = given.find((k) => k !== 'name');
+    if (action === 'stop' && other) return { error: `--stop takes only --name, not --${other}` };
+    if (action === 'help') return { error: '--help takes no other options' };
   }
   if (action === null) return { command: null };
-  if (action !== 'record') return { command: { kind: action } };
+  if (action === 'stop') {
+    if (values.name === undefined) return { command: { kind: 'stop' } };
+    if (!values.name.trim()) return { error: '--name cannot be empty' };
+    return { command: { kind: 'stop', name: values.name.trim() } };
+  }
+  if (action === 'help') return { command: { kind: 'help' } };
 
   const command: CliCommand = { kind: 'record', dir: resolvePath(cwd, values.dir ?? '.') };
   if (values.name !== undefined) {

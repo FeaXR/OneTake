@@ -51,6 +51,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'cmd.zoom.fit': 'Teljes fájl megjelenítése',
   'cmd.zoom.selection': 'Nagyítás a kijelöltre',
   'cmd.app.settings': 'Beállítások',
+  'cmd.app.newWindow': 'Új ablak',
   'cmd.app.devtools': 'Fejlesztői eszközök',
   'cmd.rec.start': 'Felvétel…',
   'cmd.rec.stop': 'Felvétel leállítása',
@@ -141,6 +142,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'update.installFailed': 'A frissítés nem telepíthető: {error}. Töltsd le inkább a Kiadások (Releases) oldalról.',
   'update.devBuild': 'Frissítést csak a telepített alkalmazás keres.',
   'update.afterRecording': 'Előbb állítsd le a felvételt. A frissítés az alkalmazás bezárásakor is települ.',
+  'update.otherWindowBusy': 'Egy másik ablak még vesz fel, exportál, vagy mentetlen módosításai vannak. Előbb ott fejezd be; a frissítés az alkalmazás bezárásakor is települ.',
   'toast.languageAfterRecording': 'Az új nyelv az alkalmazás következő indításakor lép életbe (most az újratöltés leállítaná a felvételt).',
   'toast.recStarted': 'Felvétel ide: {name}',
   'toast.recStopped': 'A felvétel leállt. {name} mentve ({time}).',
@@ -476,4 +478,5 @@ export const hu: Record<keyof typeof en, Message> = {
   'err.peakScan': 'A hullámforma beolvasása leállt ({code}. kód)',
   'err.recExists': '{name} már létezik; válassz másik nevet',
   'err.alreadyRecording': 'Már fut egy felvétel',
+  'err.openInOtherWindow': 'A(z) {name} már meg van nyitva egy másik ablakban',
 };
