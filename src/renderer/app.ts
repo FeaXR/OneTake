@@ -98,6 +98,7 @@ export class App {
         this.player.load();
       },
       confirmDiscard: () => this.confirmDiscard(),
+      saveIfDirty: async () => !this.editor.dirty || this.save(),
       canStart: () => {
         if (this.exporting) toast(t('toast.waitForExport'), 'error');
         return !this.exporting;
@@ -146,7 +147,12 @@ export class App {
     this.showUpdate(await window.studio.getUpdateState());
     this.editor.notify('settings', 'ui');
     window.studio.onOpenFile((path) => void this.openPath(path));
+    window.studio.onCommand((command) => void this.recording.runCommand(command));
+    const recovered = await window.studio.takeRecovered();
+    if (recovered) toast(t('toast.recRecovered', { name: basename(recovered.path), time: formatTime(recovered.duration, 0) }), 'info', 10_000);
     if (await this.restoreAfterReload()) return;
+    const command = await window.studio.takeCommand();
+    if (command) return this.recording.runCommand(command);
     const startupFile = await window.studio.takeStartupFile();
     if (startupFile) await this.openPath(startupFile, false);
   }

@@ -1,5 +1,6 @@
 import { formatNumber, t, translateCodes } from '../shared/i18n/index.ts';
 import { formatTime } from '../shared/time.ts';
+import { freeName, withWav, type CliCommand } from '../shared/cli.ts';
 import type { AudioInfo } from '../shared/types.ts';
 import { filenameProblem } from '../shared/validate.ts';
 import type { CaptureBlock } from './capture-worklet.ts';
@@ -32,6 +33,8 @@ export interface RecordingHost {
   confirmDiscard(): Promise<boolean>;
   /** Whether a recording may start now (not while exporting). */
   canStart(): boolean;
+  /** Saves unsaved edits of the open file without asking; false when that failed. */
+  saveIfDirty(): Promise<boolean>;
   refresh(): void;
 }
 
@@ -52,6 +55,12 @@ export class RecordingController {
   private lastAppend: Promise<unknown> = Promise.resolve();
   private stopping: Promise<void> | null = null;
   private path = '';
+  /** Frames still to record when the recording has a set length (from the command line). */
+  private framesLeft: number | null = null;
+  /** The recording was started from the command line, so what happens is printed there too. */
+  private fromCommand = false;
+  /** Closes the Record dialog while it is open. */
+  private closeDialog: (() => void) | null = null;
 
   constructor(editor: Editor, host: RecordingHost) {
     this.editor = editor;
@@ -79,10 +88,12 @@ export class RecordingController {
 
     const m = openModal(t('dlg.rec.title'), {
       onClose: () => {
+        this.closeDialog = null;
         this.dialogMeter = null;
         if (!started) this.closeInput();
       },
     });
+    this.closeDialog = () => m.close();
     const startBtn = h('button', { class: 'primary rec-start', disabled: true, onclick: () => void start() }, t('btn.startRecording'));
     const useInput = async (id: string) => {
       startBtn.disabled = true;
@@ -215,19 +226,90 @@ export class RecordingController {
     this.host.refresh();
   }
 
+  // ---------- Command line ----------
+
+  /** Carries out `one-take --record …` or `one-take --stop`, saying what happened in the window and the terminal. */
+  async runCommand(command: CliCommand): Promise<void> {
+    if (command.kind === 'stop') {
+      if (!this.writing) return cliSay(t('cli.notRecording'), true);
+      return this.stop(false, true);
+    }
+    if (command.kind !== 'record') return;
+    try {
+      await this.startFromCommand(command);
+    } catch (err) {
+      const text = t('cli.startFailed', { error: errorText(err) });
+      toast(text, 'error');
+      cliSay(text, true);
+    }
+  }
+
+  /**
+   * Starts recording without the dialog: the input named on the command line (else the last
+   * one used), into the folder and name it gives. Unsaved edits are saved first, as nobody may
+   * be there to answer; an existing file gets a number added instead of being overwritten.
+   */
+  private async startFromCommand(command: Extract<CliCommand, { kind: 'record' }>): Promise<void> {
+    if (this.active) throw new Error(t('err.alreadyRecording'));
+    if (!this.host.canStart()) throw new Error(t('toast.waitForExport'));
+    this.closeDialog?.();
+    if (!(await this.host.saveIfDirty())) throw new Error(t('cli.saveFailed'));
+
+    const settings = this.editor.settings;
+    const name = command.name ?? withWav(`${todayPrefix()}${settings.recordName}`.replace(/_$/, ''));
+    const problem = filenameProblem(name.replace(/\.wav$/i, ''));
+    if (problem) throw new Error(t(problem.key, problem.params));
+
+    const inputs = await listInputs(settings.recordInput);
+    if (!inputs.length) throw new Error(t('dlg.rec.noInputs'));
+    const wanted = command.input?.toLowerCase();
+    const input = wanted ? inputs.find((d) => d.label.toLowerCase().includes(wanted)) : inputs[0];
+    if (!input) throw new Error(t('cli.noSuchInput', { name: command.input!, inputs: inputs.map((d) => d.label).join(', ') }));
+
+    this.closeInput();
+    const capture = await InputCapture.open(input.id, (b) => this.onBlock(b), () => void this.onInputLost());
+    this.capture = capture;
+    const file = freeName(name, await window.studio.listFiles(command.dir));
+    this.framesLeft = command.durationSec ? Math.round(command.durationSec * capture.sampleRate) : null;
+    this.fromCommand = true;
+    try {
+      await this.start(command.dir, file);
+    } catch (err) {
+      this.closeInput();
+      this.framesLeft = null;
+      this.fromCommand = false;
+      throw err;
+    }
+    cliSay(command.durationSec
+      ? t('cli.recordingFor', { path: this.path, input: input.label, time: formatTime(command.durationSec, 0) })
+      : t('cli.recordingUntilStopped', { path: this.path, input: input.label }));
+    if (file !== name) toast(t('cli.renamed', { name, file }));
+  }
+
   // ---------- Samples ----------
 
   private onBlock(block: CaptureBlock): void {
     this.meter.update(block.peaks);
     this.dialogMeter?.update(block.peaks);
     if (!this.writing) return;
-    this.peaks?.append(block.planes);
+    let planes: Float32Array[] = block.planes;
+    // A recording with a set length takes exactly that many frames, then stops.
+    if (this.framesLeft !== null) {
+      const left = this.framesLeft;
+      if (left <= 0) return;
+      if (planes[0].length > left) planes = planes.map((p) => p.subarray(0, left));
+      this.framesLeft = left - planes[0].length;
+      if (this.framesLeft <= 0) queueMicrotask(() => void this.stop(false, true));
+    }
+    this.peaks?.append(planes);
     // The main process writes in the order the blocks are sent; the answer is the live point.
-    const append = window.studio.appendRecording(block.planes).then(
+    const append = window.studio.appendRecording(planes).then(
       (frames) => this.editor.growTo(frames),
       (err) => {
         if (!this.writing) return;
-        toast(t('toast.recWriteFailed', { error: errorText(err) }), 'error');
+        const text = t('toast.recWriteFailed', { error: errorText(err) });
+        toast(text, 'error');
+        if (this.fromCommand) cliSay(text, true);
         void this.stop(false);
       },
     );
@@ -239,14 +321,19 @@ export class RecordingController {
       this.closeInput();
       return;
     }
+    const fromCommand = this.fromCommand;
     await this.stop(false);
     toast(t('toast.recInputLost'), 'error');
+    if (fromCommand) cliSay(t('toast.recInputLost'), true);
   }
 
   // ---------- Stopping ----------
 
-  /** Stops and finishes the file; asks first unless `confirm` is false. */
-  async stop(confirm = true): Promise<void> {
+  /**
+   * Stops and finishes the file; asks first unless `confirm` is false. `announce` says so when
+   * done (a stop from the command line or the end of a set length, where nobody asked).
+   */
+  async stop(confirm = true, announce = confirm): Promise<void> {
     if (this.stopping) return this.stopping;
     if (!this.writing) return;
     if (confirm) {
@@ -267,12 +354,15 @@ export class RecordingController {
         const info = await window.studio.stopRecording();
         if (info) {
           this.editor.endLive(info);
-          if (confirm) toast(t('toast.recStopped', { name: basename(info.path), time: formatTime(info.duration, 0) }));
+          if (announce) toast(t('toast.recStopped', { name: basename(info.path), time: formatTime(info.duration, 0) }));
+          if (this.fromCommand || announce) cliSay(t('cli.saved', { path: info.path, time: formatTime(info.duration, 1) }));
         }
       } catch (err) {
         toast(errorText(err), 'error');
       } finally {
         this.writing = false;
+        this.framesLeft = null;
+        this.fromCommand = false;
         this.stopping = null;
         this.meter.reset();
         this.host.refresh();
@@ -285,6 +375,11 @@ export class RecordingController {
     this.capture?.close();
     this.capture = null;
   }
+}
+
+/** A line in the terminal the app was started from. */
+function cliSay(text: string, error = false): void {
+  window.studio.cliLog(text, error);
 }
 
 function errorText(err: unknown): string {

@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { DEFAULT_SETTINGS } from '../shared/types.ts';
 import { runExport } from './exporter.ts';
 import { ffmpegPath } from './ffmpeg.ts';
-import { HEADER_BYTES, WavRecorder, wavHeader } from './recorder.ts';
+import { HEADER_BYTES, repairRecording, WavRecorder, wavHeader } from './recorder.ts';
 import { readFrames, readWavLayout } from './wav.ts';
 
 /** `frames` of a stereo sine (left) and its negation (right), starting at frame `from`. */
@@ -119,6 +119,21 @@ test('segments that are already recorded export while the recording goes on', as
     assert.ok(result.ok);
     const length = durationOf(join(dir, 'First.mp3'));
     assert.ok(Math.abs(length - 3) < 0.1, `First.mp3 length ${length}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a recording cut off between header updates is repaired from the file length', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sae-rec-'));
+  try {
+    const file = join(dir, 'cut.wav');
+    // The header was last written at 1000 frames; 700 more frames and half a frame reached the disk.
+    writeFileSync(file, Buffer.concat([wavHeader(48000, 2, 1000 * 6), Buffer.alloc(1700 * 6 + 3, 1)]));
+    assert.equal(readWavLayout(file).frames, 1000);
+    assert.equal(await repairRecording(file, 48000, 2), 1700);
+    assert.equal(statSync(file).size, HEADER_BYTES + 1700 * 6);
+    assert.equal(readWavLayout(file).frames, 1700);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -325,6 +325,11 @@ const api: StudioApi = {
   stopRecording,
   takeStartupFile: async () => null,
   onOpenFile: () => () => {},
+  // The command line belongs to the desktop app.
+  takeCommand: async () => null,
+  onCommand: () => () => {},
+  takeRecovered: async () => null,
+  cliLog: () => {},
 
   saveProject: (wavPath, project) => db.set(`session:${wavPath}`, { wavPath, ...project }),
   getSettings,

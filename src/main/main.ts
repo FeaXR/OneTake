@@ -1,12 +1,13 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, powerSaveBlocker, shell, systemPreferences } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, powerMonitor, powerSaveBlocker, shell, systemPreferences } from 'electron';
 import { existsSync, readdirSync, statSync } from 'node:fs';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { codedError, resolveLanguage, setLanguage, t } from '../shared/i18n/index.ts';
 import type { AudioInfo, ExportRequest, LoadedAudio, Project, Settings } from '../shared/types.ts';
 import { runExport } from './exporter.ts';
 import { loadPeaks, savePeaks } from './peaks.ts';
 import { LEGACY_FOLDER, moveLegacyFolder } from './legacy-folders.ts';
-import { WavRecorder } from './recorder.ts';
+import { repairRecording, WavRecorder } from './recorder.ts';
 import { Updater } from './updates.ts';
 import { DEVELOPER_PAGE, REPOSITORY_PAGE } from '../shared/links.ts';
 import { APP_FOLDER } from './session-path.ts';
@@ -15,12 +16,15 @@ import {
 } from './store.ts';
 import { readFrames, readWavLayout, type WavLayout } from './wav.ts';
 import { trimDir } from '../shared/naming.ts';
+import { CLI_USAGE, parseCli, type CliCommand } from '../shared/cli.ts';
 
 let win: BrowserWindow | null = null;
 /** The WAV the renderer has open; playback reads its samples. */
 let openedWav: WavLayout | null = null;
 let dirty = false;
 let forceClose = false;
+/** The whole app is quitting (not just the window being closed by the user). */
+let quitting = false;
 let exportAbort: AbortController | null = null;
 /** The recording in progress, if any, and the sleep blocker held while it runs. */
 let recording: { rec: WavRecorder; blocker: number; started: number } | null = null;
@@ -65,6 +69,7 @@ async function stopRecording(): Promise<AudioInfo | null> {
   powerSaveBlocker.stop(r.blocker);
   win?.webContents.setBackgroundThrottling(true);
   const layout = await r.rec.finish();
+  await rm(recordingMarker(), { force: true });
   if (openedWav?.path === layout.path) openedWav = layout;
   await savePeaks(layout.path, peaksCacheDir(), r.rec.peakData());
   return audioInfo(layout, r.started);
@@ -72,6 +77,49 @@ async function stopRecording(): Promise<AudioInfo | null> {
 
 /** File to open once the UI is ready; handed over (once) when the renderer asks. */
 let startupFile = wavFromArgs(process.argv);
+
+// The command line can start a recording or stop the running one (see CLI_USAGE).
+const cli = parseCli(process.argv.slice(1), process.cwd(), resolve);
+if ('error' in cli) {
+  console.error(`One Take: ${cli.error}\n\n${CLI_USAGE}`);
+  process.exit(2);
+}
+if (cli.command?.kind === 'help') {
+  console.log(CLI_USAGE);
+  process.exit(0);
+}
+/** A recording to start (or a stop) from the command line, handed over once the UI is ready. */
+let startupCommand: CliCommand | null = cli.command;
+
+/**
+ * Lies next to the settings while a recording runs and is removed when it is finished. Finding
+ * it at startup means the app did not get to finish the file (crash, power cut), so it is repaired.
+ */
+const recordingMarker = () => join(app.getPath('userData'), 'recording.json');
+interface RecordingMarker {
+  path: string;
+  sampleRate: number;
+  channels: number;
+}
+/** A recording repaired at startup, for the renderer to mention. */
+let recovered: { path: string; duration: number } | null = null;
+
+async function recoverRecording(): Promise<void> {
+  let marker: RecordingMarker;
+  try {
+    marker = JSON.parse(await readFile(recordingMarker(), 'utf8')) as RecordingMarker;
+  } catch {
+    return;
+  }
+  try {
+    const frames = await repairRecording(marker.path, marker.sampleRate, marker.channels);
+    recovered = { path: marker.path, duration: frames / marker.sampleRate };
+    console.log(`One Take: repaired ${marker.path}, cut off at ${recovered.duration.toFixed(1)} s`);
+  } catch (err) {
+    console.error(`One Take: could not repair ${marker.path}: ${(err as Error).message}`);
+  }
+  await rm(recordingMarker(), { force: true });
+}
 
 const devIcon = join(__dirname, '..', '..', 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
 
@@ -121,6 +169,13 @@ function createWindow(): void {
   win.on('close', (e) => {
     if (recording) {
       e.preventDefault();
+      // Shutting down, logging out or a kill must not hang on a question: the file is finished.
+      if (quitting) {
+        void stopRecording()
+          .then((info) => info && console.log(`One Take: recording saved on quit: ${info.path} (${info.duration.toFixed(1)} s)`))
+          .finally(() => win?.close());
+        return;
+      }
       const choice = dialog.showMessageBoxSync(win!, {
         type: 'warning',
         buttons: [t('btn.stopAndClose'), t('btn.cancel')],
@@ -183,12 +238,15 @@ function registerIpc(): void {
     const path = resolve(dir, name);
     let rec: WavRecorder;
     try {
+      // A folder given on the command line may not exist yet.
+      await mkdir(dir, { recursive: true });
       rec = await WavRecorder.create(path, sampleRate, channels);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'EEXIST') throw codedError('err.recExists', { name });
       throw err;
     }
     recording = { rec, blocker: powerSaveBlocker.start('prevent-app-suspension'), started: Date.now() };
+    await writeFile(recordingMarker(), JSON.stringify({ path, sampleRate, channels } satisfies RecordingMarker));
     // A minimized window must keep passing samples on at full speed.
     win?.webContents.setBackgroundThrottling(false);
     openedWav = rec.layout();
@@ -284,6 +342,18 @@ function registerIpc(): void {
     startupFile = null;
     return file;
   });
+  ipcMain.handle('app:takeCommand', () => {
+    const command = startupCommand;
+    startupCommand = null;
+    return command;
+  });
+  ipcMain.handle('app:takeRecovered', () => {
+    const r = recovered;
+    recovered = null;
+    return r;
+  });
+  // What a command-line recording does is also printed in the terminal that started the app.
+  ipcMain.on('app:cliLog', (_e, text: string, error: boolean) => (error ? console.error : console.log)(`One Take: ${text}`));
 }
 
 // The app used to be called Studio Audio Editor. Its settings (with the peaks cache) and its
@@ -318,18 +388,37 @@ app.on('open-file', (e, path) => {
 
 // One window only: launching again with a file (e.g. dropping another WAV on the icon)
 // hands the file to the running app instead of opening a second copy.
-if (!app.requestSingleInstanceLock()) {
+// A second launch hands its command over already parsed: Chromium reorders the arguments it
+// passes on (switches first), which would split "--dir folder" apart.
+if (!app.requestSingleInstanceLock({ command: startupCommand })) {
+  // The running copy carries out the command and prints what happens in its own terminal.
+  if (startupCommand?.kind === 'record') console.log('One Take: already running; the recording starts there.');
+  if (startupCommand?.kind === 'stop') console.log('One Take: asked the running app to stop recording.');
   app.quit();
+} else if (startupCommand?.kind === 'stop') {
+  console.error('One Take: not running, so nothing is being recorded.');
+  process.exit(1);
 } else {
-  app.on('second-instance', (_e, argv, workingDirectory) => {
+  app.on('second-instance', (_e, argv, workingDirectory, additionalData) => {
     if (!win) return;
+    const command = (additionalData as { command?: CliCommand | null } | null)?.command ?? null;
+    if (command?.kind === 'record' || command?.kind === 'stop') {
+      win.webContents.send('app:command', command);
+      if (command.kind === 'stop') return;
+    }
     if (win.isMinimized()) win.restore();
     win.focus();
-    const file = wavFromArgs(argv, workingDirectory);
+    const file = command ? null : wavFromArgs(argv, workingDirectory);
     if (file) win.webContents.send('app:openFile', file);
   });
 
+  // The app is told to quit (shutdown, logout, a kill, Cmd+Q) rather than its window being
+  // closed: a recording is then finished without asking (see the window's close handler).
+  app.on('before-quit', () => (quitting = true));
+
   app.whenReady().then(async () => {
+    powerMonitor.on('shutdown', () => void stopRecording());
+    await recoverRecording();
     applyLanguage(await loadSettings());
     Menu.setApplicationMenu(appMenu());
     updater = new Updater((state) => win?.webContents.send('update:state', state));

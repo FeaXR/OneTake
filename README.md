@@ -133,7 +133,27 @@ Press **Record** in the toolbar (Ctrl+R) to record a new WAV instead of opening 
 - While it records, the timeline grows to the red **live point**. Mark, cut and play as with any file: playback stops when it reaches the live point. The view follows the live point while it is on screen (toggle with **L** or the arrow button next to the meter).
 - **Export all** writes the files whose end is already recorded; files that reach past the live point are marked *Still recording* and left for a later export.
 - The meter shows both inputs; **CLIP** lights up when an input reaches full scale and stays lit until you click it.
-- **Stop** asks first, then finishes the WAV. The computer is kept from going to sleep while recording, and the WAV's header is updated every second, so a crash or power cut loses at most the last second.
+- **Stop** asks first, then finishes the WAV. The computer is kept from going to sleep while recording.
+- **Nothing is lost when something goes wrong.** Audio is written to the WAV as it arrives, and every second the header is updated and everything is pushed to the disk. If the app is killed, crashes or the power goes off, the next start repairs the file from what reached the disk (the window says so), so at most the last second is lost. Shutting down or logging out while recording finishes the file without asking.
+
+#### Recording from the command line
+
+The desktop app can start and stop recordings from a terminal or a script, for example a scheduled recording:
+
+```sh
+one-take --record --dir ~/Recordings --name "Sunday service" --duration 1h30m
+one-take --record --dir ~/Recordings --input Scarlett     # until stopped
+one-take --stop
+```
+
+- `--record` opens One Take (or uses the one that is running) and starts recording at once, in the window as usual: waveform, meter and **Stop** button.
+- `--dir`: the folder for the WAV, the current folder if left out. It is made if it does not exist.
+- `--name`: the file name, `.wav` added if missing. Left out, it is today's `MMDD_` and the last recording's name, as in the Record dialog. An existing file is never overwritten: the recording becomes `Sunday service (2).wav` instead.
+- `--duration`: stop by itself after `90` (seconds), `90s`, `45m`, `2h`, `1h30m`, `1:30` (minutes:seconds) or `1:30:00`. The file is exactly that long. Without it, the recording runs until **Stop** or `one-take --stop`.
+- `--input`: the audio input whose name contains this text (any case); left out, the one used last. If none matches, the message lists the inputs there are.
+- Unsaved edits of the file that is open are saved first, so the recording can start without anyone there to answer. A recording that is already running is never interrupted: a second `--record` is refused.
+- What happens is shown in the window and printed in the terminal that started One Take (`Recording to …`, `Recording saved: …`). Wrong options print the usage and exit with code 2; `--stop` exits with code 1 when One Take is not running. `one-take --help` lists the options.
+- The command is `one-take` with the .deb and the Arch package, the AppImage's path for the AppImage, `"%LOCALAPPDATA%\Programs\One Take\One Take.exe"` on Windows (or the folder chosen when installing; the portable .exe's path for that one) and `"/Applications/One Take.app/Contents/MacOS/One Take"` on a Mac. On Windows the commands work, but nothing is printed in the console, as One Take is a windowed app there.
 
 ### Mouse
 
@@ -322,7 +342,7 @@ Installed copies look for releases in the repository named under `build.publish`
 - `bucket/`, `packaging/aur/`: the Scoop manifest and the Arch package, written by the release workflow
 - `scripts/package-manifests.mjs`: writes the AUR, Scoop and winget files for a release
 - `src/renderer/`: the UI (canvas timeline and overview, output list, commands and shortcuts)
-- `src/shared/`: types, time formatting, cut/segment planning and filename validation
+- `src/shared/`: types, time formatting, cut/segment planning, filename validation and the command line (`cli.ts`)
 - `src/shared/i18n/`: translations. `en.ts` is the master list of texts. To add a language, copy `hu.ts`, translate it, and register it in `index.ts`. The type checker reports any missing text, and a test checks that placeholders match.
 
 ### Contributing

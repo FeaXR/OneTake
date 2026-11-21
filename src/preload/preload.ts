@@ -19,6 +19,10 @@ const api: StudioApi = {
   stopRecording: () => ipcRenderer.invoke('rec:stop'),
   takeStartupFile: () => ipcRenderer.invoke('app:takeStartupFile'),
   onOpenFile: (cb) => subscribe('app:openFile', cb),
+  takeCommand: () => ipcRenderer.invoke('app:takeCommand'),
+  onCommand: (cb) => subscribe('app:command', cb),
+  takeRecovered: () => ipcRenderer.invoke('app:takeRecovered'),
+  cliLog: (text, error = false) => ipcRenderer.send('app:cliLog', text, error),
 
   saveProject: (wavPath, project) => ipcRenderer.invoke('project:save', wavPath, project),
   getSettings: () => ipcRenderer.invoke('settings:get'),

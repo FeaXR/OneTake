@@ -1,3 +1,4 @@
+import type { CliCommand } from './cli.ts';
 import type { AudioInfo, ExportProgress, ExportRequest, ExportResult, LoadedAudio, Project, Settings, UpdateState } from './types.ts';
 
 /** The bridge the preload script exposes to the renderer as `window.studio`. */
@@ -24,6 +25,14 @@ export interface StudioApi {
   takeStartupFile(): Promise<string | null>;
   /** A WAV dropped on the icon while the app is already running. */
   onOpenFile(cb: (path: string) => void): () => void;
+  /** A recording (or stop) asked for on the command line the app was started with, or null. Returns it only once. */
+  takeCommand(): Promise<CliCommand | null>;
+  /** A recording or stop asked for on the command line while the app is running. */
+  onCommand(cb: (command: CliCommand) => void): () => void;
+  /** A recording that was cut off (crash, power cut) and repaired at startup, or null. Returns it only once. */
+  takeRecovered(): Promise<{ path: string; duration: number } | null>;
+  /** Prints a line in the terminal the app was started from (for command-line recordings). */
+  cliLog(text: string, error?: boolean): void;
 
   saveProject(wavPath: string, project: Project): Promise<void>;
   getSettings(): Promise<Settings>;

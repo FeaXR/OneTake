@@ -129,3 +129,25 @@ export class WavRecorder {
 export function wavHeader(sampleRate: number, channels: number, dataBytes: number): Buffer {
   return Buffer.from(wavHeaderBytes(sampleRate, channels, dataBytes).buffer);
 }
+
+/**
+ * Makes a recording that was cut off (crash, power cut, killed process) whole again: the
+ * header's sizes can be up to a second behind the audio on disk, so they are set from the
+ * file's length, and a frame that was only partly written is dropped. Returns the frames kept.
+ */
+export async function repairRecording(path: string, sampleRate: number, channels: number): Promise<number> {
+  const file = await open(path, 'r+');
+  try {
+    const blockAlign = channels * 3;
+    const { size } = await file.stat();
+    const frames = Math.max(0, Math.floor((size - HEADER_BYTES) / blockAlign));
+    const dataBytes = frames * blockAlign;
+    await file.truncate(HEADER_BYTES + dataBytes);
+    const header = wavHeader(sampleRate, channels, dataBytes);
+    await file.write(header, 0, header.length, 0);
+    await file.datasync();
+    return frames;
+  } finally {
+    await file.close();
+  }
+}
