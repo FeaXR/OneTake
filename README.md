@@ -74,7 +74,7 @@ On a Mac, use **Cmd** wherever this page says Ctrl, and **Option** for Alt. Shor
 
 From version 1.6.2, One Take can also be installed with a package manager, which then also updates it.
 
-**winget** (Windows), the same as the installer above:
+**winget** (Windows), the same as the installer above. One Take is [waiting for review](https://github.com/microsoft/winget-pkgs/pull/475528) to be added to winget, so this command works only once that is merged:
 
 ```bash
 winget install FeaXR.OneTake
@@ -306,7 +306,7 @@ After the release, the workflow also writes the package-manager files with [scri
 
 - **Scoop:** `bucket/one-take.json` is updated and committed to the default branch. This needs nothing set up.
 - **Arch Linux:** `packaging/aur/PKGBUILD` and `.SRCINFO` are updated and committed with the Scoop manifest. The same files are pushed to the AUR as `one-take-bin`, which creates the package on the first push. That needs an [AUR account](https://aur.archlinux.org/register) with an SSH public key, and the matching private key as the repository secret `AUR_SSH_KEY`.
-- **winget:** a pull request to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) is opened from a fork under your account. It appears in winget once Microsoft's checks and a moderator approve it, usually within a few days. This needs a classic GitHub token with the `public_repo` scope as the repository secret `WINGET_TOKEN`.
+- **winget:** a pull request to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) is opened from a fork under your account. It appears in winget once Microsoft's checks pass and a moderator approves it. A new package can wait a few weeks for a moderator; later versions usually go through without one. This needs a classic GitHub token with the `public_repo` scope as the repository secret `WINGET_TOKEN`.
 
 Without its secret, the AUR or winget step is skipped.
 
