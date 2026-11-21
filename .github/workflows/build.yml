@@ -161,7 +161,9 @@ jobs:
           git push origin HEAD:master
 
   # Submits the release to winget as a pull request to microsoft/winget-pkgs, from a fork that
-  # wingetcreate makes under the token's account. Only when the WINGET_TOKEN secret is set.
+  # wingetcreate makes under the token's account. Only when the WINGET_TOKEN secret is set, and
+  # only once FeaXR.OneTake is in winget: until a moderator has accepted the first request
+  # (microsoft/winget-pkgs#475528), each release would open another new-package request.
   winget:
     name: winget
     if: startsWith(github.ref, 'refs/tags/v')
@@ -170,17 +172,34 @@ jobs:
     env:
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Is One Take in winget yet?
+        id: listed
         if: env.WINGET_TOKEN != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if out=$(gh api repos/microsoft/winget-pkgs/contents/manifests/f/FeaXR/OneTake 2>&1 >/dev/null); then
+            echo "listed=true" >> "$GITHUB_OUTPUT"
+          elif grep -q 'HTTP 404' <<< "$out"; then
+            echo "listed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::FeaXR.OneTake is not in winget yet, so this version is not submitted. Once the first request is merged, later releases are submitted as updates."
+          else
+            echo "$out"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.listed.outputs.listed == 'true'
 
       - uses: actions/download-artifact@v8
-        if: env.WINGET_TOKEN != ''
+        if: steps.listed.outputs.listed == 'true'
         with:
           name: one-take-windows
           path: release
 
       - name: Submit to winget
-        if: env.WINGET_TOKEN != ''
+        if: steps.listed.outputs.listed == 'true'
         shell: pwsh
         run: |
           $version = "$env:GITHUB_REF_NAME".TrimStart('v')
