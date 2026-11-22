@@ -63,9 +63,6 @@ function stateOf(sender: Electron.WebContents): WindowState {
   return ws;
 }
 
-/** Busy windows are not taken over by files or recordings from outside. */
-const idle = (ws: WindowState) => !ws.recording && !ws.exportAbort && !ws.dirty;
-
 /** Sends to every window's page. */
 function broadcast(channel: string, value: unknown, except?: Electron.WebContents): void {
   for (const ws of windows.values()) if (ws.win.webContents !== except) ws.win.webContents.send(channel, value);
@@ -282,8 +279,14 @@ function show(ws: WindowState): void {
   ws.win.focus();
 }
 
-/** A window with nothing in it: no file (open or on its way), no recording. */
+/**
+ * A window with nothing in it: no file (open or on its way), no recording. Only these are
+ * taken over by a launch from outside; every other launch gets a window of its own.
+ */
 const empty = (ws: WindowState) => !ws.openedWav && !ws.opening && !ws.recording;
+
+/** The empty window to use for a launch from outside: the one used last if it is empty, else any. */
+const emptyWindow = () => [lastFocused, ...windows.values()].find((ws): ws is WindowState => !!ws && empty(ws));
 
 /**
  * Opens a WAV from outside (file manager, a file dropped on the icon, the command line). A file
@@ -293,7 +296,7 @@ const empty = (ws: WindowState) => !ws.openedWav && !ws.opening && !ws.recording
 function openFromOutside(path: string): void {
   const open = [...windows.values()].find((ws) => ws.openedWav?.path === path || ws.opening === path);
   if (open) return show(open);
-  const target = [lastFocused, ...windows.values()].find((ws) => ws && empty(ws));
+  const target = emptyWindow();
   if (!target) {
     createWindow({ file: path });
     return;
@@ -304,13 +307,13 @@ function openFromOutside(path: string): void {
 }
 
 /**
- * Carries out a command-line command in the running app. A recording goes to the window used
- * last if it is idle, else to another idle window, else to a new one, so a recording or unsaved
- * work is never interrupted. A stop goes to every recording window, or the one recording `name`.
+ * Carries out a command-line command in the running app. A recording goes to an empty window
+ * (the one used last if it is empty), else to a new one, so a window with a file or a recording
+ * in it is left as it is. A stop goes to every recording window, or the one recording `name`.
  */
 function runCommand(command: CliCommand): void {
   if (command.kind === 'record') {
-    const target = [lastFocused, ...windows.values()].find((ws) => ws && idle(ws));
+    const target = emptyWindow();
     if (!target) {
       createWindow({ command });
       return;
@@ -569,8 +572,12 @@ if (!app.requestSingleInstanceLock({ command: startupCommand })) {
     const files = command ? [] : wavsFromArgs(argv, workingDirectory);
     for (const file of files) openFromOutside(file);
     // Starting the app again while it runs (the menu, a middle click on the taskbar icon, a
-    // launcher's New Window, --new-window) opens an empty window.
-    if (!files.length) createWindow();
+    // launcher's New Window, --new-window) brings an empty window forward, or opens one.
+    if (!files.length) {
+      const target = emptyWindow();
+      if (target) show(target);
+      else createWindow();
+    }
   });
 
   // The app is told to quit (shutdown, logout, a kill, Cmd+Q) rather than its windows being

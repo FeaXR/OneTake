@@ -27,7 +27,7 @@ export const CLI_USAGE = `Usage:
   one-take --new-window
   one-take [file.wav ...]
 
-  --record          Start recording in One Take: in the window used last if it is idle,
+  --record          Start recording in One Take: in an empty window if there is one,
                     else in a new window, so several recordings can run at once.
   --dir <folder>    Where the WAV goes (default: the current folder). Made if missing.
   --name <file>     File name (default: today's MMDD_ and the last recording's name).
@@ -37,7 +37,8 @@ export const CLI_USAGE = `Usage:
                     1:30 (minutes:seconds) or 1:30:00. Without it, record until stopped.
   --input <name>    Audio input whose name contains this (default: the last one used).
   --stop            Stop every recording that is running; with --name, only that one.
-  --new-window      Open an empty window (starting One Take again while it runs does too).
+  --new-window      Open an empty window, or bring forward one that is open already
+                    (starting One Take again while it runs does the same).
   file.wav ...      Open WAVs, each in a window of its own.
   --help            Show this text.`;
 
