@@ -1,6 +1,6 @@
 pkgbase = one-take-bin
 	pkgdesc = Record or open one long WAV and cut it into faded, peak-normalized MP3 files
-	pkgver = 2.0.0
+	pkgver = 2.1.0
 	pkgrel = 1
 	url = https://github.com/FeaXR/OneTake
 	arch = x86_64
@@ -17,12 +17,12 @@ pkgbase = one-take-bin
 	depends = xdg-utils
 	provides = one-take
 	conflicts = one-take
-	noextract = one-take_2.0.0_amd64.deb
+	noextract = one-take_2.1.0_amd64.deb
 	options = !strip
 	options = !debug
-	source = https://github.com/FeaXR/OneTake/releases/download/v2.0.0/one-take_2.0.0_amd64.deb
-	source = LICENSE-2.0.0::https://raw.githubusercontent.com/FeaXR/OneTake/v2.0.0/LICENSE
-	sha256sums = 30e3634ca2a13aa601b75966025dd18d440cc61c934295d0f148a1d0bf590e94
+	source = https://github.com/FeaXR/OneTake/releases/download/v2.1.0/one-take_2.1.0_amd64.deb
+	source = LICENSE-2.1.0::https://raw.githubusercontent.com/FeaXR/OneTake/v2.1.0/LICENSE
+	sha256sums = fd9222ff56f20f714149ca4f8fd9f671805b1d0cbf23fcb6baa9e0441505a42a
 	sha256sums = f2e01fba0507f06c5fc782d7a1d1ffea0de965e9a47b655431b2baa29f6b9885
 
 pkgname = one-take-bin
