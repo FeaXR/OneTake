@@ -6,6 +6,8 @@ export const hu: Record<keyof typeof en, Message> = {
   'app.name': 'One Take',
 
   'cmd.file.open': 'WAV megnyitása…',
+
+  'cmd.file.openNewWindow': 'Megnyitás új ablakban…',
   'cmd.file.save': 'Projekt mentése',
   'cmd.file.export': 'Összes exportálása',
   'cmd.edit.undo': 'Visszavonás',

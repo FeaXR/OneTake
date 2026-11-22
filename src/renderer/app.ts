@@ -190,6 +190,7 @@ export class App {
 
     this.commands.register(
       { id: 'file.open', label: t('cmd.file.open'), run: () => this.openWithDialog() },
+      { id: 'file.openNewWindow', label: t('cmd.file.openNewWindow'), run: () => this.openInNewWindowsWithDialog() },
       { id: 'file.save', label: t('cmd.file.save'), run: () => void this.save(), enabled: hasAudio },
       { id: 'file.export', label: t('cmd.file.export'), run: () => this.exportAll(), enabled: () => hasAudio() && !this.exporting },
       { id: 'edit.undo', label: t('cmd.edit.undo'), run: () => ed.undo(), enabled: () => ed.canUndo },
@@ -462,10 +463,27 @@ export class App {
     return true;
   }
 
+  /** Open (Ctrl+O): the first file chosen replaces this window's, any others open in new windows. */
   private async openWithDialog(): Promise<void> {
-    if (!(await this.confirmDiscard())) return;
-    const path = await window.studio.pickWav();
-    if (path) await this.openPath(path, false);
+    const paths = await window.studio.pickWavs();
+    if (paths.length) await this.openHereAndElsewhere(paths);
+  }
+
+  /** Open in new window (Ctrl+Shift+O): each file chosen gets a window of its own; this one stays as it is. */
+  private async openInNewWindowsWithDialog(): Promise<void> {
+    const paths = await window.studio.pickWavs();
+    if (paths.length) window.studio.openInNewWindows(paths);
+  }
+
+  /**
+   * The first file in this window (asking about unsaved edits), the others in new windows. While
+   * this window records or exports, all of them go to new windows instead.
+   */
+  private async openHereAndElsewhere(paths: string[]): Promise<void> {
+    if (this.recording.active || this.exporting) return window.studio.openInNewWindows(paths);
+    const [first, ...others] = paths;
+    if (others.length) window.studio.openInNewWindows(others);
+    await this.openPath(first);
   }
 
   /** Opens a WAV. Resolves to true when it loaded. */
@@ -1465,7 +1483,7 @@ export class App {
       const typing = target.matches('input, select, textarea');
       if (typing) {
         // In text fields only app-level Ctrl shortcuts apply; everything else is typing.
-        if (!id || !(e.ctrlKey || e.metaKey) || !['file.save', 'file.export', 'file.open', 'app.settings', 'app.newWindow'].includes(id)) return;
+        if (!id || !(e.ctrlKey || e.metaKey) || !['file.save', 'file.export', 'file.open', 'file.openNewWindow', 'app.settings', 'app.newWindow'].includes(id)) return;
         target.blur();
       }
       if (!id) return;
@@ -1486,11 +1504,17 @@ export class App {
     document.addEventListener('drop', (e) => {
       e.preventDefault();
       document.body.classList.remove('dragging');
-      const file = e.dataTransfer?.files[0];
-      if (!file) return;
-      if (!/\.wav$/i.test(file.name)) return toast(t('toast.onlyWav'), 'error');
-      void window.studio.droppedFilePath(file).then(
-        (path) => void (path && this.openPath(path)),
+      const files = [...(e.dataTransfer?.files ?? [])];
+      if (!files.length) return;
+      const wavs = files.filter((f) => /\.wav$/i.test(f.name));
+      if (wavs.length < files.length) toast(t('toast.onlyWav'), 'error');
+      if (!wavs.length) return;
+      // Several files: the first here, the others in windows of their own.
+      void Promise.all(wavs.map((f) => window.studio.droppedFilePath(f))).then(
+        (paths) => {
+          const found = paths.filter((p): p is string => !!p);
+          if (found.length) void this.openHereAndElsewhere(found);
+        },
         (err: unknown) => toast(errorText(err), 'error'),
       );
     });

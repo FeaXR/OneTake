@@ -157,9 +157,15 @@ one-take --stop                                                        # stops a
 - What happens is shown in the window and printed in the terminal that started One Take (`Recording to …`, `Recording saved: …`). Wrong options print the usage and exit with code 2; `--stop` exits with code 1 when One Take is not running. `one-take --help` lists the options.
 - The command is `one-take` with the .deb and the Arch package, the AppImage's path for the AppImage, `"%LOCALAPPDATA%\Programs\One Take\One Take.exe"` on Windows (or the folder chosen when installing; the portable .exe's path for that one) and `"/Applications/One Take.app/Contents/MacOS/One Take"` on a Mac. On Windows the commands work, but nothing is printed in the console, as One Take is a windowed app there.
 
-#### Several windows, several recordings
+#### Several windows: files and recordings
 
-**New window** (Ctrl+N) opens another window, each with its own file, recording, edits and export. So you can record two inputs at once, or cut yesterday's recording while today's runs. Each recording is kept safe on its own: shutting down finishes all of them, and after a crash all cut-off files are repaired. A WAV that is already open in one window is brought to the front instead of being opened twice. Settings and shortcuts saved in one window apply to the others at once (a new language from their next start). An update restarts the app only when no window is recording, exporting or holding unsaved edits.
+**New window** (Ctrl+N) opens another window, each with its own file, recording, edits and export. So you can work on several files side by side, record two inputs at once, or cut yesterday's recording while today's runs.
+
+- **Open** (Ctrl+O) takes several files at once: the first replaces this window's file, each other one opens in a window of its own. **Open in new window** (Ctrl+Shift+O) opens every file chosen in a new window and leaves this one as it is. Dropping several WAVs on a window works like **Open**; while that window records or exports, all of them go to new windows.
+- An empty window also opens when One Take is started again while it runs: from the menu, with a middle click on its taskbar icon, or with **New window** in the launcher's right-click menu (on Windows the taskbar's jump list, on a Mac the Dock menu), or `one-take --new-window`.
+- Files opened from outside (the file manager, dropped on the app's icon, `one-take a.wav b.wav`) each get a window of their own. An empty window is used first; a file that is open in another window is never replaced.
+- In the web versions, the extra files open in new browser tabs (the browser may ask once to allow pop-ups).
+ Each recording is kept safe on its own: shutting down finishes all of them, and after a crash all cut-off files are repaired. A WAV that is already open in one window is brought to the front instead of being opened twice. Settings and shortcuts saved in one window apply to the others at once (a new language from their next start). An update restarts the app only when no window is recording, exporting or holding unsaved edits.
 
 ##### Inputs 3–4 of the same interface (Linux)
 
@@ -243,6 +249,7 @@ These are the defaults. You can change any of them in **Settings → Keyboard sh
 | Ctrl+S / Ctrl+E / Ctrl+O | Save / export / open |
 | Ctrl+R | Record a new WAV |
 | Ctrl+N | New window (for a second recording or file) |
+| Ctrl+Shift+O | Open WAVs, each in a new window |
 | L | While recording: follow the live point or not |
 
 ## Settings

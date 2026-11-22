@@ -2,7 +2,7 @@
   "name": "one-take",
   "productName": "One Take",
   "desktopName": "one-take.desktop",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Record or open one long WAV and cut it into faded, peak-normalized MP3 files.",
   "author": "Fixr",
   "license": "MIT",
@@ -112,10 +112,42 @@
       "syncDesktopName": true
     },
     "appImage": {
-      "artifactName": "One-Take-${version}-${arch}.${ext}"
+      "artifactName": "One-Take-${version}-${arch}.${ext}",
+      "desktop": {
+        "entry": {
+          "Actions": "NewWindow;"
+        },
+        "desktopActions": {
+          "NewWindow": {
+            "Name": "New window",
+            "Name[de]": "Neues Fenster",
+            "Name[es]": "Nueva ventana",
+            "Name[fr]": "Nouvelle fenêtre",
+            "Name[hu]": "Új ablak",
+            "Name[sr]": "Нови прозор",
+            "Exec": "AppRun --no-sandbox --new-window"
+          }
+        }
+      }
     },
     "deb": {
-      "artifactName": "one-take_${version}_${arch}.${ext}"
+      "artifactName": "one-take_${version}_${arch}.${ext}",
+      "desktop": {
+        "entry": {
+          "Actions": "NewWindow;"
+        },
+        "desktopActions": {
+          "NewWindow": {
+            "Name": "New window",
+            "Name[de]": "Neues Fenster",
+            "Name[es]": "Nueva ventana",
+            "Name[fr]": "Nouvelle fenêtre",
+            "Name[hu]": "Új ablak",
+            "Name[sr]": "Нови прозор",
+            "Exec": "\"/opt/One Take/one-take\" --new-window"
+          }
+        }
+      }
     },
     "afterPack": "scripts/after-pack.cjs",
     "publish": [

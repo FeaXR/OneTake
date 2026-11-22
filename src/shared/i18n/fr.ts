@@ -9,6 +9,8 @@ export const fr: Record<keyof typeof en, Message> = {
   'app.name': 'One Take',
 
   'cmd.file.open': 'Ouvrir un WAV…',
+
+  'cmd.file.openNewWindow': 'Ouvrir dans une nouvelle fenêtre…',
   'cmd.file.save': 'Sauvegarder le projet',
   'cmd.file.export': 'Tout exporter',
   'cmd.edit.undo': 'Annuler',

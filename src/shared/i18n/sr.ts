@@ -16,6 +16,8 @@ export const sr: Record<keyof typeof en, Message> = {
   'app.name': 'One Take',
 
   'cmd.file.open': 'Отвори WAV…',
+
+  'cmd.file.openNewWindow': 'Отвори у новом прозору…',
   'cmd.file.save': 'Сачувај пројекат',
   'cmd.file.export': 'Извези све',
   'cmd.edit.undo': 'Опозови',

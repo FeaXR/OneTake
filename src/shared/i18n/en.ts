@@ -8,6 +8,7 @@ export const en = {
 
   // Commands (also used as labels in Settings → Keyboard shortcuts)
   'cmd.file.open': 'Open WAV…',
+  'cmd.file.openNewWindow': 'Open in new window…',
   'cmd.file.save': 'Save project',
   'cmd.file.export': 'Export all',
   'cmd.edit.undo': 'Undo',

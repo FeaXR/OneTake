@@ -3,7 +3,10 @@ import type { AudioInfo, ExportProgress, ExportRequest, ExportResult, LoadedAudi
 
 /** The bridge the preload script exposes to the renderer as `window.studio`. */
 export interface StudioApi {
-  pickWav(): Promise<string | null>;
+  /** WAVs chosen in a file dialog (several in the desktop app); empty when cancelled. */
+  pickWavs(): Promise<string[]>;
+  /** Opens each WAV in a window of its own (a browser tab in the web builds), or brings forward the window that has it. */
+  openInNewWindows(paths: string[]): void;
   /** Path of a WAV dropped on the window (the web build uploads it first); null when it was not sent. */
   droppedFilePath(file: File): Promise<string | null>;
   loadAudio(path: string): Promise<LoadedAudio>;

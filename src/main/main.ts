@@ -39,6 +39,8 @@ interface WindowState {
   recording: Recording | null;
   /** A WAV, or a command-line command, to hand to the page once it is ready (once). */
   startupFile: string | null;
+  /** A WAV sent to this window that it has not loaded yet, so the window no longer counts as empty. */
+  opening: string | null;
   startupCommand: CliCommand | null;
 }
 
@@ -70,16 +72,12 @@ function broadcast(channel: string, value: unknown, except?: Electron.WebContent
 }
 
 /**
- * First existing .wav among command-line arguments. Dropping a file onto the .exe or a shortcut,
- * or "Open with", starts the app with the file's path as an argument.
+ * Existing .wav files among command-line arguments. Dropping files onto the .exe or a shortcut,
+ * or "Open with", starts the app with their paths as arguments; each opens in its own window.
  */
-function wavFromArgs(argv: string[], cwd = process.cwd()): string | null {
-  for (const arg of argv.slice(1)) {
-    if (!/\.wav$/i.test(arg)) continue;
-    const path = resolve(cwd, arg);
-    if (existsSync(path)) return path;
-  }
-  return null;
+function wavsFromArgs(argv: string[], cwd = process.cwd()): string[] {
+  const paths = argv.slice(1).filter((arg) => /\.wav$/i.test(arg)).map((arg) => resolve(cwd, arg));
+  return [...new Set(paths)].filter((path) => existsSync(path));
 }
 
 /** Dialogs shown by the main process (file pickers, close prompt) follow the app language. */
@@ -115,8 +113,8 @@ function stopAllRecordings(): Promise<unknown> {
   return Promise.all([...windows.values()].map((ws) => stopRecording(ws)));
 }
 
-/** File to open in the first window (handed over when its page asks). */
-let startupFile = wavFromArgs(process.argv);
+/** Files to open at startup: the first in the first window, each other one in a window of its own. */
+let startupFiles = wavsFromArgs(process.argv);
 
 // The command line can start a recording or stop the running one (see CLI_USAGE).
 const cli = parseCli(process.argv.slice(1), process.cwd(), resolve);
@@ -128,7 +126,7 @@ if (cli.command?.kind === 'help') {
   console.log(CLI_USAGE);
   process.exit(0);
 }
-/** A recording to start (or a stop) from the command line, for the first window. */
+/** A recording to start (or a stop, or --new-window) from the command line, for the first window. */
 const startupCommand: CliCommand | null = cli.command;
 
 /**
@@ -211,7 +209,7 @@ function createWindow(open: { file?: string | null; command?: CliCommand | null 
   });
   const ws: WindowState = {
     win, openedWav: null, dirty: false, forceClose: false, exportAbort: null, recording: null,
-    startupFile: open.file ?? null, startupCommand: open.command ?? null,
+    startupFile: open.file ?? null, startupCommand: open.command ?? null, opening: open.file ?? null,
   };
   const id = win.webContents.id;
   windows.set(id, ws);
@@ -284,15 +282,23 @@ function show(ws: WindowState): void {
   ws.win.focus();
 }
 
-/** The window a WAV from outside opens in: the one that has it open, else an idle one, else a new one. */
+/** A window with nothing in it: no file (open or on its way), no recording. */
+const empty = (ws: WindowState) => !ws.openedWav && !ws.opening && !ws.recording;
+
+/**
+ * Opens a WAV from outside (file manager, a file dropped on the icon, the command line). A file
+ * that is open already brings its window forward; otherwise it goes to an empty window or a new
+ * one, so the files open in other windows stay as they are.
+ */
 function openFromOutside(path: string): void {
-  const open = [...windows.values()].find((ws) => ws.openedWav?.path === path);
+  const open = [...windows.values()].find((ws) => ws.openedWav?.path === path || ws.opening === path);
   if (open) return show(open);
-  const target = [lastFocused, ...windows.values()].find((ws) => ws && !ws.recording);
+  const target = [lastFocused, ...windows.values()].find((ws) => ws && empty(ws));
   if (!target) {
     createWindow({ file: path });
     return;
   }
+  target.opening = path;
   show(target);
   target.win.webContents.send('app:openFile', path);
 }
@@ -333,17 +339,18 @@ function recordingMatches(path: string, name: string): boolean {
 }
 
 function registerIpc(): void {
-  ipcMain.handle('dialog:pickWav', async (e) => {
+  ipcMain.handle('dialog:pickWavs', async (e) => {
     const result = await dialog.showOpenDialog(stateOf(e.sender).win, {
       title: t('dlg.openWav.title'),
-      properties: ['openFile'],
+      properties: ['openFile', 'multiSelections'],
       filters: [{ name: t('dlg.openWav.filter'), extensions: ['wav'] }],
     });
-    return result.canceled ? null : result.filePaths[0];
+    return result.canceled ? [] : result.filePaths;
   });
 
   ipcMain.handle('audio:load', async (e, path: string): Promise<LoadedAudio> => {
     const ws = stateOf(e.sender);
+    ws.opening = null;
     // One file, one window: two windows would overwrite each other's session.
     const elsewhere = [...windows.values()].find((other) => other !== ws && other.openedWav?.path === resolve(path));
     if (elsewhere) {
@@ -483,6 +490,14 @@ function registerIpc(): void {
   });
   ipcMain.on('app:toggleDevTools', (e) => e.sender.toggleDevTools());
   ipcMain.on('app:newWindow', () => void createWindow());
+  // Each file in a window of its own (or the window that has it open already).
+  ipcMain.on('app:openInNewWindows', (_e, paths: string[]) => {
+    for (const path of paths.map((p) => resolve(p))) {
+      const open = [...windows.values()].find((ws) => ws.openedWav?.path === path || ws.opening === path);
+      if (open) show(open);
+      else createWindow({ file: path });
+    }
+  });
   ipcMain.handle('app:takeStartupFile', (e) => {
     const ws = stateOf(e.sender);
     const file = ws.startupFile;
@@ -531,7 +546,7 @@ app.on('open-file', (e, path) => {
   e.preventDefault();
   if (!/\.wav$/i.test(path)) return;
   if (windows.size) openFromOutside(path);
-  else startupFile = path;
+  else startupFiles.push(path);
 });
 
 // One app, several windows: launching again (a WAV dropped on the icon, a command) hands over
@@ -541,7 +556,9 @@ if (!app.requestSingleInstanceLock({ command: startupCommand })) {
   // The running copy carries out the command and prints what happens in its own terminal.
   if (startupCommand?.kind === 'record') console.log('One Take: already running; the recording starts there.');
   if (startupCommand?.kind === 'stop') console.log('One Take: asked the running app to stop recording.');
+  if (startupCommand?.kind === 'newWindow') console.log('One Take: opened a new window in the running app.');
   app.quit();
+  // (Without a command or files the running app opens an empty window: see second-instance.)
 } else if (startupCommand?.kind === 'stop') {
   console.error('One Take: not running, so nothing is being recorded.');
   process.exit(1);
@@ -549,10 +566,11 @@ if (!app.requestSingleInstanceLock({ command: startupCommand })) {
   app.on('second-instance', (_e, argv, workingDirectory, additionalData) => {
     const command = (additionalData as { command?: CliCommand | null } | null)?.command ?? null;
     if (command?.kind === 'record' || command?.kind === 'stop') return runCommand(command);
-    const file = wavFromArgs(argv, workingDirectory);
-    if (file) return openFromOutside(file);
-    const ws = lastFocused ?? createWindow();
-    show(ws);
+    const files = command ? [] : wavsFromArgs(argv, workingDirectory);
+    for (const file of files) openFromOutside(file);
+    // Starting the app again while it runs (the menu, a middle click on the taskbar icon, a
+    // launcher's New Window, --new-window) opens an empty window.
+    if (!files.length) createWindow();
   });
 
   // The app is told to quit (shutdown, logout, a kill, Cmd+Q) rather than its windows being
@@ -566,8 +584,12 @@ if (!app.requestSingleInstanceLock({ command: startupCommand })) {
     Menu.setApplicationMenu(appMenu());
     updater = new Updater((state) => broadcast('update:state', state));
     registerIpc();
-    createWindow({ file: startupFile, command: startupCommand });
-    startupFile = null;
+    // A recording from the command line takes the first window; files then get windows of their own.
+    const [first, ...others] = startupCommand ? [null, ...startupFiles] : startupFiles;
+    createWindow({ file: first ?? null, command: startupCommand?.kind === 'newWindow' ? null : startupCommand });
+    newWindowShortcuts();
+    for (const file of others) createWindow({ file });
+    startupFiles = [];
     const checkForUpdates = () =>
       void loadSettings().then((s) => {
         if (s.checkUpdates) void updater!.check();
@@ -575,6 +597,31 @@ if (!app.requestSingleInstanceLock({ command: startupCommand })) {
     setTimeout(checkForUpdates, UPDATE_CHECK_DELAY_MS);
     setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);
   });
+}
+
+// A Mac: clicking the Dock icon with no window open opens one.
+app.on('activate', () => {
+  if (app.isReady() && !windows.size) createWindow();
+});
+
+/**
+ * "New window" outside the app: the taskbar's jump list on Windows, the Dock menu on a Mac (the
+ * Linux launchers get it from the .desktop file's New Window action, see package.json).
+ */
+function newWindowShortcuts(): void {
+  if (process.platform === 'win32') {
+    app.setUserTasks([{
+      program: process.execPath,
+      arguments: '--new-window',
+      iconPath: process.execPath,
+      iconIndex: 0,
+      title: t('cmd.app.newWindow'),
+      description: t('cmd.app.newWindow'),
+    }]);
+  }
+  if (process.platform === 'darwin') {
+    app.dock?.setMenu(Menu.buildFromTemplate([{ label: t('cmd.app.newWindow'), click: () => void createWindow() }]));
+  }
 }
 
 app.on('window-all-closed', () => void stopAllRecordings().finally(() => app.quit()));

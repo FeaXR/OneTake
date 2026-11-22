@@ -309,8 +309,30 @@ async function droppedFilePath(file: File): Promise<string | null> {
   return importWav(file);
 }
 
+/** A WAV for a new tab to open: the page gets its path as ?open=… (see takeOpenParam). */
+function openInNewTab(path: string): void {
+  const url = new URL(location.href);
+  url.search = '';
+  url.searchParams.set('open', path);
+  window.open(url, '_blank');
+}
+
+/** The ?open=… a tab was opened with, once; it is taken off the address, so a reload does not open it again. */
+function takeOpenParam(): string | null {
+  const url = new URL(location.href);
+  const path = url.searchParams.get('open');
+  if (path === null) return null;
+  url.searchParams.delete('open');
+  history.replaceState(null, '', url);
+  return path;
+}
+
 const api: StudioApi = {
-  pickWav: () => browse('wav', null),
+  pickWavs: async () => {
+    const path = await browse('wav', null);
+    return path ? [path] : [];
+  },
+  openInNewWindows: (paths) => paths.forEach((path) => openInNewTab(path)),
   droppedFilePath,
   loadAudio,
   onLoadProgress: loadProgress.on,
@@ -323,7 +345,7 @@ const api: StudioApi = {
   startRecording,
   appendRecording,
   stopRecording,
-  takeStartupFile: async () => null,
+  takeStartupFile: async () => takeOpenParam(),
   onOpenFile: () => () => {},
   // The command line belongs to the desktop app.
   takeCommand: async () => null,

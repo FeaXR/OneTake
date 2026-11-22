@@ -40,6 +40,7 @@ export class CommandRegistry {
 /** Default key bindings. Users can override them in shortcuts.json (Settings → Edit shortcuts). */
 export const DEFAULT_SHORTCUTS: Record<string, string[]> = {
   'file.open': ['Ctrl+O'],
+  'file.openNewWindow': ['Ctrl+Shift+O'],
   'file.save': ['Ctrl+S'],
   'file.export': ['Ctrl+E'],
   'edit.undo': ['Ctrl+Z'],

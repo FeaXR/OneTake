@@ -15,6 +15,8 @@ export type CliCommand =
     }
   /** Stops every recording, or only the one whose file is `name` (or `name` with a number added). */
   | { kind: 'stop'; name?: string }
+  /** An empty window: in the running app if there is one, else the app starts as usual. */
+  | { kind: 'newWindow' }
   | { kind: 'help' };
 
 export type CliResult = { command: CliCommand | null } | { error: string };
@@ -22,7 +24,8 @@ export type CliResult = { command: CliCommand | null } | { error: string };
 export const CLI_USAGE = `Usage:
   one-take --record [--dir <folder>] [--name <file>] [--duration <time>] [--input <name>]
   one-take --stop [--name <file>]
-  one-take [file.wav]
+  one-take --new-window
+  one-take [file.wav ...]
 
   --record          Start recording in One Take: in the window used last if it is idle,
                     else in a new window, so several recordings can run at once.
@@ -34,6 +37,8 @@ export const CLI_USAGE = `Usage:
                     1:30 (minutes:seconds) or 1:30:00. Without it, record until stopped.
   --input <name>    Audio input whose name contains this (default: the last one used).
   --stop            Stop every recording that is running; with --name, only that one.
+  --new-window      Open an empty window (starting One Take again while it runs does too).
+  file.wav ...      Open WAVs, each in a window of its own.
   --help            Show this text.`;
 
 const VALUE_OPTIONS = ['dir', 'name', 'duration', 'input'] as const;
@@ -44,14 +49,14 @@ type ValueOption = (typeof VALUE_OPTIONS)[number];
  * as Chromium's own switches or a WAV to open, are left alone; null means none of ours is there.
  */
 export function parseCli(args: readonly string[], cwd: string, resolvePath: (cwd: string, p: string) => string): CliResult {
-  let action: 'record' | 'stop' | 'help' | null = null;
+  let action: 'record' | 'stop' | 'help' | 'new-window' | null = null;
   const values: Partial<Record<ValueOption, string>> = {};
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    const m = /^--([a-z]+)(?:=(.*))?$/s.exec(arg);
+    const m = /^--([a-z][a-z-]*)(?:=(.*))?$/s.exec(arg);
     if (!m) continue;
     const [, key, inline] = m;
-    if (key === 'record' || key === 'stop' || key === 'help') {
+    if (key === 'record' || key === 'stop' || key === 'help' || key === 'new-window') {
       if (action && action !== key) return { error: `--${action} and --${key} cannot be used together` };
       action = key;
     } else if ((VALUE_OPTIONS as readonly string[]).includes(key)) {
@@ -65,7 +70,7 @@ export function parseCli(args: readonly string[], cwd: string, resolvePath: (cwd
     if (action === null) return { error: `--${given[0]} only works with --record or --stop` };
     const other = given.find((k) => k !== 'name');
     if (action === 'stop' && other) return { error: `--stop takes only --name, not --${other}` };
-    if (action === 'help') return { error: '--help takes no other options' };
+    if (action === 'help' || action === 'new-window') return { error: `--${action} takes no other options` };
   }
   if (action === null) return { command: null };
   if (action === 'stop') {
@@ -74,6 +79,7 @@ export function parseCli(args: readonly string[], cwd: string, resolvePath: (cwd
     return { command: { kind: 'stop', name: values.name.trim() } };
   }
   if (action === 'help') return { command: { kind: 'help' } };
+  if (action === 'new-window') return { command: { kind: 'newWindow' } };
 
   const command: CliCommand = { kind: 'record', dir: resolvePath(cwd, values.dir ?? '.') };
   if (values.name !== undefined) {

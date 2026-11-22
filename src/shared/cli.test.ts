@@ -38,6 +38,7 @@ test('stop and help', () => {
   assert.deepEqual(parse('--stop'), { command: { kind: 'stop' } });
   assert.deepEqual(parse('--stop', '--name', 'Sunday'), { command: { kind: 'stop', name: 'Sunday' } });
   assert.deepEqual(parse('--help'), { command: { kind: 'help' } });
+  assert.deepEqual(parse('--new-window'), { command: { kind: 'newWindow' } });
 });
 
 test('mistakes are reported', () => {
@@ -51,6 +52,8 @@ test('mistakes are reported', () => {
     ['--stop', '--duration', '5m'],
     ['--stop', '--name', ' '],
     ['--help', '--name', 'x'],
+    ['--new-window', '--duration', '5m'],
+    ['--new-window', '--record'],
     ['--duration', '5m'],
   ]) assert.ok('error' in parse(...args), args.join(' '));
 });
