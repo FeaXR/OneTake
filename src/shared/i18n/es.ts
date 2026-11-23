@@ -177,6 +177,7 @@ export const es: Record<keyof typeof en, Message> = {
   'dlg.dest.start': 'Inicio de la grabación',
   'dlg.dest.subfolder': 'Carpeta dentro',
   'dlg.dest.new': 'Carpeta nueva',
+  'dlg.dest.fromSettings': 'Según los datos de abajo',
   'dlg.dest.none': 'Ninguna, directamente en {folder}',
   'dlg.dest.fieldRequired': 'El campo {field} está vacío',
   'dlg.dest.ampm': 'Mañana/tarde',

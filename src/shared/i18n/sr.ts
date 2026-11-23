@@ -185,6 +185,7 @@ export const sr: Record<keyof typeof en, Message> = {
   'dlg.dest.start': 'Почетак снимања',
   'dlg.dest.subfolder': 'Фасцикла унутра',
   'dlg.dest.new': 'Нова фасцикла',
+  'dlg.dest.fromSettings': 'Према подешавањима испод',
   'dlg.dest.none': 'Нема, директно у {folder}',
   'dlg.dest.fieldRequired': 'Поље {field} је празно',
   'dlg.dest.ampm': 'Пре/после подне',

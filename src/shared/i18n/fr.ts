@@ -178,6 +178,7 @@ export const fr: Record<keyof typeof en, Message> = {
   'dlg.dest.start': 'Début de l’enregistrement',
   'dlg.dest.subfolder': 'Dossier à l’intérieur',
   'dlg.dest.new': 'Nouveau dossier',
+  'dlg.dest.fromSettings': 'D’après les réglages ci-dessous',
   'dlg.dest.none': 'Aucun, directement dans {folder}',
   'dlg.dest.fieldRequired': 'Le champ {field} est vide',
   'dlg.dest.ampm': 'Matin/après-midi',

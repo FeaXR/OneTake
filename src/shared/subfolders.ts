@@ -99,19 +99,53 @@ export function expandSubfolder(
  */
 export function matchSubfolder(template: string, name: string, ampm: AmPmText): Record<string, string> | null {
   const values = matchWithAmPm(template, name, ampm);
-  if (values) delete values[AMPM_KEY];
-  return values;
+  if (!values) return null;
+  return Object.fromEntries(Object.entries(values).filter(([key]) => !key.startsWith(PART_KEY)));
 }
 
 /** Whether an existing folder name says before or after noon; null when it says neither. */
 export function subfolderAmPm(template: string, name: string, ampm: AmPmText): 'am' | 'pm' | null {
-  const said = matchWithAmPm(template, name, ampm)?.[AMPM_KEY]?.toLowerCase();
+  const said = matchWithAmPm(template, name, ampm)?.[`${PART_KEY}ampm`]?.toLowerCase();
   if (said === undefined) return null;
   return said === ampm.am.toLowerCase() ? 'am' : said === ampm.pm.toLowerCase() ? 'pm' : null;
 }
 
-/** Where matchExactly puts the text {ampm} matched (a key no typed field can have). */
-const AMPM_KEY = '\0ampm';
+/**
+ * The start an existing folder's name was made from: `fallback` with the date and time parts
+ * the name has put in (a name with only {date} keeps the fallback's time). Null when the name
+ * does not follow the template.
+ */
+export function subfolderStart(template: string, name: string, ampm: AmPmText, fallback: Date): Date | null {
+  const values = matchWithAmPm(template, name, ampm);
+  if (!values) return null;
+  const part = (p: SubfolderPart) => values[`${PART_KEY}${p}`];
+  const num = (p: SubfolderPart) => (part(p) === undefined ? undefined : Number(part(p)));
+  let year = fallback.getFullYear();
+  let month = fallback.getMonth() + 1;
+  let day = fallback.getDate();
+  let hours = fallback.getHours();
+  let minutes = fallback.getMinutes();
+  const date = part('date');
+  if (date) [year, month, day] = [2000 + Number(date.slice(0, 2)), Number(date.slice(2, 4)), Number(date.slice(4, 6))];
+  year = num('year') ?? (num('yy') !== undefined ? 2000 + num('yy')! : year);
+  month = num('month') ?? month;
+  day = num('day') ?? day;
+  const time = part('time');
+  if (time) [hours, minutes] = [Number(time.slice(0, 2)), Number(time.slice(2, 4))];
+  hours = num('hour') ?? hours;
+  minutes = num('minute') ?? minutes;
+  const h12 = num('hour12');
+  if (h12 !== undefined) {
+    const pm = subfolderAmPm(template, name, ampm) ?? (hours >= 12 ? 'pm' : 'am');
+    hours = (h12 % 12) + (pm === 'pm' ? 12 : 0);
+  }
+  const when = new Date(year, month - 1, day, hours, minutes);
+  const valid = when.getMonth() === month - 1 && when.getDate() === day && hours < 24 && minutes < 60;
+  return valid ? when : null;
+}
+
+/** Where matchExactly puts the text a built-in part matched (keys no typed field can have). */
+const PART_KEY = '\0';
 
 const matchWithAmPm = (template: string, name: string, ampm: AmPmText) =>
   matchExactly(template, name, ampm) ?? (usesAmPm(template) ? matchExactly(withoutAmPm(template), name, ampm) : null);
@@ -123,11 +157,10 @@ function matchExactly(template: string, name: string, ampm: AmPmText): Record<st
   for (const m of template.matchAll(TOKEN)) {
     pattern += escapeRegExp(template.slice(last, m.index));
     const part = m[1].trim();
-    if (part === 'ampm') {
-      fields.push(AMPM_KEY);
+    if (isPart(part)) {
+      fields.push(`${PART_KEY}${part}`);
       pattern += `(${partPattern(part, ampm)})`;
-    } else if (isPart(part)) pattern += partPattern(part, ampm);
-    else {
+    } else {
       fields.push(part);
       pattern += '(.+?)';
     }

@@ -174,6 +174,7 @@ export const hu: Record<keyof typeof en, Message> = {
   'dlg.dest.start': 'A felvétel kezdete',
   'dlg.dest.subfolder': 'Mappa benne',
   'dlg.dest.new': 'Új mappa',
+  'dlg.dest.fromSettings': 'Az alábbi beállítások szerint',
   'dlg.dest.none': 'Nincs, közvetlenül ide: {folder}',
   'dlg.dest.fieldRequired': 'Üres: {field}',
   'dlg.dest.ampm': 'Napszak',

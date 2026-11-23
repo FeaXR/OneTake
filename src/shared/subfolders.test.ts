@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_AMPM, expandSubfolder, matchSubfolder, recordingStart, SUBFOLDER_PARTS, subfolderAmPm, subfolderFields, usesDateTime } from './subfolders.ts';
+import { DEFAULT_AMPM, expandSubfolder, matchSubfolder, recordingStart, SUBFOLDER_PARTS, subfolderAmPm, subfolderFields, subfolderStart, usesDateTime } from './subfolders.ts';
 
 const friday = new Date(2026, 9, 30, 19, 5);
 
@@ -52,4 +52,16 @@ test('an existing folder name tells before or after noon', () => {
   assert.equal(subfolderAmPm('{date}_{ampm}_{Venue}', '261029_Szeged', ampm), null);
   assert.equal(subfolderAmPm('{date}_{Venue}', '261029_Szeged', ampm), null);
   assert.deepEqual(matchSubfolder('{date}_{ampm}_{Venue}', '261029_este_Szeged', ampm), { Venue: 'Szeged' });
+});
+
+test('an existing folder name gives back the start it was made from', () => {
+  const ampm = { am: 'reggel', pm: 'este' };
+  const fallback = new Date(2026, 10, 23, 12, 17);
+  assert.deepEqual(subfolderStart('{date}_{ampm}_{Venue}', '261029_este_Szeged', ampm, fallback), new Date(2026, 9, 29, 12, 17));
+  assert.deepEqual(subfolderStart('{year}-{month}-{day} {time} {Venue}', '2025-03-04 0930 Pécs', ampm, fallback), new Date(2025, 2, 4, 9, 30));
+  assert.deepEqual(subfolderStart('{date} {hour12}{ampm}', '261029 7este', ampm, fallback), new Date(2026, 9, 29, 19, 17));
+  assert.equal(subfolderStart('{date}_{Venue}', 'Szeged', ampm, fallback), null);
+  assert.equal(subfolderStart('{date}_{Venue}', '261399_Szeged', ampm, fallback), null);
+  // A field next to a part still reads whole.
+  assert.deepEqual(matchSubfolder('{date}_{ampm}_{Venue}', '261029_este_Szeged Aréna', ampm), { Venue: 'Szeged Aréna' });
 });

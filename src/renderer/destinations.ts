@@ -1,6 +1,6 @@
 import { getLanguage, t } from '../shared/i18n/index.ts';
 import type { FolderRule } from '../shared/naming.ts';
-import { amPmAt, expandSubfolder, matchSubfolder, subfolderAmPm, subfolderFields, usesAmPm, usesDateTime, type AmPmChoice, type AmPmText } from '../shared/subfolders.ts';
+import { amPmAt, expandSubfolder, matchSubfolder, subfolderAmPm, subfolderFields, subfolderStart, usesAmPm, usesDateTime, type AmPmChoice, type AmPmText } from '../shared/subfolders.ts';
 import { filenameProblem } from '../shared/validate.ts';
 import { openModal } from './dialogs.ts';
 import { h, pathText } from './dom.ts';
@@ -12,6 +12,14 @@ const joinPath = (dir: string, name: string) => {
   return `${dir.replace(/[\\/]+$/, '')}${sep}${name}`;
 };
 const pad2 = (v: number) => String(v).padStart(2, '0');
+
+/** The name of `dir` inside the rule's folder, or null when it is the rule's folder itself (or elsewhere). */
+function subfolderName(rule: FolderRule, dir: string): string | null {
+  const parent = joinPath(rule.folder, '');
+  if (dir === rule.folder || !dir.startsWith(parent)) return null;
+  const name = dir.slice(parent.length);
+  return name && !/[\\/]/.test(name) ? name : null;
+}
 const NEW = '\0new';
 const NONE = '\0none';
 
@@ -69,6 +77,12 @@ export function chooseDestinations(
     const m = openModal(opts.current ? t('dlg.dest.changeTitle') : t('dlg.dest.title'), { onClose: () => resolve(answer) });
     const error = h('div', { class: 'form-note err' });
 
+    // Changing a listed folder: the start its name was made from, so editing it renames the folder.
+    const currentRule = opts.current && rules.length === 1 ? rules[0] : null;
+    const currentSub = currentRule && opts.current ? subfolderName(currentRule, opts.current.dir) : null;
+    if (currentRule?.subfolder && currentSub) {
+      start = subfolderStart(currentRule.subfolder.trim(), currentSub, naming(currentRule).text, start) ?? start;
+    }
     // The recording's start, editable in case the file's time is off (a copied file, for example).
     const dateInput = h('input', { type: 'date', value: `${start.getFullYear()}-${pad2(start.getMonth() + 1)}-${pad2(start.getDate())}` });
     const timeInput = h('input', { type: 'time', value: `${pad2(start.getHours())}:${pad2(start.getMinutes())}` });
@@ -202,19 +216,27 @@ function ruleChoice(
 
   const values = () => Object.fromEntries(fields.map((f) => [f, inputs.get(f)!.value]));
   const newName = () => expandSubfolder(template, when(), values(), ampm, getLanguage(), ampmSelect.value as AmPmChoice);
-  // Changing a listed folder: it is chosen to begin with (even before it exists on disk).
-  const parent = joinPath(rule.folder, '');
-  const currentName = !current ? null : current.dir === rule.folder || !current.dir.startsWith(parent) ? NONE : current.dir.slice(parent.length);
-  let existing: string[] = currentName && currentName !== NONE ? [currentName] : [];
+  // Changing a listed folder: it is chosen to begin with (even before it exists on disk). A name
+  // that follows the template fills in the fields, so editing them (or the start) renames it.
+  const sub = current ? subfolderName(rule, current.dir) : null;
+  const currentName = !current ? null : sub ?? NONE;
+  const typed = sub ? matchSubfolder(template, sub, ampm) : null;
+  if (sub && typed) {
+    for (const f of fields) inputs.get(f)!.value = typed[f] ?? '';
+    ampmSelect.value = subfolderAmPm(template, sub, ampm) ?? (subAmPm ? 'none' : current!.amPm);
+  }
+  // Before/after noon that agrees with the start keeps following it when the start is edited.
+  if (current) ampmTouched = ampmSelect.value !== amPmAt(when());
+  let existing: string[] = sub ? [sub] : [];
   const fillWhich = (keep: string) => {
     which.replaceChildren(
-      h('option', { value: NEW }, t('dlg.dest.new')),
+      h('option', { value: NEW }, typed ? t('dlg.dest.fromSettings') : t('dlg.dest.new')),
       ...existing.map((name) => h('option', { value: name }, name)),
       h('option', { value: NONE }, t('dlg.dest.none', { folder: folderName(rule.folder) })),
     );
     which.value = [...which.options].some((o) => o.value === keep) ? keep : NEW;
   };
-  fillWhich(currentName ?? NEW);
+  fillWhich(typed ? NEW : currentName ?? NEW);
   // Earlier folders can be chosen again, and the values typed for them are suggested.
   void window.studio.listFolders(rule.folder).then((names) => {
     const matches = names.map((name) => ({ name, values: matchSubfolder(template, name, ampm) })).filter((m) => m.values);

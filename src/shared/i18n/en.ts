@@ -181,6 +181,7 @@ export const en = {
   'dlg.dest.start': 'Recording started',
   'dlg.dest.subfolder': 'Folder inside',
   'dlg.dest.new': 'New folder',
+  'dlg.dest.fromSettings': 'From the settings below',
   'dlg.dest.none': 'None, straight into {folder}',
   'dlg.dest.fieldRequired': '{field} is empty',
   'dlg.dest.ampm': 'Before/after noon',
