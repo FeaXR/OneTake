@@ -1,13 +1,13 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Record or open one long WAV and cut it into faded, peak-normalized MP3 files.",
   "homepage": "https://github.com/FeaXR/OneTake",
   "license": "MIT",
   "notes": "Settings and sessions are kept in %APPDATA%\\One Take and Documents\\One Take, so they survive updates and uninstalling.",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/FeaXR/OneTake/releases/download/v2.2.0/One-Take-Setup-2.2.0.exe#/dl.7z",
-      "hash": "d190a39d3b622b2748edf3be6fb3616bfede53193883be3fc54f40febe024f2e"
+      "url": "https://github.com/FeaXR/OneTake/releases/download/v2.3.0/One-Take-Setup-2.3.0.exe#/dl.7z",
+      "hash": "7bcb0d85e4278da81eb6844319f0eec68bafb4401f80c531b0e172a0e624077c"
     }
   },
   "installer": {
