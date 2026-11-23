@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { expandTemplate, folderDefault, formatDate, highestNumber, recordingDate, ruleFor, trimDir, type FolderRule } from './naming.ts';
+import { amPmTextFor, expandTemplate, folderDefault, formatDate, highestNumber, recordingDate, ruleFor, trimDir, type FolderRule } from './naming.ts';
 
 const rule = (id: string, folder: string, extra: Partial<FolderRule> = {}): FolderRule => ({ id, folder, template: '{nn}_', types: [], ...extra });
 
@@ -33,8 +33,9 @@ test('recordingDate reads MMDD and picks the year closest to the file date', () 
 });
 
 test('expandTemplate fills in every part', () => {
-  const parts = { number: 2, order: 3, date: '261021', type: 'SH' };
+  const parts = { number: 2, order: 3, date: '261021', type: 'SH', ampm: 'este' };
   assert.equal(expandTemplate('{nn}_{type}_', parts), '02_SH_');
+  assert.equal(expandTemplate('{date}_{ampm}_{nn}_', parts), '261021_este_02_');
   assert.equal(expandTemplate('{date}_{n}_', parts), '261021_3_');
   assert.equal(expandTemplate('{date}_', { ...parts, date: null }), '??????_');
 });
@@ -46,6 +47,15 @@ test('highestNumber finds the last {nn} already used in the folder', () => {
   assert.equal(highestNumber('{date}_{n}_', [], files), 0);
   // Without a list of choices, {type} still stops at the next underscore.
   assert.equal(highestNumber('{nn}_{type}_', [], ['261021_1_Enek_13.mp3', '05_X_1.mp3']), 261021);
+});
+
+test('{ampm} texts come from the deepest rule that sets them, and count for {nn}', () => {
+  const rules = [rule('top', '/a', { am: 'reggel', pm: 'este' }), rule('deep', '/a/b', { pm: ' délután ' })];
+  assert.deepEqual(amPmTextFor(rules, '/a/b/c'), { am: 'reggel', pm: 'délután' });
+  assert.deepEqual(amPmTextFor(rules, '/other'), { am: 'AM', pm: 'PM' });
+  const files = ['261021_este_04_x.mp3', '261021_reggel_07_y.mp3', '261021_PM_09_z.mp3'];
+  assert.equal(highestNumber('{date}_{ampm}_{nn}_', [], files, { am: 'reggel', pm: 'este' }), 7);
+  assert.equal(highestNumber('{date}_{ampm}_{nn}_', [], files), 9);
 });
 
 test('trimDir drops separators at the end but keeps a root', () => {

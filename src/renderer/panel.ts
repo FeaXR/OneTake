@@ -1,6 +1,6 @@
 import { formatNumber, t } from '../shared/i18n/index.ts';
 import { formatTime, parseTime } from '../shared/time.ts';
-import { ruleFor, usesToken } from '../shared/naming.ts';
+import { amPmTextFor, ruleFor, usesToken } from '../shared/naming.ts';
 import { formatPeak, presetChoices } from '../shared/presets.ts';
 import { segmentFolder, type Bitrate, type PeakTarget, type Segment } from '../shared/types.ts';
 import { outputDurationOf } from '../shared/plan.ts';
@@ -450,7 +450,12 @@ export class OutputPanel {
   private updateFolders(): void {
     const ed = this.editor;
     const dirs = ed.project.outputDirs;
-    const key = [dirs.join('\n'), JSON.stringify(ed.project.numberStarts), ed.settings.folderRules.map((r) => `${r.folder}|${r.template}`).join('\n')].join('\0');
+    const key = [
+      dirs.join('\n'),
+      JSON.stringify(ed.project.numberStarts),
+      dirs.map((dir) => ed.amPmFor(dir)).join(),
+      ed.settings.folderRules.map((r) => `${r.folder}|${r.template}|${r.am ?? ''}|${r.pm ?? ''}`).join('\n'),
+    ].join('\0');
     if (key === this.foldersKey) return;
     this.foldersKey = key;
     const line = (i: number) => {
@@ -459,6 +464,7 @@ export class OutputPanel {
       return h('div', { class: 'folder-row' },
         dirs.length > 1 ? h('span', { class: 'folder-tag' }, i === 0 ? t('panel.default') : `${i + 1}`) : null,
         path,
+        dir ? this.amPmSelect(dir) : null,
         dir ? this.numberStartInput(dir) : null,
         dir ? h('button', { class: 'icon', html: icons.openFolder, title: t('panel.openFolder.tip'), onclick: () => this.actions.openFolder(dir) }) : null,
         h('button', { class: dirs.length > 1 ? 'icon' : '', html: icons.folder, title: i === 0 ? t('panel.folder.tip') : t('panel.extraFolder.tip'), onclick: () => this.actions.changeFolder(i) },
@@ -476,6 +482,29 @@ export class OutputPanel {
     if (dirs.length) {
       this.foldersEl.append(h('button', { class: 'folder-add', title: t('panel.addFolder.tip'), onclick: (e: MouseEvent) => this.actions.addFolder(e.currentTarget as HTMLElement) }, t('panel.addFolder')));
     }
+  }
+
+  /**
+   * {ampm} for a folder whose naming rule uses it: the rule's text for before or after noon.
+   * It starts out by the recording's start time; a choice is kept with the session.
+   */
+  private amPmSelect(dir: string): HTMLElement | null {
+    const ed = this.editor;
+    const rule = ruleFor(ed.settings.folderRules, dir);
+    if (!rule || !usesToken(rule.template, 'ampm')) return null;
+    const text = amPmTextFor(ed.settings.folderRules, dir);
+    const current = ed.amPmFor(dir);
+    const select = h('select', {
+      class: 'folder-ampm',
+      title: t('panel.ampm.tip'),
+      onchange: () => {
+        const v = select.value === 'am' ? 'am' : 'pm';
+        ed.commit((p) => (p.amPm = { ...p.amPm, [dir]: v }));
+      },
+    },
+    h('option', { value: 'am', selected: current === 'am' }, text.am),
+    h('option', { value: 'pm', selected: current === 'pm' }, text.pm));
+    return select;
   }
 
   /** First {nn} for a folder whose naming rule numbers the files; editable in case the guess is off. */

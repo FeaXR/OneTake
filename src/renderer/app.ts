@@ -1,5 +1,5 @@
 import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting, type MessageKey } from '../shared/i18n/index.ts';
-import { highestNumber, recordingDate, trimDir, usesToken, type FolderRule } from '../shared/naming.ts';
+import { amPmTextFor, highestNumber, recordingDate, trimDir, usesToken, type FolderRule } from '../shared/naming.ts';
 import { importSettings, readSettingsFile, settingsFile, SETTINGS_PARTS, type SettingsFile, type SettingsPart } from '../shared/settings.ts';
 import { recordingStart } from '../shared/subfolders.ts';
 import { formatPeak, MIN_PEAK_PERCENT, MP3_BITRATES, NO_NORMALIZE, peakFromPercent, presetChoices } from '../shared/presets.ts';
@@ -585,7 +585,7 @@ export class App {
     const files = await window.studio.listFiles(folder);
     if (folder in ed.project.numberStarts) return;
     // Not an edit of its own: it is saved with the next save or export.
-    ed.project.numberStarts[folder] = highestNumber(rule.template, rule.types, files) + 1;
+    ed.project.numberStarts[folder] = highestNumber(rule.template, rule.types, files, amPmTextFor(ed.settings.folderRules, folder)) + 1;
     ed.notify('project');
   }
 

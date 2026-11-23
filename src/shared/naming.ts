@@ -1,10 +1,11 @@
 import type { Bitrate, PeakTarget } from './types.ts';
+import { DEFAULT_AMPM, type AmPmText } from './subfolders.ts';
 
 /** Settings for files written to one folder and its subfolders (Settings → Folder rules). */
 export interface FolderRule {
   id: string;
   folder: string;
-  /** Start of the filename, with {nn}, {n}, {date} and {type}; empty for no naming rule. */
+  /** Start of the filename, with {nn}, {n}, {date}, {type} and {ampm}; empty for no naming rule. */
   template: string;
   /** Choices for {type}; the first is the default. */
   types: string[];
@@ -16,7 +17,7 @@ export interface FolderRule {
    * (see subfolders.ts); unset or empty when the files go straight into the folder.
    */
   subfolder?: string;
-  /** What {ampm} becomes before and after noon; AM and PM when unset. */
+  /** What {ampm} becomes before and after noon (in file names and subfolders); AM and PM when unset. */
   am?: string;
   pm?: string;
 }
@@ -30,6 +31,8 @@ export interface NameParts {
   date: string | null;
   /** {type}: the file's choice. */
   type: string;
+  /** {ampm}: the text for before or after noon, as chosen for the folder. */
+  ampm: string;
 }
 
 export interface RecordingDate {
@@ -38,7 +41,7 @@ export interface RecordingDate {
   day: number;
 }
 
-const TOKEN = /\{(nn|n|date|type)\}/g;
+const TOKEN = /\{(nn|n|date|type|ampm)\}/g;
 
 /** A folder path without separators at the end ("/music/" → "/music"), keeping a root ("/", "C:\\") whole. */
 export function trimDir(dir: string): string {
@@ -74,8 +77,20 @@ export function folderDefault<K extends 'peakTarget' | 'bitrate'>(
   return rulesFor(rules, folder).find((r) => r[key] !== undefined)?.[key];
 }
 
-export function usesToken(template: string, token: 'nn' | 'n' | 'date' | 'type'): boolean {
+export function usesToken(template: string, token: 'nn' | 'n' | 'date' | 'type' | 'ampm'): boolean {
   return template.includes(`{${token}}`);
+}
+
+/**
+ * What {ampm} becomes for files in `folder`: each text from the deepest rule that sets it,
+ * else AM and PM.
+ */
+export function amPmTextFor(rules: readonly FolderRule[], folder: string | null): AmPmText {
+  const matching = rulesFor(rules, folder);
+  return {
+    am: matching.find((r) => r.am?.trim())?.am?.trim() ?? DEFAULT_AMPM.am,
+    pm: matching.find((r) => r.pm?.trim())?.pm?.trim() ?? DEFAULT_AMPM.pm,
+  };
 }
 
 /**
@@ -112,22 +127,29 @@ export function expandTemplate(template: string, parts: NameParts): string {
     if (token === 'nn') return pad2(parts.number);
     if (token === 'n') return String(parts.order);
     if (token === 'date') return parts.date ?? '??????';
+    if (token === 'ampm') return parts.ampm;
     return parts.type;
   });
 }
 
 /**
  * Highest {nn} among `filenames` that follow the template, or 0 when there is none. {type}
- * only matches the rule's own choices, so differently named files are not counted.
+ * and {ampm} only match the rule's own texts, so differently named files are not counted.
  */
-export function highestNumber(template: string, types: readonly string[], filenames: readonly string[]): number {
+export function highestNumber(
+  template: string,
+  types: readonly string[],
+  filenames: readonly string[],
+  ampm: AmPmText = DEFAULT_AMPM,
+): number {
   if (!usesToken(template, 'nn')) return 0;
   let pattern = '^';
   let last = 0;
   for (const m of template.matchAll(TOKEN)) {
     pattern += escapeRegExp(template.slice(last, m.index));
     const typePattern = types.length ? `(?:${types.map(escapeRegExp).join('|')})` : '[^_]+';
-    pattern += m[1] === 'nn' ? '(\\d+)' : m[1] === 'n' ? '\\d+' : m[1] === 'date' ? '\\d{6}' : typePattern;
+    const amPmPattern = `(?:${[ampm.am, ampm.pm].map(escapeRegExp).join('|')})`;
+    pattern += m[1] === 'nn' ? '(\\d+)' : m[1] === 'n' ? '\\d+' : m[1] === 'date' ? '\\d{6}' : m[1] === 'ampm' ? amPmPattern : typePattern;
     last = m.index + m[0].length;
   }
   pattern += escapeRegExp(template.slice(last));

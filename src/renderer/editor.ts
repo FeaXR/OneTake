@@ -1,4 +1,5 @@
-import { expandTemplate, folderDefault, formatDate, recordingDate, ruleFor, usesToken, type FolderRule } from '../shared/naming.ts';
+import { amPmTextFor, expandTemplate, folderDefault, formatDate, recordingDate, ruleFor, usesToken, type FolderRule } from '../shared/naming.ts';
+import { amPmAt, recordingStart } from '../shared/subfolders.ts';
 import type { AudioInfo, Bitrate, Cut, PeakTarget, Project, Segment, Settings } from '../shared/types.ts';
 import { DEFAULT_SETTINGS, segmentFolder } from '../shared/types.ts';
 import { validateSegments, type ResolvedName, type SegmentIssues } from '../shared/validate.ts';
@@ -254,9 +255,22 @@ export class Editor {
       order,
       date: date ? formatDate(date) : null,
       type,
+      ampm: usesToken(rule.template, 'ampm') ? amPmTextFor(this.settings.folderRules, folder)[this.amPmFor(folder)] : '',
     });
     const issue = usesToken(rule.template, 'date') && !date ? { key: 'issue.noDate' as const } : undefined;
     return { name: prefix + seg.filename, prefix, rule, issue };
+  }
+
+  /**
+   * {ampm} for the files in `folder`: as chosen in the folder list, else before or after noon
+   * by when the recording started.
+   */
+  amPmFor(folder: string): 'am' | 'pm' {
+    const chosen = this.project.amPm?.[folder];
+    if (chosen) return chosen;
+    if (!this.info) return amPmAt(new Date());
+    const modified = this.info.modified ?? Date.now();
+    return amPmAt(recordingStart(modified, this.info.duration, recordingDate(this.info.path, modified)));
   }
 
   /** The segment whose fades playback previews: the selected one. */
@@ -530,6 +544,9 @@ function sanitizeProject(p: Project & { outputDir?: string | null }, duration: n
     numberStarts: Object.fromEntries(
       Object.entries(p.numberStarts ?? {}).filter(([, v]) => Number.isInteger(v) && v >= 0),
     ),
+    ...(p.amPm && typeof p.amPm === 'object' && {
+      amPm: Object.fromEntries(Object.entries(p.amPm).filter(([, v]) => v === 'am' || v === 'pm')),
+    }),
     segments: (p.segments ?? []).map(fix).filter((s) => s.end - s.start >= MIN_REGION_SEC).map((s) => {
       // Only extra folders are stored per segment; anything else falls back to the default.
       const { outputDir, ...rest } = s;

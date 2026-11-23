@@ -41,6 +41,8 @@ export interface Project {
   outputDirs: string[];
   /** First {nn} per output folder, found once from the files already there and then kept. */
   numberStarts: Record<string, number>;
+  /** {ampm} chosen per output folder; a folder not listed follows the recording's start time. */
+  amPm?: Record<string, 'am' | 'pm'>;
 }
 
 /** The folder a segment is written to, or null when the project has no folder yet. */

@@ -52,7 +52,7 @@ export function withoutAmPm(template: string): string {
 }
 
 /** Before or after noon at `when`. */
-export const amPmAt = (when: Date): AmPmChoice => (when.getHours() < 12 ? 'am' : 'pm');
+export const amPmAt = (when: Date): 'am' | 'pm' => (when.getHours() < 12 ? 'am' : 'pm');
 
 /** Whether the template uses any part read from the recording's date or time. */
 export const usesDateTime = (template: string): boolean => [...template.matchAll(TOKEN)].some((m) => isPart(m[1].trim()));
