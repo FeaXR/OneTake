@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { amPmTextFor, expandTemplate, folderDefault, formatDate, highestNumber, recordingDate, ruleFor, trimDir, type FolderRule } from './naming.ts';
+import { amPmTextFor, ruleOwning, expandTemplate, folderDefault, formatDate, highestNumber, recordingDate, ruleFor, trimDir, type FolderRule } from './naming.ts';
 
 const rule = (id: string, folder: string, extra: Partial<FolderRule> = {}): FolderRule => ({ id, folder, template: '{nn}_', types: [], ...extra });
 
@@ -56,6 +56,15 @@ test('{ampm} texts come from the deepest rule that sets them, and count for {nn}
   const files = ['261021_este_04_x.mp3', '261021_reggel_07_y.mp3', '261021_PM_09_z.mp3'];
   assert.equal(highestNumber('{date}_{ampm}_{nn}_', [], files, { am: 'reggel', pm: 'este' }), 7);
   assert.equal(highestNumber('{date}_{ampm}_{nn}_', [], files), 9);
+});
+
+test('ruleOwning finds the rule a listed folder came from', () => {
+  const rules = [rule('plain', '/m/Plain'), rule('per', '/m/Live', { subfolder: '{date}_{Venue}' })];
+  assert.equal(ruleOwning(rules, '/m/Plain/')?.id, 'plain');
+  assert.equal(ruleOwning(rules, '/m/Live')?.id, 'per');
+  assert.equal(ruleOwning(rules, '/m/Live/261029_Szeged')?.id, 'per');
+  assert.equal(ruleOwning(rules, '/m/Plain/sub'), null);
+  assert.equal(ruleOwning(rules, '/m/Live/a/b'), null);
 });
 
 test('trimDir drops separators at the end but keeps a root', () => {

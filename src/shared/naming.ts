@@ -63,6 +63,19 @@ export function rulesFor(rules: readonly FolderRule[], folder: string | null): F
     .map(({ rule }) => rule);
 }
 
+/**
+ * The rule folder `dir` was chosen from: a rule for `dir` itself, or a rule that makes a folder
+ * per recording and `dir` is one of those (directly inside the rule's folder).
+ */
+export function ruleOwning(rules: readonly FolderRule[], dir: string | null): FolderRule | null {
+  if (!dir) return null;
+  const target = normalizeDir(dir);
+  const parent = target.replace(/\/[^/]*$/, '');
+  return rules.find((r) => r.folder && normalizeDir(r.folder) === target)
+    ?? rules.find((r) => r.folder && r.subfolder?.trim() && normalizeDir(r.folder) === parent)
+    ?? null;
+}
+
 /** The naming rule for `folder`: the deepest rule that has a name template. */
 export function ruleFor(rules: readonly FolderRule[], folder: string | null): FolderRule | null {
   return rulesFor(rules, folder).find((r) => r.template.trim() !== '') ?? null;

@@ -1,6 +1,6 @@
 import { getLanguage, t } from '../shared/i18n/index.ts';
 import type { FolderRule } from '../shared/naming.ts';
-import { amPmAt, DEFAULT_AMPM, expandSubfolder, matchSubfolder, subfolderFields, usesAmPm, usesDateTime, type AmPmChoice, type AmPmText } from '../shared/subfolders.ts';
+import { amPmAt, expandSubfolder, matchSubfolder, subfolderAmPm, subfolderFields, usesAmPm, usesDateTime, type AmPmChoice, type AmPmText } from '../shared/subfolders.ts';
 import { filenameProblem } from '../shared/validate.ts';
 import { openModal } from './dialogs.ts';
 import { h, pathText } from './dom.ts';
@@ -21,6 +21,33 @@ interface Choice {
   check: HTMLInputElement;
   /** The folder the files go to, or an error to show; null while not chosen. */
   result(): { dir: string } | { error: string } | null;
+  /** {ampm} for the file names in that folder; null when they do not use it. */
+  amPm(): 'am' | 'pm' | null;
+}
+
+/** What the dialog needs to know about a rule's file names. */
+export interface RuleNaming {
+  /** Whether file names in the rule's folder use {ampm}. */
+  fileAmPm: boolean;
+  /** What {ampm} becomes there (in file names and in the subfolder's name). */
+  text: AmPmText;
+}
+
+export interface DestinationAnswer {
+  dirs: string[];
+  /** The rules ticked, remembered for the next file. */
+  chosen: string[];
+  /** {ampm} for the file names in each folder whose names use it. */
+  amPm: Record<string, 'am' | 'pm'>;
+}
+
+export interface DestinationOptions {
+  /** Adding one rule's folder later: no checkbox or note, and the dismiss button just cancels. */
+  adding?: boolean;
+  /** The dismiss button cancels instead of meaning "No folder" (asked again on export). */
+  cancel?: boolean;
+  /** Changing a folder that is in the list already: it, and the {ampm} its files use now. */
+  current?: { dir: string; amPm: 'am' | 'pm' };
 }
 
 /**
@@ -31,14 +58,15 @@ interface Choice {
  */
 export function chooseDestinations(
   rules: readonly FolderRule[],
+  naming: (rule: FolderRule) => RuleNaming,
   start: Date,
   lastChosen: readonly string[],
-  /** Adding one rule's folder later: no checkbox or note, and the dismiss button just cancels. */
-  opts: { adding?: boolean } = {},
-): Promise<{ dirs: string[]; chosen: string[] } | null> {
+  opts: DestinationOptions = {},
+): Promise<DestinationAnswer | null> {
+  const adding = opts.adding || !!opts.current;
   return new Promise((resolve) => {
-    let answer: { dirs: string[]; chosen: string[] } | null = null;
-    const m = openModal(t('dlg.dest.title'), { onClose: () => resolve(answer) });
+    let answer: DestinationAnswer | null = null;
+    const m = openModal(opts.current ? t('dlg.dest.changeTitle') : t('dlg.dest.title'), { onClose: () => resolve(answer) });
     const error = h('div', { class: 'form-note err' });
 
     // The recording's start, editable in case the file's time is off (a copied file, for example).
@@ -58,12 +86,13 @@ export function chooseDestinations(
     dateInput.oninput = update;
     timeInput.oninput = update;
 
-    const choices = rules.map((rule) => ruleChoice(rule, opts.adding || lastChosen.includes(rule.id), when, update, updaters));
-    if (opts.adding) choices.forEach((c) => (c.choice.check.hidden = true));
-    const anyDateTime = rules.some((r) => r.subfolder && usesDateTime(r.subfolder));
+    const choices = rules.map((rule) => ruleChoice(rule, naming(rule), adding || lastChosen.includes(rule.id), when, update, updaters, opts.current));
+    if (adding) choices.forEach((c) => (c.choice.check.hidden = true));
+    // The start is asked for when a name is made from it, {ampm} in file names included.
+    const anyDateTime = rules.some((r) => (r.subfolder && usesDateTime(r.subfolder)) || naming(r).fileAmPm);
 
     m.body.append(
-      opts.adding ? '' : h('div', { class: 'form-note' }, t('dlg.dest.note')),
+      adding ? '' : h('div', { class: 'form-note' }, t('dlg.dest.note')),
       ...(anyDateTime
         ? [h('div', { class: 'form-grid dest-when' }, h('label', {}, t('dlg.dest.start')), h('div', { class: 'inline' }, dateInput, timeInput))]
         : []),
@@ -72,6 +101,7 @@ export function chooseDestinations(
     );
     const ok = () => {
       const dirs: string[] = [];
+      const amPm: Record<string, 'am' | 'pm'> = {};
       for (const c of choices) {
         const r = c.choice.result();
         if (!r) continue;
@@ -80,12 +110,14 @@ export function chooseDestinations(
           return;
         }
         if (!dirs.includes(r.dir)) dirs.push(r.dir);
+        const choice = c.choice.amPm();
+        if (choice) amPm[r.dir] = choice;
       }
-      answer = dirs.length ? { dirs, chosen: choices.filter((c) => c.choice.check.checked).map((c) => c.choice.rule.id) } : null;
+      answer = dirs.length ? { dirs, chosen: choices.filter((c) => c.choice.check.checked).map((c) => c.choice.rule.id), amPm } : null;
       m.close();
     };
     const okBtn = h('button', { class: 'primary', onclick: ok }, t('btn.ok'));
-    m.foot.append(h('button', { onclick: () => m.close() }, opts.adding ? t('btn.cancel') : t('dlg.dest.noFolder')), okBtn);
+    m.foot.append(h('button', { onclick: () => m.close() }, adding || opts.cancel ? t('btn.cancel') : t('dlg.dest.noFolder')), okBtn);
     m.body.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') ok();
     });
@@ -94,20 +126,57 @@ export function chooseDestinations(
   });
 }
 
-/** The checkbox for one rule, and for a rule with a subfolder template, the subfolder choice and fields. */
+/**
+ * The checkbox for one rule; for a rule with a subfolder template, the subfolder choice and
+ * fields; and before/after noon when the subfolder's name or the file names use it.
+ */
 function ruleChoice(
   rule: FolderRule,
+  naming: RuleNaming,
   checked: boolean,
   when: () => Date,
   update: () => void,
   updaters: (() => void)[],
+  current?: { dir: string; amPm: 'am' | 'pm' },
 ): { el: HTMLElement; choice: Choice } {
   const template = rule.subfolder?.trim() ?? '';
-  const ampm: AmPmText = { am: rule.am || DEFAULT_AMPM.am, pm: rule.pm || DEFAULT_AMPM.pm };
+  const ampm = naming.text;
   const check = h('input', { type: 'checkbox', checked, onchange: update });
   const head = h('label', { class: 'dest-head', title: rule.folder }, check, h('span', { class: 'dest-name' }, folderName(rule.folder)), h('span', { class: 'form-note' }, pathText(rule.folder)));
+
+  // {ampm} follows the start time (or the name of the folder chosen) until it is chosen here.
+  let ampmTouched = !!current;
+  const noneOption = h('option', { value: 'none' }, t('dlg.dest.ampmNone'));
+  const ampmSelect = h('select', {
+    onchange: () => {
+      ampmTouched = true;
+      update();
+    },
+  },
+  h('option', { value: 'am' }, ampm.am),
+  h('option', { value: 'pm' }, ampm.pm),
+  noneOption);
+  if (current) ampmSelect.value = current.amPm;
+  const subAmPm = !!template && usesAmPm(template);
+  const ampmLabel = h('label', {}, t('dlg.dest.ampm'));
+  const ampmCell = h('div', {}, ampmSelect);
+  const fileAmPm = (): 'am' | 'pm' | null => {
+    if (!naming.fileAmPm) return null;
+    const v = ampmSelect.value;
+    return v === 'am' || v === 'pm' ? v : amPmAt(when());
+  };
+
   if (!template) {
-    return { el: h('div', { class: 'dest' }, head), choice: { rule, check, result: () => (check.checked ? { dir: rule.folder } : null) } };
+    const detail = h('div', { class: 'dest-detail' }, h('div', { class: 'form-grid' }, ampmLabel, ampmCell));
+    noneOption.hidden = true;
+    updaters.push(() => {
+      detail.style.display = check.checked && naming.fileAmPm ? '' : 'none';
+      if (!ampmTouched) ampmSelect.value = amPmAt(when());
+    });
+    return {
+      el: h('div', { class: 'dest' }, head, detail),
+      choice: { rule, check, result: () => (check.checked ? { dir: rule.folder } : null), amPm: fileAmPm },
+    };
   }
 
   const fields = subfolderFields(template);
@@ -121,31 +190,23 @@ function ruleChoice(
     inputs.set(f, input);
   }
   const which = h('select', { onchange: update });
-  // {ampm} follows the start time until it is chosen here.
-  let ampmTouched = false;
-  const ampmSelect = h('select', {
-    onchange: () => {
-      ampmTouched = true;
-      update();
-    },
-  },
-  h('option', { value: 'am' }, ampm.am),
-  h('option', { value: 'pm' }, ampm.pm),
-  h('option', { value: 'none' }, t('dlg.dest.ampmNone')));
-  const ampmRow = usesAmPm(template) ? [h('label', {}, t('dlg.dest.ampm')), h('div', {}, ampmSelect)] : [];
   const preview = h('div', { class: 'form-note dest-preview' });
-  const fieldGrid = h('div', { class: 'form-grid' }, ...ampmRow, ...fields.flatMap((f) => [h('label', {}, f), h('div', {}, inputs.get(f)!, lists.get(f)!)]));
+  const ampmGrid = h('div', { class: 'form-grid' }, ampmLabel, ampmCell);
+  const fieldGrid = h('div', { class: 'form-grid' }, ...fields.flatMap((f) => [h('label', {}, f), h('div', {}, inputs.get(f)!, lists.get(f)!)]));
   const detail = h('div', { class: 'dest-detail' },
     h('div', { class: 'form-grid' }, h('label', {}, t('dlg.dest.subfolder')), which),
+    ampmGrid,
     fieldGrid,
     preview,
   );
 
   const values = () => Object.fromEntries(fields.map((f) => [f, inputs.get(f)!.value]));
   const newName = () => expandSubfolder(template, when(), values(), ampm, getLanguage(), ampmSelect.value as AmPmChoice);
-  let existing: string[] = [];
-  const fillWhich = () => {
-    const keep = which.value || NEW;
+  // Changing a listed folder: it is chosen to begin with (even before it exists on disk).
+  const parent = joinPath(rule.folder, '');
+  const currentName = !current ? null : current.dir === rule.folder || !current.dir.startsWith(parent) ? NONE : current.dir.slice(parent.length);
+  let existing: string[] = currentName && currentName !== NONE ? [currentName] : [];
+  const fillWhich = (keep: string) => {
     which.replaceChildren(
       h('option', { value: NEW }, t('dlg.dest.new')),
       ...existing.map((name) => h('option', { value: name }, name)),
@@ -153,16 +214,16 @@ function ruleChoice(
     );
     which.value = [...which.options].some((o) => o.value === keep) ? keep : NEW;
   };
-  fillWhich();
+  fillWhich(currentName ?? NEW);
   // Earlier folders can be chosen again, and the values typed for them are suggested.
   void window.studio.listFolders(rule.folder).then((names) => {
     const matches = names.map((name) => ({ name, values: matchSubfolder(template, name, ampm) })).filter((m) => m.values);
-    existing = matches.map((m) => m.name).sort().reverse();
+    existing = [...new Set([...matches.map((m) => m.name), ...existing])].sort().reverse();
     for (const f of fields) {
       const seen = [...new Set(matches.map((m) => m.values![f]).filter(Boolean))].sort();
       lists.get(f)!.replaceChildren(...seen.map((v) => h('option', { value: v })));
     }
-    fillWhich();
+    fillWhich(which.value || NEW);
     update();
   });
 
@@ -179,8 +240,14 @@ function ruleChoice(
   updaters.push(() => {
     detail.style.display = check.checked ? '' : 'none';
     const isNew = which.value === NEW;
-    if (!ampmTouched) ampmSelect.value = amPmAt(when());
-    fieldGrid.style.display = isNew && (fields.length || ampmRow.length) ? '' : 'none';
+    // "Neither" only leaves {ampm} out of a new folder's name.
+    noneOption.hidden = !(isNew && subAmPm);
+    if (!ampmTouched || (noneOption.hidden && ampmSelect.value === 'none')) {
+      const named = !isNew && which.value !== NONE ? subfolderAmPm(template, which.value, ampm) : null;
+      ampmSelect.value = named ?? amPmAt(when());
+    }
+    ampmGrid.style.display = (isNew && subAmPm) || naming.fileAmPm ? '' : 'none';
+    fieldGrid.style.display = isNew && fields.length ? '' : 'none';
     const r = check.checked ? result() : null;
     // Shown from the rule's folder on; the full path is in the tooltip.
     const shown = r && 'dir' in r ? r.dir : joinPath(rule.folder, newName() || '…');
@@ -188,5 +255,5 @@ function ruleChoice(
     preview.title = shown;
     preview.classList.toggle('err', !!r && 'error' in r);
   });
-  return { el: h('div', { class: 'dest' }, head, detail), choice: { rule, check, result } };
+  return { el: h('div', { class: 'dest' }, head, detail), choice: { rule, check, result, amPm: fileAmPm } };
 }

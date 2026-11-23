@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_AMPM, expandSubfolder, matchSubfolder, recordingStart, SUBFOLDER_PARTS, subfolderFields, usesDateTime } from './subfolders.ts';
+import { DEFAULT_AMPM, expandSubfolder, matchSubfolder, recordingStart, SUBFOLDER_PARTS, subfolderAmPm, subfolderFields, usesDateTime } from './subfolders.ts';
 
 const friday = new Date(2026, 9, 30, 19, 5);
 
@@ -43,4 +43,13 @@ test('a recording starts its length before the file was last written, on the day
   assert.equal(start.getDate(), 30);
   assert.equal(start.getHours(), 23);
   assert.equal(recordingStart(new Date(2026, 9, 30, 21, 0).getTime(), 3600, null).getHours(), 20);
+});
+
+test('an existing folder name tells before or after noon', () => {
+  const ampm = { am: 'reggel', pm: 'este' };
+  assert.equal(subfolderAmPm('{date}_{ampm}_{Venue}', '261029_Este_Szeged', ampm), 'pm');
+  assert.equal(subfolderAmPm('{date}_{ampm}_{Venue}', '261029_reggel_Pécs', ampm), 'am');
+  assert.equal(subfolderAmPm('{date}_{ampm}_{Venue}', '261029_Szeged', ampm), null);
+  assert.equal(subfolderAmPm('{date}_{Venue}', '261029_Szeged', ampm), null);
+  assert.deepEqual(matchSubfolder('{date}_{ampm}_{Venue}', '261029_este_Szeged', ampm), { Venue: 'Szeged' });
 });

@@ -98,8 +98,23 @@ export function expandSubfolder(
  * follow the template. Used to offer earlier folders and the values typed before.
  */
 export function matchSubfolder(template: string, name: string, ampm: AmPmText): Record<string, string> | null {
-  return matchExactly(template, name, ampm) ?? (usesAmPm(template) ? matchExactly(withoutAmPm(template), name, ampm) : null);
+  const values = matchWithAmPm(template, name, ampm);
+  if (values) delete values[AMPM_KEY];
+  return values;
 }
+
+/** Whether an existing folder name says before or after noon; null when it says neither. */
+export function subfolderAmPm(template: string, name: string, ampm: AmPmText): 'am' | 'pm' | null {
+  const said = matchWithAmPm(template, name, ampm)?.[AMPM_KEY]?.toLowerCase();
+  if (said === undefined) return null;
+  return said === ampm.am.toLowerCase() ? 'am' : said === ampm.pm.toLowerCase() ? 'pm' : null;
+}
+
+/** Where matchExactly puts the text {ampm} matched (a key no typed field can have). */
+const AMPM_KEY = '\0ampm';
+
+const matchWithAmPm = (template: string, name: string, ampm: AmPmText) =>
+  matchExactly(template, name, ampm) ?? (usesAmPm(template) ? matchExactly(withoutAmPm(template), name, ampm) : null);
 
 function matchExactly(template: string, name: string, ampm: AmPmText): Record<string, string> | null {
   const fields: string[] = [];
@@ -108,7 +123,10 @@ function matchExactly(template: string, name: string, ampm: AmPmText): Record<st
   for (const m of template.matchAll(TOKEN)) {
     pattern += escapeRegExp(template.slice(last, m.index));
     const part = m[1].trim();
-    if (isPart(part)) pattern += partPattern(part, ampm);
+    if (part === 'ampm') {
+      fields.push(AMPM_KEY);
+      pattern += `(${partPattern(part, ampm)})`;
+    } else if (isPart(part)) pattern += partPattern(part, ampm);
     else {
       fields.push(part);
       pattern += '(.+?)';

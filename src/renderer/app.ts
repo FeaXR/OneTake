@@ -1,5 +1,5 @@
 import { formatNumber, getLanguage, LANGUAGES, resolveLanguage, t, translateCodes, type LanguageSetting, type MessageKey } from '../shared/i18n/index.ts';
-import { amPmTextFor, highestNumber, recordingDate, trimDir, usesToken, type FolderRule } from '../shared/naming.ts';
+import { amPmTextFor, highestNumber, recordingDate, ruleFor, ruleOwning, trimDir, usesToken, type FolderRule } from '../shared/naming.ts';
 import { importSettings, readSettingsFile, settingsFile, SETTINGS_PARTS, type SettingsFile, type SettingsPart } from '../shared/settings.ts';
 import { recordingStart } from '../shared/subfolders.ts';
 import { formatPeak, MIN_PEAK_PERCENT, MP3_BITRATES, NO_NORMALIZE, peakFromPercent, presetChoices } from '../shared/presets.ts';
@@ -8,7 +8,7 @@ import { FADE_CURVES, FADE_MARKER_STYLES, THEMES, ACCENTS, type AccentSetting, t
 import { onlyStillRecording, outputFilename } from '../shared/validate.ts';
 import { CommandRegistry, Keymap, overridesFrom } from './commands.ts';
 import { ShortcutEditor } from './shortcut-editor.ts';
-import { chooseDestinations } from './destinations.ts';
+import { chooseDestinations, type RuleNaming } from './destinations.ts';
 import { choose, closeContextMenu, modalOpen, openModal, showContextMenu, showLoading, toast, type ModalHandle } from './dialogs.ts';
 import { h, pathText } from './dom.ts';
 import { clamp, Editor, MIN_REGION_SEC, type RegionKind, type Selection, type Tool } from './editor.ts';
@@ -113,8 +113,9 @@ export class App {
       run: (id) => this.commands.run(id),
     });
     this.panel = new OutputPanel(document.getElementById('panel')!, ed, {
-      changeFolder: (index) => void this.changeFolder(index),
-      addFolder: (anchor) => this.addFolderMenu(anchor),
+      changeFolder: (index, anchor) => this.folderMenu(anchor, index),
+      addFolder: (anchor) => this.folderMenu(anchor),
+      configureFolder: (index) => void this.configureFolder(index),
       removeFolder: (index) => this.removeFolder(index),
       openFolder: (dir) => void window.studio.openFolder(dir).catch((err: unknown) => toast(errorText(err), 'error')),
       exportAll: () => this.commands.run('file.export'),
@@ -523,23 +524,40 @@ export class App {
 
   /**
    * Asks a WAV without a session yet which rule folders (and folders inside them) its files go
-   * to. With the answer "No folder" they go next to the WAV.
+   * to. With the answer "No folder" they go next to the WAV. `edit`: asked later (on export,
+   * with no folder left), so the answer is an edit and closing the dialog cancels.
    */
-  private async askDestinations(): Promise<void> {
+  private async askDestinations(edit = false): Promise<void> {
     const ed = this.editor;
-    const answer = await chooseDestinations(this.ruleFolders(), this.recordingStart(), ed.settings.lastDestinations);
+    const answer = await chooseDestinations(this.ruleFolders(), (r) => this.ruleNaming(r), this.recordingStart(), ed.settings.lastDestinations, { cancel: edit });
+    const apply = (p: Project) => {
+      if (answer) {
+        p.outputDirs = answer.dirs;
+        if (Object.keys(answer.amPm).length) p.amPm = { ...p.amPm, ...answer.amPm };
+      } else if (ed.wavPath) {
+        p.outputDirs = [dirname(ed.wavPath)];
+      }
+    };
     if (answer) {
-      ed.project.outputDirs = answer.dirs;
       ed.settings.lastDestinations = answer.chosen;
       void window.studio.saveSettings(ed.settings);
-    } else if (ed.wavPath) {
-      ed.project.outputDirs = [dirname(ed.wavPath)];
     }
+    if (edit) {
+      if (answer) ed.commit(apply);
+      return;
+    }
+    apply(ed.project);
     ed.notify('project');
   }
 
   private ruleFolders(): FolderRule[] {
     return this.editor.settings.folderRules.filter((r) => r.folder);
+  }
+
+  /** Whether the file names in a rule's folder use {ampm}, and its texts. */
+  private ruleNaming(rule: FolderRule): RuleNaming {
+    const rules = this.editor.settings.folderRules;
+    return { fileAmPm: usesToken(ruleFor(rules, rule.folder)?.template ?? '', 'ampm'), text: amPmTextFor(rules, rule.folder) };
   }
 
   async save(): Promise<boolean> {
@@ -602,17 +620,32 @@ export class App {
     return dir;
   }
 
-  /** Replaces folder `index`; segments that used it move along. Index 0 on an empty list sets the default. */
-  private async changeFolder(index: number): Promise<string | null> {
+  /** Replaces folder `index` with one from the folder picker. Index 0 on an empty list sets the default. */
+  private async changeFolder(index: number): Promise<void> {
+    const old = this.editor.project.outputDirs[index] ?? null;
+    const dir = await this.askFolder(old, index);
+    if (dir) this.setFolder(index, dir);
+  }
+
+  /**
+   * Puts `dir` at `index` (past the end: adds it); the files that used the folder there move
+   * along. `amPm` is the {ampm} for its file names, when chosen.
+   */
+  private setFolder(index: number, dir: string, amPm?: 'am' | 'pm'): void {
     const ed = this.editor;
     const old = ed.project.outputDirs[index] ?? null;
-    const dir = await this.askFolder(old, index);
-    if (!dir || dir === old) return dir;
+    const at = ed.project.outputDirs.indexOf(dir);
+    if (at >= 0 && at !== index) {
+      toast(t('toast.folderAlreadyAdded', { dir }), 'error');
+      return;
+    }
+    if (dir === old && (!amPm || ed.project.amPm?.[dir] === amPm)) return;
     ed.commit((p) => {
-      p.outputDirs[index] = dir;
+      p.outputDirs[Math.min(index, p.outputDirs.length)] = dir;
       for (const s of p.segments) if (old && s.outputDir === old) s.outputDir = dir;
+      if (old && old !== dir && p.amPm) delete p.amPm[old];
+      if (amPm) p.amPm = { ...p.amPm, [dir]: amPm };
     });
-    return dir;
   }
 
   /** When the recording started, for subfolder names: from the file's time and name. */
@@ -623,43 +656,59 @@ export class App {
     return recordingStart(modified, info.duration, recordingDate(info.path, modified));
   }
 
-  /** "+ Add folder": the rule folders to choose from, or straight to the folder picker without rules. */
-  private addFolderMenu(anchor: HTMLElement): void {
+  /**
+   * "+ Add folder", or the folder button of folder `index`: the rule folders to choose from and
+   * any other folder. Without rules it goes straight to the folder picker.
+   */
+  private folderMenu(anchor: HTMLElement, index?: number): void {
     const ed = this.editor;
     const rules = this.ruleFolders();
-    if (!rules.length) return void this.addFolder();
+    const at = index ?? ed.project.outputDirs.length;
+    const other = () => void (index === undefined ? this.addFolder() : this.changeFolder(index));
+    if (!rules.length) return other();
     const r = anchor.getBoundingClientRect();
     showContextMenu(r.left, r.bottom + 2, [
       ...rules.map((rule) => ({
         label: basename(trimDir(rule.folder)) + (rule.subfolder?.trim() ? ' / …' : ''),
         // A rule that makes a folder per recording can be added again with another subfolder.
-        disabled: !rule.subfolder?.trim() && ed.project.outputDirs.includes(rule.folder),
-        run: () => void this.addRuleFolder(rule),
+        disabled: !rule.subfolder?.trim() && ed.project.outputDirs.some((d, i) => d === rule.folder && i !== at),
+        run: () => void this.addRuleFolder(rule, at),
       })),
       { label: '', separator: true },
-      { label: t('panel.addOtherFolder'), run: () => void this.addFolder() },
+      { label: t('panel.addOtherFolder'), run: other },
     ]);
   }
 
-  /** Adds a rule's folder, asking for the folder inside it when the rule makes one per recording. */
-  private async addRuleFolder(rule: FolderRule): Promise<void> {
+  /**
+   * Puts a rule's folder at `index` (past the end: adds it), asking for the folder inside it
+   * when the rule makes one per recording, and before/after noon when file names use it.
+   */
+  private async addRuleFolder(rule: FolderRule, index: number): Promise<void> {
+    const naming = this.ruleNaming(rule);
+    if (!rule.subfolder?.trim() && !naming.fileAmPm) return this.setFolder(index, rule.folder);
+    const answer = await chooseDestinations([rule], () => naming, this.recordingStart(), [rule.id], { adding: true });
+    if (answer) this.setFolder(index, answer.dirs[0], answer.amPm[answer.dirs[0]]);
+  }
+
+  /**
+   * The settings of a listed rule folder, as asked when the WAV was opened: the folder inside
+   * the rule's folder (with its fields) and before/after noon.
+   */
+  private async configureFolder(index: number): Promise<void> {
     const ed = this.editor;
-    let dir = rule.folder;
-    if (rule.subfolder?.trim()) {
-      const answer = await chooseDestinations([rule], this.recordingStart(), [rule.id], { adding: true });
-      if (!answer) return;
-      dir = answer.dirs[0];
-    }
-    if (ed.project.outputDirs.includes(dir)) {
-      toast(t('toast.folderAlreadyAdded', { dir }), 'error');
-      return;
-    }
-    ed.commit((p) => p.outputDirs.push(dir));
+    const dir = ed.project.outputDirs[index];
+    const rule = ruleOwning(this.ruleFolders(), dir);
+    if (!dir || !rule) return;
+    const naming = this.ruleNaming(rule);
+    const answer = await chooseDestinations([rule], () => naming, this.recordingStart(), [rule.id], {
+      current: { dir, amPm: ed.amPmFor(dir) },
+    });
+    if (answer) this.setFolder(index, answer.dirs[0], answer.amPm[answer.dirs[0]]);
   }
 
   private async addFolder(): Promise<void> {
     const dir = await this.askFolder(null);
-    if (dir) this.editor.commit((p) => p.outputDirs.push(dir));
+    if (dir) this.setFolder(this.editor.project.outputDirs.length, dir);
   }
 
   /**
@@ -667,7 +716,7 @@ export class App {
    * next folder the default, so its segments (and the removed default's) follow the new one.
    */
   private removeFolder(index: number): void {
-    if (index < 0 || this.editor.project.outputDirs.length < 2) return;
+    if (index < 0 || index >= this.editor.project.outputDirs.length) return;
     this.editor.commit((p) => {
       const [removed] = p.outputDirs.splice(index, 1);
       const fallback = index === 0 ? p.outputDirs[0] : null;
@@ -741,7 +790,12 @@ export class App {
     const all = ed.sortedSegments();
     if (!all.length) return toast(t('toast.nothingToExport'), 'error');
 
-    if (!ed.project.outputDirs.length && !(await this.changeFolder(0))) return;
+    if (!ed.project.outputDirs.length) {
+      // No folder yet: asked as when a WAV is opened, or with the folder picker without rules.
+      if (this.ruleFolders().length) await this.askDestinations(true);
+      else await this.changeFolder(0);
+      if (!ed.project.outputDirs.length) return;
+    }
     await this.ensureNumbering();
 
     const issues = ed.validate(all);
